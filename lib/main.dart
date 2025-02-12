@@ -47,8 +47,13 @@ class TakePictureScreenState extends State<TakePictureScreen> {
 
   Future<void> _loadModel() async {
     try {
+      final options = InterpreterOptions();
+      if (Platform.isAndroid) {
+        options.addDelegate(GpuDelegateV2());
+      }
+
       final modelPath = 'assets/title_detection_yolov11_float32.tflite';
-      _interpreter = await Interpreter.fromAsset(modelPath);
+      _interpreter = await Interpreter.fromAsset(modelPath, options: options);
       setState(() {
         _modelLoaded = true;
       });
@@ -85,16 +90,18 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       }
     }
 
-    debugPrint("Starting TFLite inference...");
+    Stopwatch stopWatch = Stopwatch()..start();
     _interpreter.run(inputTensor, outputTensor);
-    debugPrint("Finished TFLite inference");
+    stopWatch.stop();
+    debugPrint("Time for inference ${stopWatch.elapsed.inSeconds}s");
     return outputTensor[0];
   }
 
   Future<img.Image> _processImage(String imagePath) async {
     final bytes = await File(imagePath).readAsBytes();
     final tmp_image = img.decodeImage(bytes)!;
-    final image = img.bakeOrientation(tmp_image);
+    debugPrint("Captured image: ${tmp_image.width}x${tmp_image.height}");
+    final image = img.bakeOrientation(tmp_image);  // Not sure if this does what I want
     // final data = await rootBundle.load("assets/test_image.jpeg");
     // final img.Image image = img.decodeImage(data.buffer.asUint8List())!;
 
