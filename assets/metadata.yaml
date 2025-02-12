@@ -9,8 +9,8 @@ stride: 32
 task: detect
 batch: 1
 imgsz:
-- 1024
-- 1024
+- 2016
+- 2016
 names:
   0: title
 args:

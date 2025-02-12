@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'package:flutter/services.dart' show rootBundle;
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -103,37 +104,65 @@ class TakePictureScreenState extends State<TakePictureScreen> {
             final picture = await _controller.takePicture();
             final test_image = "assets/test_image.jpeg";
 
-            final bytes = await File(test_image).readAsBytes();
-            final img.Image image = img.decodeImage(bytes)!;
+            final data = await rootBundle.load(test_image);
+            final img.Image image = img.decodeImage(data.buffer.asUint8List())!;
+
+            // final bytes = await File(test_image).readAsBytes();
+            // final img.Image image = img.decodeImage(bytes)!;
             
             img.Image resized_image = img.copyResize(
-                image,
-                width: 1024,
-                height: 1024,
-                maintainAspect: true
+              image,
+              width: 2016,
+              height: 2016,
+              maintainAspect: true,
+              backgroundColor: img.ColorRgba8(0, 0, 0, 255),
             );
 
-            final input_tensor = List<double>.filled(1024*1024*3, 0).reshape([1, 1024, 1024, 3]);
-            final output_tensor = List<double>.filled(5*21504, -1).reshape([1, 5, 21504]);
+            final input_tensor = List<double>.filled(2016*2016*3, 0).reshape([1, 2016, 2016, 3]);
+            final output_tensor = List<double>.filled(6*300, -1).reshape([1, 300, 6]);
 
-            for (int y = 0; y < 1024; y++) {
-              for (int x = 0; x < 1024; x++) {
+            for (int y = 0; y < 2016; y++) {
+              for (int x = 0; x < 2016; x++) {
                 final pixel = resized_image.getPixel(x, y);
-                input_tensor[0][x][y][0] = pixel.r/255;
-                if ((pixel.r > 0) && (pixel.r < 255)) {
-                  debugPrint("R: ${pixel.r}");
-                  debugPrint("input_tensor[0]: ${input_tensor[0][x][y][0]}");
-                }
-                input_tensor[0][x][y][1] = pixel.g;
-                input_tensor[0][x][y][2] = pixel.b;
+                input_tensor[0][y][x][0] = pixel.r/255.0;
+                input_tensor[0][y][x][1] = pixel.g/255.0;
+                input_tensor[0][y][x][2] = pixel.b/255.0;
               }
             }
 
-            // input shape (1, 1024, 1024, 3) BCHW (batch, rgb, height, width)
-            // output shape(s) (1, 5, 21504) (x,y,w,h,conf)
+            // input shape (1, 2016, 2016, 3) BCHW (batch, rgb, height, width)
+            // output shape(s) (1, 5, 83349) (x,y,w,h,conf)
             final model_path = 'assets/title_detection_yolov11_float32.tflite';
             final interpreter = await Interpreter.fromAsset(model_path);
             interpreter.run(input_tensor, output_tensor);
+            interpreter.close();
+
+            double threshold = 0.01;
+            var detections = [];
+            for (var tensor in output_tensor[0]) {
+              if (tensor[4] > threshold) {
+                detections.add(tensor);
+              }
+            }
+
+            for (var detection in detections) {
+              int x1 = (detection[0]*2016).toInt();
+              int y1 = (detection[1]*2016).toInt();
+              int x2 = (detection[2]*2016).toInt();
+              int y2 = (detection[3]*2016).toInt();
+              double conf = detection[4];
+              double angle = detection[5];
+              debugPrint("x1: $x1, y1: $y2, x2: $x2, y2: $y2, conf: $conf, angle: $angle");
+
+              img.drawRect(resized_image,
+                x1: x1,
+                y1: y1,
+                x2: x2,
+                y2: y2,
+                color: img.ColorRgba8(255, 242, 0, 255),
+                thickness: 5
+              );
+            }
 
             final jpg = img.encodeJpg(resized_image);
             final new_file_path = picture.path.replaceAll(".jpg", "_brightened.jpg");
@@ -147,7 +176,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                 builder: (context) => DisplayPictureScreen(
                   // Pass the automatically generated path to
                   // the DisplayPictureScreen widget.
-                  imagePath: test_image,
+                  imagePath: new_file_path,
                 ),
               ),
             );
