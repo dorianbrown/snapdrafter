@@ -5,6 +5,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,10 +50,10 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     try {
       final options = InterpreterOptions();
       if (Platform.isAndroid) {
-        options.addDelegate(GpuDelegateV2());
+        // options.addDelegate(GpuDelegateV2());
       }
 
-      final modelPath = 'assets/title_detection_yolov11_float32.tflite';
+      final modelPath = 'assets/title_detection_yolov11_float16.tflite';
       _interpreter = await Interpreter.fromAsset(modelPath, options: options);
       setState(() {
         _modelLoaded = true;
@@ -70,19 +71,26 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   }
 
   Future<List<List<double>>> _runInference(img.Image image) async {
+
+    final input = _interpreter.getInputTensor(0); // BWHC
+    final output = _interpreter.getOutputTensor(0);  // BXYXYC
+
+    int input_w = input.shape[1];
+    int input_h = input.shape[2];
+
     final resizedImage = img.copyResize(
       image,
-      width: 2016,
-      height: 2016,
+      width: input_h,
+      height: input_h,
       maintainAspect: true,
       backgroundColor: img.ColorRgba8(0, 0, 0, 255),
     );
 
-    final inputTensor = List<double>.filled(2016 * 2016 * 3, 0).reshape([1, 2016, 2016, 3]);
-    final outputTensor = List<double>.filled(6 * 300, -1).reshape([1, 300, 6]);
+    final inputTensor = List<double>.filled(input.shape.reduce((a, b) => a * b), 0).reshape(input.shape);
+    final outputTensor = List<double>.filled(output.shape.reduce((a, b) => a * b), -1).reshape(output.shape);
 
-    for (int y = 0; y < 2016; y++) {
-      for (int x = 0; x < 2016; x++) {
+    for (int y = 0; y < input_h; y++) {
+      for (int x = 0; x < input_w; x++) {
         final pixel = resizedImage.getPixel(x, y);
         inputTensor[0][y][x][0] = pixel.r / 255.0;
         inputTensor[0][y][x][1] = pixel.g / 255.0;
@@ -93,34 +101,39 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     Stopwatch stopWatch = Stopwatch()..start();
     _interpreter.run(inputTensor, outputTensor);
     stopWatch.stop();
-    debugPrint("Time for inference ${stopWatch.elapsed.inSeconds}s");
+    debugPrint("Time for inference ${stopWatch.elapsed.inMilliseconds}ms");
     return outputTensor[0];
   }
 
   Future<img.Image> _processImage(String imagePath) async {
-    final bytes = await File(imagePath).readAsBytes();
-    final tmp_image = img.decodeImage(bytes)!;
-    debugPrint("Captured image: ${tmp_image.width}x${tmp_image.height}");
-    final image = img.bakeOrientation(tmp_image);  // Not sure if this does what I want
-    // final data = await rootBundle.load("assets/test_image.jpeg");
-    // final img.Image image = img.decodeImage(data.buffer.asUint8List())!;
+    // final bytes = await File(imagePath).readAsBytes();
+    // final original_image = img.decodeImage(bytes)!;
+    // debugPrint("Captured image: ${original_image.width}x${original_image.height}");
+    // final image_copy = img.bakeOrientation(original_image);  // Not sure if this does what I want
+    final data = await rootBundle.load("assets/test_image.jpeg");
+    final img.Image original_image = img.decodeImage(data.buffer.asUint8List())!;
+    final image_copy = img.bakeOrientation(original_image);
 
     double widthPadding;
     double heightPadding;
     int scalingFactor;
-    if (image.width < image.height) {
-      widthPadding = (image.height - image.width) / 2;
+    if (image_copy.width < image_copy.height) {
+      widthPadding = (image_copy.height - image_copy.width) / 2;
       heightPadding = 0.0;
-      scalingFactor = image.height;
+      scalingFactor = image_copy.height;
     } else {
       widthPadding = 0.0;
-      heightPadding = (image.width - image.height) / 2;
-      scalingFactor = image.width;
+      heightPadding = (image_copy.width - image_copy.height) / 2;
+      scalingFactor = image_copy.width;
     }
 
-    final detections = await _runInference(image);
+    final detections = await _runInference(image_copy);
     final threshold = 0.5;
-    for (var detection in detections) {
+
+    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+
+    for (var i=0; i < detections.length; i++) {
+      var detection = detections[i];
       if (detection[4] > threshold) {
         int x1 = (detection[0] * scalingFactor - widthPadding).toInt();
         int y1 = (detection[1] * scalingFactor - heightPadding).toInt();
@@ -130,8 +143,24 @@ class TakePictureScreenState extends State<TakePictureScreen> {
         double angle = detection[5];
         debugPrint("x1: $x1, y1: $y2, x2: $x2, y2: $y2, conf: $conf, angle: $angle");
 
+        img.Image detectionImg = img.copyCrop(
+            original_image,
+            x: x1,
+            y: y1,
+            width: x2-x1,
+            height: y2-y1
+        );
+
+        final detectionJpg = img.encodeJpg(detectionImg);
+        final newFilePath = imagePath.replaceAll(".jpg", "_detection_$i.jpg");
+        await File(newFilePath).writeAsBytes(detectionJpg);
+
+        final detectionImage = InputImage.fromFilePath(newFilePath);
+        final RecognizedText recognizedText = await textRecognizer.processImage(detectionImage);
+        debugPrint("Recognized text: ${recognizedText.text}");
+
         img.drawRect(
-          image,
+          image_copy,
           x1: x1,
           y1: y1,
           x2: x2,
@@ -139,9 +168,22 @@ class TakePictureScreenState extends State<TakePictureScreen> {
           color: img.ColorRgba8(255, 242, 0, 255),
           thickness: 5,
         );
+
+        img.drawString(
+            image_copy,
+            recognizedText.text,
+            font: img.arial48,
+            x: x1,
+            y: y1 - 55,
+            color: img.ColorRgba8(255, 242, 0, 255)
+        );
+
       }
     }
-    return image;
+
+    textRecognizer.close();
+
+    return image_copy;
   }
 
   Future<void> _takePictureAndProcess() async {
