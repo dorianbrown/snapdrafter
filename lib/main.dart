@@ -83,26 +83,28 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       }
     }
 
+    debugPrint("Starting TFLite inference...");
     _interpreter.run(inputTensor, outputTensor);
+    debugPrint("Finished TFLite inference");
     return outputTensor[0];
   }
 
   Future<img.Image> _processImage(String imagePath) async {
-    // final bytes = await File(imagePath).readAsBytes();
-    // final image = img.decodeImage(bytes)!;
-    final data = await rootBundle.load("assets/test_image.jpeg");
-    final img.Image image = img.decodeImage(data.buffer.asUint8List())!;
+    final bytes = await File(imagePath).readAsBytes();
+    final image = img.decodeImage(bytes)!;
+    // final data = await rootBundle.load("assets/test_image.jpeg");
+    // final img.Image image = img.decodeImage(data.buffer.asUint8List())!;
 
     double widthPadding;
     double heightPadding;
     int scalingFactor;
     if (image.width < image.height) {
-      widthPadding = (2016 - image.width) / 2;  // TODO: This isn't right
+      widthPadding = (image.height - image.width) / 2;
       heightPadding = 0.0;
       scalingFactor = image.height;
     } else {
       widthPadding = 0.0;
-      heightPadding = (2016 - image.height) / 2;  // TODO: This isn't right
+      heightPadding = (image.width - image.height) / 2;
       scalingFactor = image.width;
     }
 
@@ -110,10 +112,10 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     final threshold = 0.5;
     for (var detection in detections) {
       if (detection[4] > threshold) {
-        int x1 = (detection[0] * scalingFactor + widthPadding).toInt();
-        int y1 = (detection[1] * scalingFactor + heightPadding).toInt();
-        int x2 = (detection[2] * scalingFactor + widthPadding).toInt();
-        int y2 = (detection[3] * scalingFactor + heightPadding).toInt();
+        int x1 = (detection[0] * scalingFactor - widthPadding).toInt();
+        int y1 = (detection[1] * scalingFactor - heightPadding).toInt();
+        int x2 = (detection[2] * scalingFactor - widthPadding).toInt();
+        int y2 = (detection[3] * scalingFactor - heightPadding).toInt();
         double conf = detection[4];
         double angle = detection[5];
         debugPrint("x1: $x1, y1: $y2, x2: $x2, y2: $y2, conf: $conf, angle: $angle");
