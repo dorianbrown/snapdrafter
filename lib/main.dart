@@ -37,7 +37,10 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera, ResolutionPreset.high);
+    _controller = CameraController(
+        widget.camera,
+        ResolutionPreset.ultraHigh
+    );
     _initializeControllerFuture = _controller.initialize();
     _loadModel();
   }
@@ -50,8 +53,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
         _modelLoaded = true;
       });
     } catch (e) {
-      print('Error loading model: $e');
-      // Handle model loading error (e.g., show an error message)
+      debugPrint('Error loading model: $e');
     }
   }
 
@@ -91,7 +93,8 @@ class TakePictureScreenState extends State<TakePictureScreen> {
 
   Future<img.Image> _processImage(String imagePath) async {
     final bytes = await File(imagePath).readAsBytes();
-    final image = img.decodeImage(bytes)!;
+    final tmp_image = img.decodeImage(bytes)!;
+    final image = img.bakeOrientation(tmp_image);
     // final data = await rootBundle.load("assets/test_image.jpeg");
     // final img.Image image = img.decodeImage(data.buffer.asUint8List())!;
 
@@ -140,7 +143,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       final picture = await _controller.takePicture();
       final processedImage = await _processImage(picture.path);
       final jpg = img.encodeJpg(processedImage);
-      final newFilePath = picture.path.replaceAll(".jpg", "_brightened.jpg");
+      final newFilePath = picture.path.replaceAll(".jpg", "_detections.jpg");
       await File(newFilePath).writeAsBytes(jpg);
 
       if (!context.mounted) return;
@@ -150,20 +153,19 @@ class TakePictureScreenState extends State<TakePictureScreen> {
         ),
       );
     } catch (e) {
-      print('Error processing image: $e');
-      // Handle image processing error (e.g., show an error message)
+      debugPrint('Error processing image: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Take a picture')),
+      // appBar: AppBar(title: const Text('Take a picture')),
       body: FutureBuilder<void>(
         future: _initializeControllerFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            return CameraPreview(_controller);
+            return Center(child: CameraPreview(_controller));
           } else {
             return const Center(child: CircularProgressIndicator());
           }
@@ -185,8 +187,8 @@ class DisplayPictureScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Display the Picture')),
-      body: Image.file(File(imagePath)),
+      // appBar: AppBar(title: const Text('Display the Picture')),
+      body: Center(child: Image.file(File(imagePath))),
     );
   }
 }
