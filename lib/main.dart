@@ -137,7 +137,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
             interpreter.run(input_tensor, output_tensor);
             interpreter.close();
 
-            double threshold = 0.01;
+            double threshold = 0.5;
             var detections = [];
             for (var tensor in output_tensor[0]) {
               if (tensor[4] > threshold) {
