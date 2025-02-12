@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
+
+import 'package:tflite_flutter/tflite_flutter.dart';
 
 Future<void> main() async {
   // Ensure that plugin services are initialized so that `availableCameras()`
@@ -98,12 +101,41 @@ class TakePictureScreenState extends State<TakePictureScreen> {
             // Attempt to take a picture and get the file `image`
             // where it was saved.
             final picture = await _controller.takePicture();
+            final test_image = "assets/test_image.jpeg";
 
-            final bytes = await File(picture.path).readAsBytes();
+            final bytes = await File(test_image).readAsBytes();
             final img.Image image = img.decodeImage(bytes)!;
-            img.Image brightenedImage = img.adjustColor(image, brightness: 0.5);
+            
+            img.Image resized_image = img.copyResize(
+                image,
+                width: 1024,
+                height: 1024,
+                maintainAspect: true
+            );
 
-            final jpg = img.encodeJpg(brightenedImage);
+            final input_tensor = List<double>.filled(1024*1024*3, 0).reshape([1, 1024, 1024, 3]);
+            final output_tensor = List<double>.filled(5*21504, -1).reshape([1, 5, 21504]);
+
+            for (int y = 0; y < 1024; y++) {
+              for (int x = 0; x < 1024; x++) {
+                final pixel = resized_image.getPixel(x, y);
+                input_tensor[0][x][y][0] = pixel.r/255;
+                if ((pixel.r > 0) && (pixel.r < 255)) {
+                  debugPrint("R: ${pixel.r}");
+                  debugPrint("input_tensor[0]: ${input_tensor[0][x][y][0]}");
+                }
+                input_tensor[0][x][y][1] = pixel.g;
+                input_tensor[0][x][y][2] = pixel.b;
+              }
+            }
+
+            // input shape (1, 1024, 1024, 3) BCHW (batch, rgb, height, width)
+            // output shape(s) (1, 5, 21504) (x,y,w,h,conf)
+            final model_path = 'assets/title_detection_yolov11_float32.tflite';
+            final interpreter = await Interpreter.fromAsset(model_path);
+            interpreter.run(input_tensor, output_tensor);
+
+            final jpg = img.encodeJpg(resized_image);
             final new_file_path = picture.path.replaceAll(".jpg", "_brightened.jpg");
             await File(new_file_path).writeAsBytes(jpg);
 
@@ -115,7 +147,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
                 builder: (context) => DisplayPictureScreen(
                   // Pass the automatically generated path to
                   // the DisplayPictureScreen widget.
-                  imagePath: new_file_path,
+                  imagePath: test_image,
                 ),
               ),
             );
@@ -146,3 +178,4 @@ class DisplayPictureScreen extends StatelessWidget {
     );
   }
 }
+
