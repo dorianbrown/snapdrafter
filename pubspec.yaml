@@ -67,6 +67,7 @@ flutter:
     - assets/title_detection_yolov11_float32.tflite
     - assets/title_detection_yolov11_float16.tflite
     - assets/test_image.jpeg
+    - assets/card_names.json
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ffi';
 import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:camera/camera.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+
+import 'utils/image.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,21 +35,23 @@ class TakePictureScreen extends StatefulWidget {
 class TakePictureScreenState extends State<TakePictureScreen> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
-  late Interpreter _interpreter;
-  bool _modelLoaded = false;
+  late Interpreter _detector;
+  late TextRecognizer _textRecognizer;
+  List detections = [];
+  bool _modelsLoaded = false;
 
   @override
   void initState() {
     super.initState();
     _controller = CameraController(
         widget.camera,
-        ResolutionPreset.ultraHigh
+        ResolutionPreset.high  // not ultra-high to possibly speed up app
     );
     _initializeControllerFuture = _controller.initialize();
-    _loadModel();
+    _loadModels();
   }
 
-  Future<void> _loadModel() async {
+  Future<void> _loadModels() async {
     try {
       final options = InterpreterOptions();
       if (Platform.isAndroid) {
@@ -54,26 +59,28 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       }
 
       final modelPath = 'assets/title_detection_yolov11_float16.tflite';
-      _interpreter = await Interpreter.fromAsset(modelPath, options: options);
+      _detector = await Interpreter.fromAsset(modelPath, options: options);
+      _textRecognizer = await TextRecognizer(script: TextRecognitionScript.latin);
       setState(() {
-        _modelLoaded = true;
+        _modelsLoaded = true;
       });
     } catch (e) {
-      debugPrint('Error loading model: $e');
+      debugPrint('Error loading models: $e');
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _interpreter.close();
+    _detector.close();
+    _textRecognizer.close();
     super.dispose();
   }
 
   Future<List<List<double>>> _runInference(img.Image image) async {
 
-    final input = _interpreter.getInputTensor(0); // BWHC
-    final output = _interpreter.getOutputTensor(0);  // BXYXYC
+    final input = _detector.getInputTensor(0); // BWHC
+    final output = _detector.getOutputTensor(0);  // BXYXYC
 
     int input_w = input.shape[1];
     int input_h = input.shape[2];
@@ -99,20 +106,21 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     }
 
     Stopwatch stopWatch = Stopwatch()..start();
-    _interpreter.run(inputTensor, outputTensor);
+    _detector.run(inputTensor, outputTensor);
     stopWatch.stop();
     debugPrint("Time for inference ${stopWatch.elapsed.inMilliseconds}ms");
     return outputTensor[0];
   }
 
   Future<img.Image> _processImage(String imagePath) async {
-    // final bytes = await File(imagePath).readAsBytes();
-    // final original_image = img.decodeImage(bytes)!;
-    // debugPrint("Captured image: ${original_image.width}x${original_image.height}");
-    // final image_copy = img.bakeOrientation(original_image);  // Not sure if this does what I want
-    final data = await rootBundle.load("assets/test_image.jpeg");
-    final img.Image original_image = img.decodeImage(data.buffer.asUint8List())!;
-    final image_copy = img.bakeOrientation(original_image);
+    final bytes = await File(imagePath).readAsBytes();
+    final original_image = img.decodeImage(bytes)!;
+    final image_copy = img.bakeOrientation(original_image);  // Not sure if this does what I want
+    // final data = await rootBundle.load("assets/test_image.jpeg");
+    // final img.Image original_image = img.decodeImage(data.buffer.asUint8List())!;
+    // final image_copy = img.bakeOrientation(original_image);
+
+    debugPrint("Captured image: ${original_image.width}x${original_image.height}");
 
     double widthPadding;
     double heightPadding;
@@ -129,8 +137,6 @@ class TakePictureScreenState extends State<TakePictureScreen> {
 
     final detections = await _runInference(image_copy);
     final threshold = 0.5;
-
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
 
     for (var i=0; i < detections.length; i++) {
       var detection = detections[i];
@@ -156,7 +162,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
         await File(newFilePath).writeAsBytes(detectionJpg);
 
         final detectionImage = InputImage.fromFilePath(newFilePath);
-        final RecognizedText recognizedText = await textRecognizer.processImage(detectionImage);
+        final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
         debugPrint("Recognized text: ${recognizedText.text}");
 
         img.drawRect(
@@ -177,11 +183,8 @@ class TakePictureScreenState extends State<TakePictureScreen> {
             y: y1 - 55,
             color: img.ColorRgba8(255, 242, 0, 255)
         );
-
       }
     }
-
-    textRecognizer.close();
 
     return image_copy;
   }
@@ -189,16 +192,22 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   Future<void> _takePictureAndProcess() async {
     try {
       await _initializeControllerFuture;
+
+      _controller.startImageStream((CameraImage imageBuffer) {
+        img.Image _imageBuffer = ImageUtils.convertCameraImage(imageBuffer);
+        debugPrint("test");
+      });
+      
       final picture = await _controller.takePicture();
-      final processedImage = await _processImage(picture.path);
-      final jpg = img.encodeJpg(processedImage);
-      final newFilePath = picture.path.replaceAll(".jpg", "_detections.jpg");
-      await File(newFilePath).writeAsBytes(jpg);
+      // final processedImage = await _processImage(picture.path);
+      // final jpg = img.encodeJpg(processedImage);
+      // final newFilePath = picture.path.replaceAll(".jpg", "_detections.jpg");
+      // await File(newFilePath).writeAsBytes(jpg);
 
       if (!context.mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => DisplayPictureScreen(imagePath: newFilePath),
+          builder: (context) => DisplayPictureScreen(imagePath: picture.path),
         ),
       );
     } catch (e) {
@@ -221,7 +230,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _modelLoaded ? _takePictureAndProcess : null,
+        onPressed: _modelsLoaded ? _takePictureAndProcess : null,
         child: const Icon(Icons.camera_alt),
       ),
     );
