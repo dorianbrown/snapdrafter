@@ -113,12 +113,12 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   }
 
   Future<img.Image> _processImage(String imagePath) async {
-    final bytes = await File(imagePath).readAsBytes();
-    final original_image = img.decodeImage(bytes)!;
-    final image_copy = img.bakeOrientation(original_image);  // Not sure if this does what I want
-    // final data = await rootBundle.load("assets/test_image.jpeg");
-    // final img.Image original_image = img.decodeImage(data.buffer.asUint8List())!;
-    // final image_copy = img.bakeOrientation(original_image);
+    // final bytes = await File(imagePath).readAsBytes();
+    // final original_image = img.decodeImage(bytes)!;
+    // final image_copy = img.bakeOrientation(original_image);  // Not sure if this does what I want
+    final data = await rootBundle.load("assets/test_image.jpeg");
+    final img.Image original_image = img.decodeImage(data.buffer.asUint8List())!;
+    final image_copy = img.bakeOrientation(original_image);
 
     debugPrint("Captured image: ${original_image.width}x${original_image.height}");
 
@@ -192,22 +192,17 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   Future<void> _takePictureAndProcess() async {
     try {
       await _initializeControllerFuture;
-
-      _controller.startImageStream((CameraImage imageBuffer) {
-        img.Image _imageBuffer = ImageUtils.convertCameraImage(imageBuffer);
-        debugPrint("test");
-      });
       
       final picture = await _controller.takePicture();
-      // final processedImage = await _processImage(picture.path);
-      // final jpg = img.encodeJpg(processedImage);
-      // final newFilePath = picture.path.replaceAll(".jpg", "_detections.jpg");
-      // await File(newFilePath).writeAsBytes(jpg);
+      final processedImage = await _processImage(picture.path);
+      final jpg = img.encodeJpg(processedImage);
+      final newFilePath = picture.path.replaceAll(".jpg", "_detections.jpg");
+      await File(newFilePath).writeAsBytes(jpg);
 
       if (!context.mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => DisplayPictureScreen(imagePath: picture.path),
+          builder: (context) => DisplayPictureScreen(imagePath: newFilePath),
         ),
       );
     } catch (e) {
