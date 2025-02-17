@@ -19,7 +19,12 @@ Future<void> main() async {
   runApp(
     MaterialApp(
       theme: ThemeData.dark(),
-      home: TakePictureScreen(camera: _firstCamera),
+      // home: TakePictureScreen(camera: _firstCamera),
+      initialRoute: "/",
+      routes: {
+        "/": (context) => TakePictureScreen(camera: _firstCamera),
+        "/mydecksoverview": (context) => const MyDecksOverview(),
+      },
     ),
   );
 }
@@ -260,9 +265,10 @@ class MainMenuDrawer extends StatelessWidget {
             ListTile(
               title: const Text('View My Decks'),
               onTap: () {
+                // TODO: Change this to named routing, to prevent stacking of same Screens in route
                 Navigator.of(context).popUntil(ModalRoute.withName('/'));
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const MyDecksView())
+                  MaterialPageRoute(builder: (context) => const MyDecksOverview())
                 );
               },
             ),
@@ -294,8 +300,8 @@ class DisplayPictureScreen extends StatelessWidget {
   }
 }
 
-class MyDecksView extends StatelessWidget {
-  const MyDecksView({super.key});
+class MyDecksOverview extends StatelessWidget {
+  const MyDecksOverview({super.key});
 
   @override
   Widget build(BuildContext context) {
