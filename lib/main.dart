@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ffi';
 import 'dart:io';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:camera/camera.dart';
@@ -10,15 +9,17 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 import 'utils/image.dart';
 
+late CameraDescription _firstCamera;
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final cameras = await availableCameras();
-  final firstCamera = cameras.first;
+  _firstCamera = cameras.first;
 
   runApp(
     MaterialApp(
       theme: ThemeData.dark(),
-      home: TakePictureScreen(camera: firstCamera),
+      home: TakePictureScreen(camera: _firstCamera),
     ),
   );
 }
@@ -192,7 +193,7 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   Future<void> _takePictureAndProcess() async {
     try {
       await _initializeControllerFuture;
-      
+
       final picture = await _controller.takePicture();
       final processedImage = await _processImage(picture.path);
       final jpg = img.encodeJpg(processedImage);
@@ -213,7 +214,9 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(title: const Text('Take a picture')),
+      primary: false,
+      appBar: AppBar(title: const Text('Scan Deck')),
+      drawer: MainMenuDrawer(),
       body: FutureBuilder<void>(
         future: _initializeControllerFuture,
         builder: (context, snapshot) {
@@ -232,6 +235,43 @@ class TakePictureScreenState extends State<TakePictureScreen> {
   }
 }
 
+class MainMenuDrawer extends StatelessWidget {
+  const MainMenuDrawer({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            SizedBox(
+              height: 120,
+              child: DrawerHeader(
+                decoration: BoxDecoration(color: Colors.blue),
+                child: Text('Decklist Scanner'),
+                padding: EdgeInsets.fromLTRB(15, 40, 0, 0),
+              ),
+            ),
+            ListTile(
+              title: const Text('Scan Deck'),
+              onTap: () {
+                Navigator.of(context).popUntil(ModalRoute.withName('/'));
+              },
+            ),
+            ListTile(
+              title: const Text('View My Decks'),
+              onTap: () {
+                Navigator.of(context).popUntil(ModalRoute.withName('/'));
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (context) => const MyDecksView())
+                );
+              },
+            ),
+          ],
+        )
+    );
+  }
+}
+
 class DisplayPictureScreen extends StatelessWidget {
   final String imagePath;
 
@@ -240,8 +280,31 @@ class DisplayPictureScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // appBar: AppBar(title: const Text('Display the Picture')),
-      body: Center(child: Image.file(File(imagePath))),
+      appBar: AppBar(title: const Text('Detection Preview')),
+      // TODO: Make this zoom to whole viewcreen.
+      body: Center(
+          child: InteractiveViewer(child: Image.file(File(imagePath)))
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+          onPressed: null,
+          label: Text("Save Deck"),
+          icon: Icon(Icons.add)
+      ),
+    );
+  }
+}
+
+class MyDecksView extends StatelessWidget {
+  const MyDecksView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text("My Decks")),
+      drawer: MainMenuDrawer(),
+      body: Center(
+          child: Text("All the Decks!")
+      )
     );
   }
 }
