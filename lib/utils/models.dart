@@ -16,6 +16,11 @@ class Card {
     required this.colors,
     required this.manaValue
   });
+
+  @override
+  String toString() {
+    return "Card{$id, $name, $title, $type, $imageUri, $colors, $manaValue}";
+  }
 }
 
 class Decklist {
@@ -56,6 +61,6 @@ class Deck {
 
   @override
   String toString() {
-    return "Deck{id: $id, name: $name, datetime: ${dateTime.toIso8601String()}";
+    return "Deck{id: $id, name: $name, datetime: ${dateTime.toIso8601String()}, cards: $cards";
   }
 }

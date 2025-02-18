@@ -143,7 +143,10 @@ class DeckStorage {
       final deckDateTime = DateTime.parse(deck['datetime'] as String);
 
       // FIXME: Mismatch of card id's, either here or at writing to db.
-      var currentDecklist = decklists.where((x) => x['deckId'] == deckId).map((x) => cards[int.parse(x['cardId'].toString())]).toList();
+      var currentDecklist = decklists
+          .where((x) => x['deckId'] == deckId)
+          .map((x) => cards[int.parse(x['cardId'].toString()) - 1])
+          .toList();
 
       deckList.add(Deck(
         id: deckId,

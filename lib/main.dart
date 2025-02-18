@@ -349,6 +349,7 @@ class DetectionPreviewScreen extends StatelessWidget {
           choices: choices
       );
       debugPrint(match.toString());
+      debugPrint(allCards[match.index].toString());
       matchedCards.add(allCards[match.index]);
     }
     final String deckName = "Draft Deck";
