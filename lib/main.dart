@@ -53,7 +53,7 @@ class DeckScannerState extends State<DeckScanner> {
     super.initState();
     _controller = CameraController(
         widget.camera,
-        ResolutionPreset.high  // not ultra-high to possibly speed up app
+        ResolutionPreset.ultraHigh  // not ultra-high to possibly speed up app
     );
     _initializeControllerFuture = _controller.initialize();
     _loadModelsFuture = _loadModels();
@@ -130,31 +130,31 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<img.Image> _processImage(String imagePath) async {
-    // final bytes = await File(imagePath).readAsBytes();
-    // final original_image = img.decodeImage(bytes)!;
-    // final image_copy = img.bakeOrientation(original_image);  // Not sure if this does what I want
-    final data = await rootBundle.load("assets/test_image.jpeg");
-    final img.Image original_image = img.decodeImage(data.buffer.asUint8List())!;
-    final image_copy = img.bakeOrientation(original_image);
+    final bytes = await File(imagePath).readAsBytes();
+    final originalImage = img.decodeImage(bytes)!;
+    final imageCopy = img.bakeOrientation(originalImage);  // Not sure if this does what I want
+    // final data = await rootBundle.load("assets/test_image.jpeg");
+    // final img.Image originalImage = img.decodeImage(data.buffer.asUint8List())!;
+    // final imageCopy = img.bakeOrientation(originalImage);
 
-    debugPrint("Captured image: ${original_image.width}x${original_image.height}");
+    debugPrint("Captured image: ${originalImage.width}x${originalImage.height}");
 
     double widthPadding;
     double heightPadding;
     int scalingFactor;
-    if (image_copy.width < image_copy.height) {
-      widthPadding = (image_copy.height - image_copy.width) / 2;
+    if (imageCopy.width < imageCopy.height) {
+      widthPadding = (imageCopy.height - imageCopy.width) / 2;
       heightPadding = 0.0;
-      scalingFactor = image_copy.height;
+      scalingFactor = imageCopy.height;
     } else {
       widthPadding = 0.0;
-      heightPadding = (image_copy.width - image_copy.height) / 2;
-      scalingFactor = image_copy.width;
+      heightPadding = (imageCopy.width - imageCopy.height) / 2;
+      scalingFactor = imageCopy.width;
     }
 
     // Make global list of detections empty before running detection
     detections = [];
-    final boundingBoxes = await _runInference(image_copy);
+    final boundingBoxes = await _runInference(imageCopy);
     final threshold = 0.5;
 
     for (var i=0; i < boundingBoxes.length; i++) {
@@ -169,7 +169,7 @@ class DeckScannerState extends State<DeckScanner> {
         debugPrint("x1: $x1, y1: $y2, x2: $x2, y2: $y2, conf: $conf, angle: $angle");
 
         img.Image detectionImg = img.copyCrop(
-            original_image,
+            originalImage,
             x: x1,
             y: y1,
             width: x2-x1,
@@ -185,7 +185,7 @@ class DeckScannerState extends State<DeckScanner> {
         detections.add(recognizedText.text);
 
         img.drawRect(
-          image_copy,
+          imageCopy,
           x1: x1,
           y1: y1,
           x2: x2,
@@ -195,7 +195,7 @@ class DeckScannerState extends State<DeckScanner> {
         );
 
         img.drawString(
-            image_copy,
+            imageCopy,
             recognizedText.text,
             font: img.arial48,
             x: x1,
@@ -205,7 +205,7 @@ class DeckScannerState extends State<DeckScanner> {
       }
     }
 
-    return image_copy;
+    return imageCopy;
   }
 
   Future<void> _takePictureAndProcess() async {
@@ -364,47 +364,57 @@ class MyDecksOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
+    Future<List<models.Deck>> decksFuture = _deckStorage.getAllDecks();
     final TextStyle dataColumnStyle = TextStyle(fontWeight: FontWeight.bold);
-
-    return Scaffold(
-      appBar: AppBar(title: Text("My Decks")),
-      drawer: MainMenuDrawer(),
-      body: Container(
-        alignment: Alignment.topCenter,
-        child: DataTable(
-          columns: [
-            DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
-            DataColumn(label: Text("Date", style: dataColumnStyle)),
-          ],
-          rows: [
-            DataRow(
-              cells: [
-                DataCell(GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => DecklistViewer(deckId: 1))
-                    );
-                  },
-                  child: Text("Test Deck Name 1"),
-                )),
-                DataCell(Text("2024/03/01"))
-            ]),
-            DataRow(cells: [
-              DataCell(GestureDetector(
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => DecklistViewer(deckId: 2))
-                  );
-                },
-                child: Text("Test Deck Name 2"),
-              )),
-              DataCell(Text("2024/03/01"))
-            ])
-          ]
-        )
-      )
+    return FutureBuilder<List<models.Deck>>(
+        future: decksFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          } else {
+            final List<models.Deck>? decks = snapshot.data;
+            return Scaffold(
+              appBar: AppBar(title: Text("My Decks")),
+              drawer: MainMenuDrawer(),
+              body: Container(
+                alignment: Alignment.topCenter,
+                child: DataTable(
+                  columns: [
+                    DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
+                    DataColumn(label: Text("Date", style: dataColumnStyle)),
+                  ],
+                  rows: [
+                    ...generateDataRows(decks, context)
+                  ]
+                )
+              )
+            );
+          }
+        }
     );
+  }
+
+  List<DataRow> generateDataRows(List<models.Deck>? decks, context) {
+    var dataRowList = decks?.map((deck) {
+      return DataRow(cells: [
+        DataCell(GestureDetector(
+          onTap: () {
+            Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => DecklistViewer(deckId: 1))
+            );
+          },
+          child: Text("Test Deck Name 1"),
+        )),
+        DataCell(Text("2024/03/01"))
+      ]);
+    }).toList();
+    if (dataRowList != null) {
+      return dataRowList;
+    } else {
+      return [];
+    }
   }
 }
 
