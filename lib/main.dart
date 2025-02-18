@@ -1,17 +1,20 @@
 import 'dart:async';
 import 'dart:io';
+
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
 import 'utils/image.dart';
 import 'utils/data.dart';
-import 'models/deck.dart';
+import 'utils/models.dart' as models;
 
 late CameraDescription _firstCamera;
+late DeckStorage _deckStorage;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,12 +24,7 @@ Future<void> main() async {
   runApp(
     MaterialApp(
       theme: ThemeData.dark(),
-      // home: TakePictureScreen(camera: _firstCamera),
-      initialRoute: "/",
-      routes: {
-        "/": (context) => DeckScanner(camera: _firstCamera),
-        "/mydecksoverview": (context) => const MyDecksOverview(),
-      },
+      home: DeckScanner(camera: _firstCamera),
     ),
   );
 }
@@ -43,10 +41,11 @@ class DeckScanner extends StatefulWidget {
 class DeckScannerState extends State<DeckScanner> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
+  late Future<void> _loadModelsFuture;
+  late Future<void> _initializeDatabaseFuture;
   late Interpreter _detector;
   late TextRecognizer _textRecognizer;
-  late DeckStorage _deckListStorage;
-  List detections = [];
+  List<String> detections = [];
   bool _modelsLoaded = false;
 
   @override
@@ -57,8 +56,8 @@ class DeckScannerState extends State<DeckScanner> {
         ResolutionPreset.high  // not ultra-high to possibly speed up app
     );
     _initializeControllerFuture = _controller.initialize();
-    _loadModels();
-    _initializeDatabase();
+    _loadModelsFuture = _loadModels();
+    _initializeDatabaseFuture = _initializeDatabase();
   }
 
   Future<void> _loadModels() async {
@@ -80,13 +79,9 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<void> _initializeDatabase() async {
-    _deckListStorage = DeckStorage();
-    await _deckListStorage.init();
-
-    _deckListStorage.insertDeck(
-        Deck(id: 1, name: "Test Deck", dateTime: DateTime.now())
-    );
-    _deckListStorage.getAllDecks().then((decks) {
+    _deckStorage = DeckStorage();
+    await _deckStorage.init().then((val) async {
+      var decks = await _deckStorage.getAllDecks();
       debugPrint("Decks: $decks");
     });
   }
@@ -157,11 +152,13 @@ class DeckScannerState extends State<DeckScanner> {
       scalingFactor = image_copy.width;
     }
 
-    final detections = await _runInference(image_copy);
+    // Make global list of detections empty before running detection
+    detections = [];
+    final boundingBoxes = await _runInference(image_copy);
     final threshold = 0.5;
 
-    for (var i=0; i < detections.length; i++) {
-      var detection = detections[i];
+    for (var i=0; i < boundingBoxes.length; i++) {
+      var detection = boundingBoxes[i];
       if (detection[4] > threshold) {
         int x1 = (detection[0] * scalingFactor - widthPadding).toInt();
         int y1 = (detection[1] * scalingFactor - heightPadding).toInt();
@@ -185,7 +182,7 @@ class DeckScannerState extends State<DeckScanner> {
 
         final detectionImage = InputImage.fromFilePath(newFilePath);
         final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
-        debugPrint("Recognized text: ${recognizedText.text}");
+        detections.add(recognizedText.text);
 
         img.drawRect(
           image_copy,
@@ -214,6 +211,8 @@ class DeckScannerState extends State<DeckScanner> {
   Future<void> _takePictureAndProcess() async {
     try {
       await _initializeControllerFuture;
+      await _loadModelsFuture;
+      await _initializeDatabaseFuture;
 
       Navigator.of(context).push(
         MaterialPageRoute(
@@ -230,7 +229,10 @@ class DeckScannerState extends State<DeckScanner> {
       if (!context.mounted) return;
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => DetectionPreviewScreen(imagePath: newFilePath),
+          builder: (context) => DetectionPreviewScreen(
+            imagePath: newFilePath,
+            detections: detections
+          ),
         ),
       );
     } catch (e) {
@@ -287,7 +289,6 @@ class MainMenuDrawer extends StatelessWidget {
             ListTile(
               title: const Text('View My Decks'),
               onTap: () {
-                // TODO: Change this to named routing, to prevent stacking of same Screens in route
                 Navigator.of(context).popUntil(ModalRoute.withName('/'));
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (context) => const MyDecksOverview())
@@ -302,8 +303,9 @@ class MainMenuDrawer extends StatelessWidget {
 
 class DetectionPreviewScreen extends StatelessWidget {
   final String imagePath;
+  final List<String> detections;
 
-  const DetectionPreviewScreen({super.key, required this.imagePath});
+  const DetectionPreviewScreen({super.key, required this.imagePath, required this.detections});
 
   @override
   Widget build(BuildContext context) {
@@ -314,12 +316,46 @@ class DetectionPreviewScreen extends StatelessWidget {
           child: InteractiveViewer(child: Image.file(File(imagePath)))
       ),
       floatingActionButton: FloatingActionButton.extended(
-          onPressed: null,
+          onPressed: () async {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => Center(child: CircularProgressIndicator()),
+              ),
+            );
+            final deckId = await createDeckAndSave(detections);
+            Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (context) => DecklistViewer(deckId: deckId),
+                ),
+                ModalRoute.withName('/')
+            );
+            // Go to Route ViewDeck(deck_id)
+            // Make sure to adjust route to go back to 'My Decks'
+          },
           label: Text("Save Deck"),
           icon: Icon(Icons.add)
       ),
     );
   }
+
+  Future<int> createDeckAndSave(List<String> detections) async {
+    final allCards = await _deckStorage.getAllCards();
+    final choices = allCards.map((card) => card.title).toList();
+    final List<models.Card> matchedCards = [];
+    debugPrint("Matching detections with database");
+    for (final detection in detections) {
+      final match = extractOne(
+          query: detection,
+          choices: choices
+      );
+      debugPrint(match.toString());
+      matchedCards.add(allCards[match.index]);
+    }
+    final String deckName = "Draft Deck";
+    final DateTime dateTime = DateTime.now();
+    return await _deckStorage.saveDeck(deckName, dateTime, matchedCards);
+  }
+
 }
 
 class MyDecksOverview extends StatelessWidget {
@@ -346,7 +382,7 @@ class MyDecksOverview extends StatelessWidget {
                 DataCell(GestureDetector(
                   onTap: () {
                     Navigator.of(context).push(
-                      MaterialPageRoute(builder: (context) => DecklistViewer(testString: "Test Deck 1"))
+                      MaterialPageRoute(builder: (context) => DecklistViewer(deckId: 1))
                     );
                   },
                   child: Text("Test Deck Name 1"),
@@ -357,7 +393,7 @@ class MyDecksOverview extends StatelessWidget {
               DataCell(GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
-                    MaterialPageRoute(builder: (context) => DecklistViewer(testString: "Test Deck 2"))
+                    MaterialPageRoute(builder: (context) => DecklistViewer(deckId: 2))
                   );
                 },
                 child: Text("Test Deck Name 2"),
@@ -372,15 +408,28 @@ class MyDecksOverview extends StatelessWidget {
 }
 
 class DecklistViewer extends StatelessWidget {
-  final String testString;
+  final int deckId;
 
-  const DecklistViewer({super.key, required this.testString});
+  const DecklistViewer({super.key, required this.deckId});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(title: Text("Deck: $testString")),
-        body: Text(testString)
+    Future<List> decks = _deckStorage.getAllDecks();
+    return FutureBuilder<void>(
+        future: decks,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          } else {
+            return Scaffold(
+              appBar: AppBar(title: Text("$deckId")),
+              body: Text("Work in Progess")
+            );
+          }
+          // final models.Deck currentDeck = decks[snapshot.data];
+        }
     );
   }
 }
