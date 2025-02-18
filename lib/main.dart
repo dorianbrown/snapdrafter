@@ -9,6 +9,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 
 import 'utils/image.dart';
 import 'utils/data.dart';
+import 'models/deck.dart';
 
 late CameraDescription _firstCamera;
 
@@ -57,8 +58,7 @@ class DeckScannerState extends State<DeckScanner> {
     );
     _initializeControllerFuture = _controller.initialize();
     _loadModels();
-    _deckListStorage = DecklistStorage();
-    _deckListStorage.init();
+    _initializeDatabase();
   }
 
   Future<void> _loadModels() async {
@@ -77,6 +77,18 @@ class DeckScannerState extends State<DeckScanner> {
     } catch (e) {
       debugPrint('Error loading models: $e');
     }
+  }
+
+  Future<void> _initializeDatabase() async {
+    _deckListStorage = DecklistStorage();
+    await _deckListStorage.init();
+
+    _deckListStorage.insertDeck(
+        Deck(id: 1, name: "Test Deck", dateTime: DateTime.now())
+    );
+    _deckListStorage.getAllDecks().then((decks) {
+      debugPrint("Decks: $decks");
+    });
   }
 
   @override

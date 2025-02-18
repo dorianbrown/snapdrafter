@@ -10,8 +10,8 @@ import '../models/decklist.dart';
 class DecklistStorage {
   late Database _database;
 
-  void init() async {
-    final _database = openDatabase(
+  Future<void> init() async {
+    _database = await openDatabase(
       join(await getDatabasesPath(), 'decklistScanner.db'),
       version: 1,
       onCreate: (db, version) {
@@ -63,10 +63,17 @@ class DecklistStorage {
       for (final {
         'id': id as int,
         'name': name as String,
-        'datetime': datetime as String,
-        'decklistId': decklistId as int
+        'datetime': datetime as String
       } in decks)
-        Deck(id: id, name: name, dateTime: DateTime.parse(datetime), decklistId: decklistId)
+        Deck(id: id, name: name, dateTime: DateTime.parse(datetime))
     ];
+  }
+
+  Future<void> deleteDeck(int id) async {
+    await _database.delete(
+      'decks',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }
