@@ -8,6 +8,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import 'utils/image.dart';
+import 'utils/data.dart';
 
 late CameraDescription _firstCamera;
 
@@ -22,27 +23,28 @@ Future<void> main() async {
       // home: TakePictureScreen(camera: _firstCamera),
       initialRoute: "/",
       routes: {
-        "/": (context) => TakePictureScreen(camera: _firstCamera),
+        "/": (context) => DeckScanner(camera: _firstCamera),
         "/mydecksoverview": (context) => const MyDecksOverview(),
       },
     ),
   );
 }
 
-class TakePictureScreen extends StatefulWidget {
-  const TakePictureScreen({super.key, required this.camera});
+class DeckScanner extends StatefulWidget {
+  const DeckScanner({super.key, required this.camera});
 
   final CameraDescription camera;
 
   @override
-  TakePictureScreenState createState() => TakePictureScreenState();
+  DeckScannerState createState() => DeckScannerState();
 }
 
-class TakePictureScreenState extends State<TakePictureScreen> {
+class DeckScannerState extends State<DeckScanner> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
   late Interpreter _detector;
   late TextRecognizer _textRecognizer;
+  late DecklistStorage _deckListStorage;
   List detections = [];
   bool _modelsLoaded = false;
 
@@ -55,6 +57,8 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     );
     _initializeControllerFuture = _controller.initialize();
     _loadModels();
+    _deckListStorage = DecklistStorage();
+    _deckListStorage.init();
   }
 
   Future<void> _loadModels() async {
@@ -199,6 +203,12 @@ class TakePictureScreenState extends State<TakePictureScreen> {
     try {
       await _initializeControllerFuture;
 
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => Center(child: CircularProgressIndicator()),
+        ),
+      );
+
       final picture = await _controller.takePicture();
       final processedImage = await _processImage(picture.path);
       final jpg = img.encodeJpg(processedImage);
@@ -206,9 +216,9 @@ class TakePictureScreenState extends State<TakePictureScreen> {
       await File(newFilePath).writeAsBytes(jpg);
 
       if (!context.mounted) return;
-      await Navigator.of(context).push(
+      await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => DisplayPictureScreen(imagePath: newFilePath),
+          builder: (context) => DetectionPreviewScreen(imagePath: newFilePath),
         ),
       );
     } catch (e) {
@@ -278,10 +288,10 @@ class MainMenuDrawer extends StatelessWidget {
   }
 }
 
-class DisplayPictureScreen extends StatelessWidget {
+class DetectionPreviewScreen extends StatelessWidget {
   final String imagePath;
 
-  const DisplayPictureScreen({super.key, required this.imagePath});
+  const DetectionPreviewScreen({super.key, required this.imagePath});
 
   @override
   Widget build(BuildContext context) {
@@ -305,12 +315,60 @@ class MyDecksOverview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+
+    final TextStyle dataColumnStyle = TextStyle(fontWeight: FontWeight.bold);
+
     return Scaffold(
       appBar: AppBar(title: Text("My Decks")),
       drawer: MainMenuDrawer(),
-      body: Center(
-          child: Text("All the Decks!")
+      body: Container(
+        alignment: Alignment.topCenter,
+        child: DataTable(
+          columns: [
+            DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
+            DataColumn(label: Text("Date", style: dataColumnStyle)),
+          ],
+          rows: [
+            DataRow(
+              cells: [
+                DataCell(GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (context) => DecklistViewer(testString: "Test Deck 1"))
+                    );
+                  },
+                  child: Text("Test Deck Name 1"),
+                )),
+                DataCell(Text("2024/03/01"))
+            ]),
+            DataRow(cells: [
+              DataCell(GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => DecklistViewer(testString: "Test Deck 2"))
+                  );
+                },
+                child: Text("Test Deck Name 2"),
+              )),
+              DataCell(Text("2024/03/01"))
+            ])
+          ]
+        )
       )
+    );
+  }
+}
+
+class DecklistViewer extends StatelessWidget {
+  final String testString;
+
+  const DecklistViewer({super.key, required this.testString});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+        appBar: AppBar(title: Text("Deck: $testString")),
+        body: Text(testString)
     );
   }
 }
