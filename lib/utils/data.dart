@@ -131,7 +131,7 @@ class DeckStorage {
     );
   }
 
-  Future<List> getAllDecks() async {
+  Future<List<Deck>> getAllDecks() async {
     final decks = await _database.query('decks');
     final decklists = await _database.query('decklists');
     final cards = await getAllCards();

@@ -410,23 +410,36 @@ class MyDecksOverview extends StatelessWidget {
 
 class DecklistViewer extends StatelessWidget {
   final int deckId;
-
   const DecklistViewer({super.key, required this.deckId});
 
   @override
   Widget build(BuildContext context) {
-    Future<List> decks = _deckStorage.getAllDecks();
-    return FutureBuilder<void>(
-        future: decks,
+    Future<List<models.Deck>> decksFuture = _deckStorage.getAllDecks();
+    return FutureBuilder<List<models.Deck>>(
+        future: decksFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return Center(
               child: CircularProgressIndicator(),
             );
           } else {
+            final List<models.Deck>? decks = snapshot.data;
+            final deck = decks?[deckId - 1];
             return Scaffold(
-              appBar: AppBar(title: Text("$deckId")),
-              body: Text("Work in Progess")
+              appBar: AppBar(title: Text("${deck?.name}")),
+              body: Container(
+                margin: EdgeInsets.fromLTRB(50, 25, 50, 25),
+                alignment: Alignment.topCenter,
+                child: ListView(
+                  children: [
+                    Text("Date: ${deck?.dateTime.toIso8601String()}"),
+                    Divider(),
+                    Text("Cards:"),
+                    for (final card in deck?.cards ?? [])
+                      Text(card.title),
+                  ],
+                ),
+              )
             );
           }
           // final models.Deck currentDeck = decks[snapshot.data];
