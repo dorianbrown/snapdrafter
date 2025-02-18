@@ -45,7 +45,7 @@ class DeckScannerState extends State<DeckScanner> {
   late Future<void> _initializeControllerFuture;
   late Interpreter _detector;
   late TextRecognizer _textRecognizer;
-  late DecklistStorage _deckListStorage;
+  late DeckStorage _deckListStorage;
   List detections = [];
   bool _modelsLoaded = false;
 
@@ -80,7 +80,7 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<void> _initializeDatabase() async {
-    _deckListStorage = DecklistStorage();
+    _deckListStorage = DeckStorage();
     await _deckListStorage.init();
 
     _deckListStorage.insertDeck(

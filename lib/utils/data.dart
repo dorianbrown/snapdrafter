@@ -7,7 +7,7 @@ import '../models/deck.dart';
 import '../models/card.dart';
 import '../models/decklist.dart';
 
-class DecklistStorage {
+class DeckStorage {
   late Database _database;
 
   Future<void> init() async {
