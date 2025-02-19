@@ -427,13 +427,29 @@ class MyDecksOverview extends StatelessWidget {
   }
 }
 
-class DecklistViewer extends StatelessWidget {
+class DecklistViewer extends StatefulWidget {
   final int deckId;
   const DecklistViewer({super.key, required this.deckId});
 
   @override
+  DecklistViewerState createState() => DecklistViewerState(deckId);
+}
+
+
+class DecklistViewerState extends State<DecklistViewer> {
+  final int deckId;
+  late Future<List<models.Deck>> decksFuture;
+  DecklistViewerState(this.deckId);
+  late List<String> renderValues = ["text", "type", "cmc"];
+
+  @override
+  void initState() {
+    super.initState();
+    decksFuture = _deckStorage.getAllDecks();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    Future<List<models.Deck>> decksFuture = _deckStorage.getAllDecks();
     return FutureBuilder<List<models.Deck>>(
       future: decksFuture,
       builder: (context, snapshot) {
@@ -492,9 +508,7 @@ class DecklistViewer extends StatelessWidget {
                     ]
                   ),
                   Divider(height: 30),
-                  Text("Cards:", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
-                  for (final card in deck?.cards ?? [])
-                    createCard(card)
+                  ...generateDeckView(deck!, renderValues)
                 ],
               ),
             )
@@ -502,6 +516,34 @@ class DecklistViewer extends StatelessWidget {
         }
       }
     );
+  }
+
+  List<Widget> generateDeckView(models.Deck deck, List<String> renderValues) {
+    // Initial setup for rendering
+    final List<Widget> deckView = [];
+    final headerStyle = TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+        decoration: TextDecoration.underline
+    );
+
+    for (String type in models.typeOrder) {
+
+      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,15,0,5), child: Text(type, style: headerStyle))];
+
+      List<Widget> cardWidgets = deck.cards
+        .where((card) => card.type == type)
+        .map((card) => Text(card.name))
+        .toList();
+
+      if (cardWidgets.isNotEmpty) {
+        deckView.add(Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: header + cardWidgets
+        ));
+      }
+    }
+    return deckView;
   }
 
   FittedBox createCard(models.Card card) {

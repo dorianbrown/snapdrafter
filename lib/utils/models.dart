@@ -78,3 +78,14 @@ class Deck {
     return "Deck{id: $id, name: $name, datetime: ${dateTime.toIso8601String()}, cards: $cards";
   }
 }
+
+const List<String> typeOrder = [
+  "Creature",
+  "Planeswalker",
+  "Instant",
+  "Sorcery",
+  "Artifact",
+  "Enchantment",
+  "Battle"
+  "Land",
+];
