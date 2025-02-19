@@ -59,6 +59,20 @@ class Deck {
     required this.cards
   });
 
+  String get colors {
+    String colors = cards.map(
+      (card) => card.colors
+    ).toList().join("");
+
+    String outputString = "";
+    for (var symbol in ["W", "U", "B", "R", "G"]) {
+      if (colors.contains(symbol)) {
+        outputString += symbol;
+      }
+    }
+    return outputString;
+  }
+
   @override
   String toString() {
     return "Deck{id: $id, name: $name, datetime: ${dateTime.toIso8601String()}, cards: $cards";

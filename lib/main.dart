@@ -9,7 +9,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
-import 'utils/image.dart';
+import 'utils/utils.dart';
 import 'utils/data.dart';
 import 'utils/models.dart' as models;
 
@@ -130,12 +130,12 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<img.Image> _processImage(String imagePath) async {
-    final bytes = await File(imagePath).readAsBytes();
-    final originalImage = img.decodeImage(bytes)!;
-    final imageCopy = img.bakeOrientation(originalImage);  // Not sure if this does what I want
-    // final data = await rootBundle.load("assets/test_image.jpeg");
-    // final img.Image originalImage = img.decodeImage(data.buffer.asUint8List())!;
-    // final imageCopy = img.bakeOrientation(originalImage);
+    // final bytes = await File(imagePath).readAsBytes();
+    // final originalImage = img.decodeImage(bytes)!;
+    // final imageCopy = img.bakeOrientation(originalImage);  // Not sure if this does what I want
+    final data = await rootBundle.load("assets/test_image.jpeg");
+    final img.Image originalImage = img.decodeImage(data.buffer.asUint8List())!;
+    final imageCopy = img.bakeOrientation(originalImage);
 
     debugPrint("Captured image: ${originalImage.width}x${originalImage.height}");
 
@@ -243,7 +243,6 @@ class DeckScannerState extends State<DeckScanner> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      primary: false,
       appBar: AppBar(title: const Text('Scan Deck')),
       drawer: MainMenuDrawer(),
       body: FutureBuilder<void>(
@@ -356,7 +355,6 @@ class DetectionPreviewScreen extends StatelessWidget {
     final DateTime dateTime = DateTime.now();
     return await _deckStorage.saveDeck(deckName, dateTime, matchedCards);
   }
-
 }
 
 class MyDecksOverview extends StatelessWidget {
@@ -380,14 +378,19 @@ class MyDecksOverview extends StatelessWidget {
               drawer: MainMenuDrawer(),
               body: Container(
                 alignment: Alignment.topCenter,
-                child: DataTable(
-                  columns: [
-                    DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
-                    DataColumn(label: Text("Date", style: dataColumnStyle)),
+                child: ListView(
+                  children: [
+                    DataTable(
+                        columns: [
+                          DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
+                          DataColumn(label: Text("Colors", style: dataColumnStyle)),
+                          DataColumn(label: Text("Date", style: dataColumnStyle)),
+                        ],
+                        rows: [
+                          ...generateDataRows(decks, context)
+                        ]
+                    )
                   ],
-                  rows: [
-                    ...generateDataRows(decks, context)
-                  ]
                 )
               )
             );
@@ -397,17 +400,24 @@ class MyDecksOverview extends StatelessWidget {
   }
 
   List<DataRow> generateDataRows(List<models.Deck>? decks, context) {
+
+    final TextStyle dateColumnStyle = TextStyle(
+      color: Colors.grey.withAlpha(255),
+      fontStyle: FontStyle.italic
+    );
+
     var dataRowList = decks?.map((deck) {
       return DataRow(cells: [
         DataCell(GestureDetector(
           onTap: () {
             Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => DecklistViewer(deckId: 1))
+                MaterialPageRoute(builder: (context) => DecklistViewer(deckId: deck.id))
             );
           },
-          child: Text("Test Deck Name 1"),
+          child: Text(deck.name),
         )),
-        DataCell(Text("2024/03/01"))
+        DataCell(Text(deck.colors)),
+        DataCell(Text(convertDatetimeToString(deck.dateTime), style: dateColumnStyle))
       ]);
     }).toList();
     if (dataRowList != null) {
@@ -442,11 +452,33 @@ class DecklistViewer extends StatelessWidget {
                 alignment: Alignment.topCenter,
                 child: ListView(
                   children: [
-                    Text("Date: ${deck?.dateTime.toIso8601String()}"),
-                    Divider(),
+                    Row(
+                      spacing: 10,
+                      children: [
+                        DropdownMenu(
+                          label: Text("Group By"),
+                          initialSelection: "type",
+                          inputDecorationTheme: createDropdownStyling(),
+                          dropdownMenuEntries: [
+                            DropdownMenuEntry(value: "type", label: "Type"),
+                            DropdownMenuEntry(value: "color", label: "Color")
+                          ],
+                        ),
+                        DropdownMenu(
+                          label: Text("Sort By"),
+                          initialSelection: "cmc",
+                          inputDecorationTheme: createDropdownStyling(),
+                          dropdownMenuEntries: [
+                            DropdownMenuEntry(value: "cmc", label: "CMC"),
+                            DropdownMenuEntry(value: "name", label: "Name")
+                          ],
+                        ),
+                      ]
+                    ),
+                    Divider(height: 20),
                     Text("Cards:"),
                     for (final card in deck?.cards ?? [])
-                      Text(card.title),
+                      Image.network(card.imageUri, height: 0.5 * MediaQuery.of(context).size.width),
                   ],
                 ),
               )
@@ -454,6 +486,18 @@ class DecklistViewer extends StatelessWidget {
           }
           // final models.Deck currentDeck = decks[snapshot.data];
         }
+    );
+  }
+
+  InputDecorationTheme createDropdownStyling() {
+    return InputDecorationTheme(
+      isDense: true,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      constraints: BoxConstraints.tight(const
+      Size.fromHeight(40)),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
     );
   }
 }
