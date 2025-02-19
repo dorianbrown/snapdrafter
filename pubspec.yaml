@@ -42,6 +42,7 @@ dependencies:
   google_mlkit_text_recognition: ^0.14.0
   sqflite: ^2.4.1
   fuzzywuzzy: ^1.2.0
+  mana_icons_flutter: ^1.18.0
 
 dev_dependencies:
   flutter_test:

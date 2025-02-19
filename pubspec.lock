@@ -224,6 +224,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "5.1.1"
+  mana_icons_flutter:
+    dependency: "direct main"
+    description:
+      name: mana_icons_flutter
+      sha256: "05147cd0c0be4898fad053250a3ec73fe037edf9b29433c2b32063631b52983b"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.18.0"
   matcher:
     dependency: transitive
     description:

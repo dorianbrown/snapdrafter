@@ -268,34 +268,34 @@ class MainMenuDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            SizedBox(
-              height: 120,
-              child: DrawerHeader(
-                decoration: BoxDecoration(color: Colors.blue),
-                child: Text('Decklist Scanner'),
-                padding: EdgeInsets.fromLTRB(15, 40, 0, 0),
-              ),
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          SizedBox(
+            height: 120,
+            child: DrawerHeader(
+              decoration: BoxDecoration(color: Colors.blue),
+              padding: EdgeInsets.fromLTRB(15, 40, 0, 0),
+              child: Text('Decklist Scanner'),
             ),
-            ListTile(
-              title: const Text('Scan Deck'),
-              onTap: () {
-                Navigator.of(context).popUntil(ModalRoute.withName('/'));
-              },
-            ),
-            ListTile(
-              title: const Text('View My Decks'),
-              onTap: () {
-                Navigator.of(context).popUntil(ModalRoute.withName('/'));
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (context) => const MyDecksOverview())
-                );
-              },
-            ),
-          ],
-        )
+          ),
+          ListTile(
+            title: const Text('Scan Deck'),
+            onTap: () {
+              Navigator.of(context).popUntil(ModalRoute.withName('/'));
+            },
+          ),
+          ListTile(
+            title: const Text('View My Decks'),
+            onTap: () {
+              Navigator.of(context).popUntil(ModalRoute.withName('/'));
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (context) => const MyDecksOverview())
+              );
+            },
+          ),
+        ],
+      )
     );
   }
 }
@@ -312,27 +312,26 @@ class DetectionPreviewScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Detection Preview')),
       // TODO: Make this zoom to whole viewcreen.
       body: Center(
-          child: InteractiveViewer(child: Image.file(File(imagePath)))
+        child: InteractiveViewer(child: Image.file(File(imagePath)))
       ),
       floatingActionButton: FloatingActionButton.extended(
-          onPressed: () async {
-            Navigator.of(context).push(
+        onPressed: () async {
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => Center(child: CircularProgressIndicator()),
+            ),
+          );
+          final deckId = await createDeckAndSave(detections);
+          Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
-                builder: (context) => Center(child: CircularProgressIndicator()),
+                builder: (context) => DecklistViewer(deckId: deckId),
               ),
-            );
-            final deckId = await createDeckAndSave(detections);
-            Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(
-                  builder: (context) => DecklistViewer(deckId: deckId),
-                ),
-                ModalRoute.withName('/')
-            );
-            // Go to Route ViewDeck(deck_id)
-            // Make sure to adjust route to go back to 'My Decks'
-          },
-          label: Text("Save Deck"),
-          icon: Icon(Icons.add)
+              ModalRoute.withName('/')
+          );
+          // Make sure to adjust route to go back to 'My Decks'
+        },
+        label: Text("Save Deck"),
+        icon: Icon(Icons.add)
       ),
     );
   }
@@ -344,8 +343,8 @@ class DetectionPreviewScreen extends StatelessWidget {
     debugPrint("Matching detections with database");
     for (final detection in detections) {
       final match = extractOne(
-          query: detection,
-          choices: choices
+        query: detection,
+        choices: choices
       );
       debugPrint(match.toString());
       debugPrint(allCards[match.index].toString());
@@ -365,37 +364,37 @@ class MyDecksOverview extends StatelessWidget {
     Future<List<models.Deck>> decksFuture = _deckStorage.getAllDecks();
     final TextStyle dataColumnStyle = TextStyle(fontWeight: FontWeight.bold);
     return FutureBuilder<List<models.Deck>>(
-        future: decksFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          } else {
-            final List<models.Deck>? decks = snapshot.data;
-            return Scaffold(
-              appBar: AppBar(title: Text("My Decks")),
-              drawer: MainMenuDrawer(),
-              body: Container(
-                alignment: Alignment.topCenter,
-                child: ListView(
-                  children: [
-                    DataTable(
-                        columns: [
-                          DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
-                          DataColumn(label: Text("Colors", style: dataColumnStyle)),
-                          DataColumn(label: Text("Date", style: dataColumnStyle)),
-                        ],
-                        rows: [
-                          ...generateDataRows(decks, context)
-                        ]
-                    )
-                  ],
-                )
+      future: decksFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Center(
+            child: CircularProgressIndicator(),
+          );
+        } else {
+          final List<models.Deck>? decks = snapshot.data;
+          return Scaffold(
+            appBar: AppBar(title: Text("My Decks")),
+            drawer: MainMenuDrawer(),
+            body: Container(
+              alignment: Alignment.topCenter,
+              child: ListView(
+                children: [
+                  DataTable(
+                      columns: [
+                        DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
+                        DataColumn(label: Text("Colors", style: dataColumnStyle)),
+                        DataColumn(label: Text("Date", style: dataColumnStyle)),
+                      ],
+                      rows: [
+                        ...generateDataRows(decks, context)
+                      ]
+                  )
+                ],
               )
-            );
-          }
+            )
+          );
         }
+      }
     );
   }
 
@@ -436,65 +435,92 @@ class DecklistViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     Future<List<models.Deck>> decksFuture = _deckStorage.getAllDecks();
     return FutureBuilder<List<models.Deck>>(
-        future: decksFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          } else {
-            final List<models.Deck>? decks = snapshot.data;
-            final deck = decks?[deckId - 1];
-            return Scaffold(
-              appBar: AppBar(title: Text("${deck?.name}")),
-              body: Container(
-                margin: EdgeInsets.fromLTRB(50, 25, 50, 25),
-                alignment: Alignment.topCenter,
-                child: ListView(
-                  children: [
-                    Row(
-                      spacing: 10,
-                      children: [
-                        DropdownMenu(
-                          label: Text("Group By"),
-                          initialSelection: "type",
-                          inputDecorationTheme: createDropdownStyling(),
-                          dropdownMenuEntries: [
-                            DropdownMenuEntry(value: "type", label: "Type"),
-                            DropdownMenuEntry(value: "color", label: "Color")
-                          ],
-                        ),
-                        DropdownMenu(
-                          label: Text("Sort By"),
-                          initialSelection: "cmc",
-                          inputDecorationTheme: createDropdownStyling(),
-                          dropdownMenuEntries: [
-                            DropdownMenuEntry(value: "cmc", label: "CMC"),
-                            DropdownMenuEntry(value: "name", label: "Name")
-                          ],
-                        ),
-                      ]
-                    ),
-                    Divider(height: 20),
-                    Text("Cards:"),
-                    for (final card in deck?.cards ?? [])
-                      Image.network(card.imageUri, height: 0.5 * MediaQuery.of(context).size.width),
-                  ],
-                ),
-              )
-            );
-          }
-          // final models.Deck currentDeck = decks[snapshot.data];
+      future: decksFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Center(
+            child: CircularProgressIndicator(),
+          );
+        } else {
+          final List<models.Deck>? decks = snapshot.data;
+          final deck = decks?[deckId - 1];
+          return Scaffold(
+            appBar: AppBar(title: Text("${deck?.name}")),
+            body: Container(
+              // margin: EdgeInsets.fromLTRB(50, 25, 50, 25),
+              alignment: Alignment.topCenter,
+              child: ListView(
+                padding: EdgeInsets.all(10),
+                children: [
+                  Row(
+                    spacing: 5,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      DropdownMenu(
+                        width: 0.3 * MediaQuery.of(context).size.width,
+                        label: Text("Display"),
+                        initialSelection: "text",
+                        inputDecorationTheme: createDropdownStyling(),
+                        textStyle: TextStyle(fontSize: 12),
+                        dropdownMenuEntries: [
+                          DropdownMenuEntry(value: "text", label: "Text"),
+                          DropdownMenuEntry(value: "image", label: "Images")
+                        ],
+                      ),
+                      DropdownMenu(
+                        width: 0.3 * MediaQuery.of(context).size.width,
+                        label: Text("Group By"),
+                        initialSelection: "type",
+                        inputDecorationTheme: createDropdownStyling(),
+                        textStyle: TextStyle(fontSize: 12),
+                        dropdownMenuEntries: [
+                          DropdownMenuEntry(value: "type", label: "Type"),
+                          DropdownMenuEntry(value: "color", label: "Color")
+                        ],
+                      ),
+                      DropdownMenu(
+                        width: 0.3 * MediaQuery.of(context).size.width,
+                        label: Text("Sort By"),
+                        initialSelection: "cmc",
+                        inputDecorationTheme: createDropdownStyling(),
+                        textStyle: TextStyle(fontSize: 12),
+                        dropdownMenuEntries: [
+                          DropdownMenuEntry(value: "cmc", label: "CMC"),
+                          DropdownMenuEntry(value: "name", label: "Name")
+                        ],
+                      ),
+                    ]
+                  ),
+                  Divider(height: 30),
+                  Text("Cards:", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                  for (final card in deck?.cards ?? [])
+                    createCard(card)
+                ],
+              ),
+            )
+          );
         }
+      }
+    );
+  }
+
+  FittedBox createCard(models.Card card) {
+    return FittedBox(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: Image.network(card.imageUri!),
+      )
     );
   }
 
   InputDecorationTheme createDropdownStyling() {
     return InputDecorationTheme(
+      labelStyle: TextStyle(fontSize: 10),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      constraints: BoxConstraints.tight(const
-      Size.fromHeight(40)),
+      constraints: BoxConstraints.tight(
+        const Size.fromHeight(40)
+      ),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
       ),
