@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
+import 'package:mana_icons_flutter/mana_icons_flutter.dart';
 
 import 'utils/utils.dart';
 import 'utils/data.dart';
@@ -130,12 +131,12 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<img.Image> _processImage(String imagePath) async {
-    // final bytes = await File(imagePath).readAsBytes();
-    // final originalImage = img.decodeImage(bytes)!;
-    // final imageCopy = img.bakeOrientation(originalImage);  // Not sure if this does what I want
-    final data = await rootBundle.load("assets/test_image.jpeg");
-    final img.Image originalImage = img.decodeImage(data.buffer.asUint8List())!;
-    final imageCopy = img.bakeOrientation(originalImage);
+    final bytes = await File(imagePath).readAsBytes();
+    final originalImage = img.decodeImage(bytes)!;
+    final imageCopy = img.bakeOrientation(originalImage);  // Not sure if this does what I want
+    // final data = await rootBundle.load("assets/test_image.jpeg");
+    // final img.Image originalImage = img.decodeImage(data.buffer.asUint8List())!;
+    // final imageCopy = img.bakeOrientation(originalImage);
 
     debugPrint("Captured image: ${originalImage.width}x${originalImage.height}");
 
@@ -435,7 +436,6 @@ class DecklistViewer extends StatefulWidget {
   DecklistViewerState createState() => DecklistViewerState(deckId);
 }
 
-
 class DecklistViewerState extends State<DecklistViewer> {
   final int deckId;
   late Future<List<models.Deck>> decksFuture;
@@ -482,6 +482,10 @@ class DecklistViewerState extends State<DecklistViewer> {
                           DropdownMenuEntry(value: "text", label: "Text"),
                           DropdownMenuEntry(value: "image", label: "Images")
                         ],
+                        onSelected: (value) {
+                          renderValues[0] = value!;
+                          setState(() {});
+                        },
                       ),
                       DropdownMenu(
                         width: 0.3 * MediaQuery.of(context).size.width,
@@ -527,26 +531,62 @@ class DecklistViewerState extends State<DecklistViewer> {
         decoration: TextDecoration.underline
     );
 
+    debugPrint(deck.cards.toString());
+
+    var renderCard = (renderValues[0] == "text") ? createTextCard : createVisualCard;
+    var rows = (renderValues[0] == "text") ? 1 : 3;
+
     for (String type in models.typeOrder) {
 
-      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,15,0,5), child: Text(type, style: headerStyle))];
+      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,20,0,5), child: Text(type, style: headerStyle))];
 
       List<Widget> cardWidgets = deck.cards
         .where((card) => card.type == type)
-        .map((card) => Text(card.name))
+        .map((card) => renderCard(card))
         .toList();
+
+      List<Widget> typeList = [];
+      List<Widget> rowChildren = [];
+      for (int i=0; i < cardWidgets.length; i++) {
+        rowChildren.add(Container(
+          width: (0.85 / rows) * MediaQuery.of(context).size.width,
+          child: cardWidgets[i]
+        ));
+        if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
+          typeList.add(Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: rowChildren,
+          ));
+          rowChildren = [];
+        }
+      }
 
       if (cardWidgets.isNotEmpty) {
         deckView.add(Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: header + cardWidgets
+            children: header + typeList
         ));
       }
     }
     return deckView;
   }
 
-  FittedBox createCard(models.Card card) {
+  Widget createTextCard(models.Card card) {
+    return Row(
+      children: [
+        Text(
+          card.title,
+          style: TextStyle(
+              fontSize: 16,
+              height: 1.5
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget createVisualCard(models.Card card) {
+    debugPrint("${card.name}: ${card.imageUri}");
     return FittedBox(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(25),
