@@ -146,6 +146,7 @@ class DeckScannerState extends State<DeckScanner> {
       heightPadding = (inputImage.width - inputImage.height) / 2;
       scalingFactor = inputImage.width;
     }
+    inputImage = img.adjustColor(inputImage, brightness: 0.5);
 
     // Make global list of detections empty before running detection
     detections = [];
@@ -337,7 +338,7 @@ class DetectionPreviewScreen extends StatelessWidget {
           final deckId = await createDeckAndSave(detections);
           Navigator.of(context).pushAndRemoveUntil(
               MaterialPageRoute(
-                builder: (context) => DecklistViewer(deckId: deckId),
+                builder: (context) => DeckViewer(deckId: deckId),
               ),
               ModalRoute.withName('/')
           );
@@ -423,7 +424,7 @@ class MyDecksOverview extends StatelessWidget {
         cells: [DataCell(GestureDetector(
           onTap: () {
             Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => DecklistViewer(deckId: deck.id))
+                MaterialPageRoute(builder: (context) => DeckViewer(deckId: deck.id))
             );
           },
           child: Text(deck.name),
@@ -448,18 +449,18 @@ class MyDecksOverview extends StatelessWidget {
   }
 }
 
-class DecklistViewer extends StatefulWidget {
+class DeckViewer extends StatefulWidget {
   final int deckId;
-  const DecklistViewer({super.key, required this.deckId});
+  const DeckViewer({super.key, required this.deckId});
 
   @override
-  DecklistViewerState createState() => DecklistViewerState(deckId);
+  DeckViewerState createState() => DeckViewerState(deckId);
 }
 
-class DecklistViewerState extends State<DecklistViewer> {
+class DeckViewerState extends State<DeckViewer> {
   final int deckId;
   late Future<List<models.Deck>> decksFuture;
-  DecklistViewerState(this.deckId);
+  DeckViewerState(this.deckId);
   late List<String> renderValues = ["text", "type", "cmc"];
 
   @override
@@ -614,11 +615,17 @@ class DecklistViewerState extends State<DecklistViewer> {
     return Row(
       spacing: 8,
       children: [
-        Text(
-          card.title,
-          style: TextStyle(
+        GestureDetector(
+          onTap: () => showDialog(
+            context: context,
+            builder: (context) => Container(padding: EdgeInsets.all(30), child: createVisualCard(card))
+          ),
+          child: Text(
+            card.title,
+            style: TextStyle(
               fontSize: 16,
               height: 1.5
+            ),
           ),
         ),
         card.createManaCost()
