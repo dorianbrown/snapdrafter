@@ -29,7 +29,8 @@ class DeckStorage {
             type TEXT,
             imageUri TEXT,
             colors TEXT,
-            manaValue TEXT)
+            manaCost TEXT,
+            manaValue INTEGER)
           """
         );
         db.execute(
@@ -53,7 +54,8 @@ class DeckStorage {
     );
 
     // Populate cards table if it is empty
-    if (await countRows("cards") == 0) {
+    int? cardsInDatabase = await countRows("cards");
+    if (cardsInDatabase == 0) {
       debugPrint("Populating cards table");
       populateCardsTable().then((val) async {
         final int? cardCount = await countRows("cards");
@@ -82,6 +84,7 @@ class DeckStorage {
           'type': cardMap['type'],
           'imageUri': cardMap['image'],
           'colors': cardMap['colors'].join(""),
+          'manaCost': cardMap['mana_cost'],
           'manaValue': cardMap['cmc'].toInt()
         };
 
@@ -106,7 +109,8 @@ class DeckStorage {
         "type": type as String,
         "imageUri": imageUri as String,
         "colors": colors as String,
-        "manaValue": manaValue as String
+        "manaCost": manaCost as String,
+        "manaValue": manaValue
         } in result)
           Card(
               id: id,
@@ -115,10 +119,13 @@ class DeckStorage {
               type: type,
               imageUri: imageUri,
               colors: colors,
-              manaValue: int.parse(manaValue)
+              manaCost: manaCost,
+              manaValue: manaValue != null ? manaValue as int : 0
           )
       ];
-      cardsLoaded = true;
+      if (_allCards.isNotEmpty) {
+        cardsLoaded = true;
+      }
     }
     return _allCards;
   }
@@ -142,7 +149,6 @@ class DeckStorage {
       final deckName = deck['name'] as String;
       final deckDateTime = DateTime.parse(deck['datetime'] as String);
 
-      // FIXME: Mismatch of card id's, either here or at writing to db.
       var currentDecklist = decklists
           .where((x) => x['deckId'] == deckId)
           .map((x) => cards[int.parse(x['cardId'].toString()) - 1])

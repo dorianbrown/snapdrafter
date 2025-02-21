@@ -43,6 +43,7 @@ dependencies:
   sqflite: ^2.4.1
   fuzzywuzzy: ^1.2.0
   mana_icons_flutter: ^1.18.0
+  flutter_svg: ^2.0.17
 
 dev_dependencies:
   flutter_test:
@@ -67,10 +68,8 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/title_detection_yolov11_float32.tflite
-    - assets/title_detection_yolov11_float16.tflite
-    - assets/test_image.jpeg
-    - assets/card_data.json
+    - assets/
+    - assets/svg_icons/
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

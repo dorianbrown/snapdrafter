@@ -8,8 +8,8 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
-import 'package:mana_icons_flutter/mana_icons_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 
 import 'utils/utils.dart';
@@ -173,7 +173,6 @@ class DeckScannerState extends State<DeckScanner> {
         await img.encodeImageFile(tmp_file.path, detectionImg);
 
         final detectionImage = InputImage.fromFilePath(tmp_file.path);
-        // FIXME: Error from image input, not camera
         final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
         detections.add(recognizedText.text);
         debugPrint("recognizedText");
@@ -420,8 +419,8 @@ class MyDecksOverview extends StatelessWidget {
     );
 
     var dataRowList = decks?.map((deck) {
-      return DataRow(cells: [
-        DataCell(GestureDetector(
+      return DataRow(
+        cells: [DataCell(GestureDetector(
           onTap: () {
             Navigator.of(context).push(
                 MaterialPageRoute(builder: (context) => DecklistViewer(deckId: deck.id))
@@ -429,7 +428,15 @@ class MyDecksOverview extends StatelessWidget {
           },
           child: Text(deck.name),
         )),
-        DataCell(Text(deck.colors)),
+        DataCell(Row(
+          children: [
+            for (String color in deck.colors.split(""))
+              SvgPicture.asset(
+                "assets/svg_icons/$color.svg",
+                height: 14,
+              )
+          ],
+        )),
         DataCell(Text(convertDatetimeToString(deck.dateTime), style: dateColumnStyle))
       ]);
     }).toList();
@@ -510,6 +517,10 @@ class DecklistViewerState extends State<DecklistViewer> {
                           DropdownMenuEntry(value: "type", label: "Type"),
                           DropdownMenuEntry(value: "color", label: "Color")
                         ],
+                        onSelected: (value) {
+                          renderValues[1] = value!;
+                          setState(() {});
+                        },
                       ),
                       DropdownMenu(
                         width: 0.3 * MediaQuery.of(context).size.width,
@@ -521,6 +532,10 @@ class DecklistViewerState extends State<DecklistViewer> {
                           DropdownMenuEntry(value: "cmc", label: "CMC"),
                           DropdownMenuEntry(value: "name", label: "Name")
                         ],
+                        onSelected: (value) {
+                          renderValues[2] = value!;
+                          setState(() {});
+                        },
                       ),
                     ]
                   ),
@@ -547,12 +562,25 @@ class DecklistViewerState extends State<DecklistViewer> {
     var renderCard = (renderValues[0] == "text") ? createTextCard : createVisualCard;
     var rows = (renderValues[0] == "text") ? 1 : 2;
 
-    for (String type in models.typeOrder) {
+    final groupingAttribute = renderValues[1];
+    final getAttribute = (groupingAttribute == "type")
+        ? (card) => card.type
+        : (card) => card.color();
+    final uniqueGroupings = (groupingAttribute == "type") ? models.typeOrder : models.colorOrder;
 
-      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,20,0,5), child: Text(type, style: headerStyle))];
+    for (String attribute in uniqueGroupings) {
+
+      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,20,0,5), child: Text(attribute, style: headerStyle))];
+
+      // Sort by mana cost, updated to dynamic
+      if (renderValues[2] == "name") {
+        deck.cards.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+      } else {
+        deck.cards.sort((a, b) => a.manaValue - b.manaValue);
+      }
 
       List<Widget> cardWidgets = deck.cards
-        .where((card) => card.type == type)
+        .where((card) => getAttribute(card) == attribute)
         .map((card) => renderCard(card))
         .toList();
 
@@ -560,7 +588,7 @@ class DecklistViewerState extends State<DecklistViewer> {
       List<Widget> rowChildren = [];
       for (int i=0; i < cardWidgets.length; i++) {
         rowChildren.add(Container(
-          width: (0.85 / rows) * MediaQuery.of(context).size.width,
+          width: (0.94 / rows) * MediaQuery.of(context).size.width,
           child: cardWidgets[i]
         ));
         if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
@@ -584,6 +612,7 @@ class DecklistViewerState extends State<DecklistViewer> {
 
   Widget createTextCard(models.Card card) {
     return Row(
+      spacing: 8,
       children: [
         Text(
           card.title,
@@ -592,16 +621,20 @@ class DecklistViewerState extends State<DecklistViewer> {
               height: 1.5
           ),
         ),
+        card.createManaCost()
       ],
     );
   }
 
   Widget createVisualCard(models.Card card) {
-    return FittedBox(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
-        child: Image.network(card.imageUri!),
-      )
+    return Container(
+      padding: EdgeInsets.all(2),
+        child: FittedBox(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(25),
+            child: Image.network(card.imageUri!),
+          )
+        )    
     );
   }
 
