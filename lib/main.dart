@@ -10,6 +10,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
 
 
 import 'utils/utils.dart';
@@ -18,6 +19,12 @@ import 'utils/models.dart' as models;
 
 late CameraDescription _firstCamera;
 late DeckStorage _deckStorage;
+
+TextStyle _headerStyle = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+    decoration: TextDecoration.underline
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -461,7 +468,8 @@ class DeckViewerState extends State<DeckViewer> {
   final int deckId;
   late Future<List<models.Deck>> decksFuture;
   DeckViewerState(this.deckId);
-  late List<String> renderValues = ["text", "type", "cmc"];
+  List<String> renderValues = ["text", "type", "cmc"];
+  bool? showManaCurve = false;
 
   @override
   void initState() {
@@ -490,11 +498,11 @@ class DeckViewerState extends State<DeckViewer> {
                 padding: EdgeInsets.all(10),
                 children: [
                   Row(
-                    spacing: 5,
+                    spacing: 8,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       DropdownMenu(
-                        width: 0.3 * MediaQuery.of(context).size.width,
+                        width: 0.25 * MediaQuery.of(context).size.width,
                         label: Text("Display"),
                         initialSelection: "text",
                         inputDecorationTheme: createDropdownStyling(),
@@ -509,7 +517,7 @@ class DeckViewerState extends State<DeckViewer> {
                         },
                       ),
                       DropdownMenu(
-                        width: 0.3 * MediaQuery.of(context).size.width,
+                        width: 0.25 * MediaQuery.of(context).size.width,
                         label: Text("Group By"),
                         initialSelection: "type",
                         inputDecorationTheme: createDropdownStyling(),
@@ -524,7 +532,7 @@ class DeckViewerState extends State<DeckViewer> {
                         },
                       ),
                       DropdownMenu(
-                        width: 0.3 * MediaQuery.of(context).size.width,
+                        width: 0.25 * MediaQuery.of(context).size.width,
                         label: Text("Sort By"),
                         initialSelection: "cmc",
                         inputDecorationTheme: createDropdownStyling(),
@@ -538,9 +546,20 @@ class DeckViewerState extends State<DeckViewer> {
                           setState(() {});
                         },
                       ),
+                      Checkbox(
+                        semanticLabel: "test",
+                        visualDensity: VisualDensity.compact,
+                        value: showManaCurve,
+                        onChanged: (bool? value) {
+                          showManaCurve = value;
+                          setState(() {});
+                        }
+                      )
                     ]
                   ),
                   Divider(height: 30),
+                  if (showManaCurve!)
+                    ...generateManaCurve(deck!.cards),
                   ...generateDeckView(deck!, renderValues)
                 ],
               ),
@@ -551,14 +570,76 @@ class DeckViewerState extends State<DeckViewer> {
     );
   }
 
+  List<Widget> generateManaCurve(List<models.Card> cards) {
+
+    List<Widget> outputChildren = [Text("Mana Curve", style: _headerStyle)];
+
+    List<int> manaValues = [0, 1, 2, 3, 4, 5, 6, 7];
+    final nonCreatureSeries = [];
+    final CreatureSeries = [];
+
+    for (var val in manaValues) {
+      condition(card) {
+        if (val < 7) {
+          return (card.manaValue == val && card.type != "Land");
+        } else {
+          return (card.manaValue > 6 && card.type != "Land");
+        }
+      }
+      nonCreatureSeries.add({
+        "manaValue": (val < 7) ? val.toString() : "7+",
+        "count": cards
+            .where((card) => condition(card))
+            .where((card) => card.type != "Creature")
+            .length
+      });
+      CreatureSeries.add({
+        "manaValue": (val < 7) ? val.toString() : "7+",
+        "count": cards
+            .where((card) => condition(card))
+            .where((card) => card.type == "Creature")
+            .length
+      });
+    }
+
+    List<charts.Series<dynamic, String>> seriesList = [
+      charts.Series(
+          id: "Non-Creature",
+          domainFn: (datum, _) => datum["manaValue"],
+          measureFn: (datum, _) => datum["count"],
+          data: nonCreatureSeries
+      ),
+      charts.Series(
+        id: "Creature",
+        domainFn: (datum, _) => datum["manaValue"],
+        measureFn: (datum, _) => datum["count"],
+        data: CreatureSeries
+      )
+    ];
+
+    outputChildren.add(
+      Container(
+        height: 200,
+        child: charts.BarChart(
+          animate: false,
+          seriesList,
+          barGroupingType: charts.BarGroupingType.stacked,
+          primaryMeasureAxis: charts.NumericAxisSpec(
+              tickProviderSpec: charts.BasicNumericTickProviderSpec(
+                dataIsInWholeNumbers: true,
+                desiredMinTickCount: 4
+              )
+          ),
+          behaviors: [new charts.SeriesLegend()]
+        )
+      )
+    );
+    return outputChildren;
+  }
+
   List<Widget> generateDeckView(models.Deck deck, List<String> renderValues) {
     // Initial setup for rendering
     final List<Widget> deckView = [];
-    final headerStyle = TextStyle(
-        fontSize: 20,
-        fontWeight: FontWeight.bold,
-        decoration: TextDecoration.underline
-    );
 
     var renderCard = (renderValues[0] == "text") ? createTextCard : createVisualCard;
     var rows = (renderValues[0] == "text") ? 1 : 2;
@@ -571,7 +652,7 @@ class DeckViewerState extends State<DeckViewer> {
 
     for (String attribute in uniqueGroupings) {
 
-      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,20,0,5), child: Text(attribute, style: headerStyle))];
+      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,20,0,5), child: Text(attribute, style: _headerStyle))];
 
       // Sort by mana cost, updated to dynamic
       if (renderValues[2] == "name") {
@@ -622,6 +703,7 @@ class DeckViewerState extends State<DeckViewer> {
           ),
           child: Text(
             card.title,
+            overflow: TextOverflow.ellipsis,
             style: TextStyle(
               fontSize: 16,
               height: 1.5
