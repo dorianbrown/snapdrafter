@@ -168,18 +168,18 @@ class DeckScannerState extends State<DeckScanner> {
             height: y2-y1
         );
 
-        // FIXME: This isn't working
         Directory tmp_dir = await getTemporaryDirectory();
-        File tmp_file = File('${tmp_dir.path}/thumbnail.jpeg');
-        img.encodeImageFile(tmp_file.path, detectionImg);
+        File tmp_file = File('${tmp_dir.path}/thumbnail.png');
+        await img.encodeImageFile(tmp_file.path, detectionImg);
 
         final detectionImage = InputImage.fromFilePath(tmp_file.path);
-        // FIXME: Problem here with format for text recognizer
+        // FIXME: Error from image input, not camera
         final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
         detections.add(recognizedText.text);
+        debugPrint("recognizedText");
 
         img.drawRect(
-          detectionImg,
+          inputImage,
           x1: x1,
           y1: y1,
           x2: x2,
@@ -189,7 +189,7 @@ class DeckScannerState extends State<DeckScanner> {
         );
 
         img.drawString(
-            detectionImg,
+            inputImage,
             recognizedText.text,
             font: img.arial48,
             x: x1,
@@ -222,15 +222,13 @@ class DeckScannerState extends State<DeckScanner> {
       final bytes = await File(picture.path).readAsBytes();
       img.Image inputImage = debug ? img.decodeImage(data.buffer.asUint8List())! : img.decodeImage(bytes)!;
 
-      // FIXME: Bug here with getting right format for display
       final processedImage = await _processImage(inputImage);
-      File displayFile = File.fromRawPath(processedImage.getBytes());
 
       if (!context.mounted) return;
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => DetectionPreviewScreen(
-            imagePath: displayFile.path,
+            image: processedImage,
             detections: detections
           ),
         ),
@@ -317,10 +315,10 @@ class MainMenuDrawer extends StatelessWidget {
 }
 
 class DetectionPreviewScreen extends StatelessWidget {
-  final String imagePath;
+  final img.Image image;
   final List<String> detections;
 
-  const DetectionPreviewScreen({super.key, required this.imagePath, required this.detections});
+  const DetectionPreviewScreen({super.key, required this.image, required this.detections});
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +326,7 @@ class DetectionPreviewScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Detection Preview')),
       // TODO: Make this zoom to whole viewcreen.
       body: Center(
-        child: InteractiveViewer(child: Image.file(File(imagePath)))
+        child: InteractiveViewer(child: Image.memory(img.encodePng(image)))
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
