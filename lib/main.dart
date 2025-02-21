@@ -9,6 +9,8 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:mana_icons_flutter/mana_icons_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+
 
 import 'utils/utils.dart';
 import 'utils/data.dart';
@@ -130,32 +132,24 @@ class DeckScannerState extends State<DeckScanner> {
     return outputTensor[0];
   }
 
-  Future<img.Image> _processImage(String imagePath) async {
-    final bytes = await File(imagePath).readAsBytes();
-    final originalImage = img.decodeImage(bytes)!;
-    final imageCopy = img.bakeOrientation(originalImage);  // Not sure if this does what I want
-    // final data = await rootBundle.load("assets/test_image.jpeg");
-    // final img.Image originalImage = img.decodeImage(data.buffer.asUint8List())!;
-    // final imageCopy = img.bakeOrientation(originalImage);
-
-    debugPrint("Captured image: ${originalImage.width}x${originalImage.height}");
+  Future<img.Image> _processImage(img.Image inputImage) async {
 
     double widthPadding;
     double heightPadding;
     int scalingFactor;
-    if (imageCopy.width < imageCopy.height) {
-      widthPadding = (imageCopy.height - imageCopy.width) / 2;
+    if (inputImage.width < inputImage.height) {
+      widthPadding = (inputImage.height - inputImage.width) / 2;
       heightPadding = 0.0;
-      scalingFactor = imageCopy.height;
+      scalingFactor = inputImage.height;
     } else {
       widthPadding = 0.0;
-      heightPadding = (imageCopy.width - imageCopy.height) / 2;
-      scalingFactor = imageCopy.width;
+      heightPadding = (inputImage.width - inputImage.height) / 2;
+      scalingFactor = inputImage.width;
     }
 
     // Make global list of detections empty before running detection
     detections = [];
-    final boundingBoxes = await _runInference(imageCopy);
+    final boundingBoxes = await _runInference(inputImage);
     final threshold = 0.5;
 
     for (var i=0; i < boundingBoxes.length; i++) {
@@ -165,28 +159,27 @@ class DeckScannerState extends State<DeckScanner> {
         int y1 = (detection[1] * scalingFactor - heightPadding).toInt();
         int x2 = (detection[2] * scalingFactor - widthPadding).toInt();
         int y2 = (detection[3] * scalingFactor - heightPadding).toInt();
-        double conf = detection[4];
-        double angle = detection[5];
-        debugPrint("x1: $x1, y1: $y2, x2: $x2, y2: $y2, conf: $conf, angle: $angle");
 
         img.Image detectionImg = img.copyCrop(
-            originalImage,
+            inputImage,
             x: x1,
             y: y1,
             width: x2-x1,
             height: y2-y1
         );
 
-        final detectionJpg = img.encodeJpg(detectionImg);
-        final newFilePath = imagePath.replaceAll(".jpg", "_detection_$i.jpg");
-        await File(newFilePath).writeAsBytes(detectionJpg);
+        // FIXME: This isn't working
+        Directory tmp_dir = await getTemporaryDirectory();
+        File tmp_file = File('${tmp_dir.path}/thumbnail.jpeg');
+        img.encodeImageFile(tmp_file.path, detectionImg);
 
-        final detectionImage = InputImage.fromFilePath(newFilePath);
+        final detectionImage = InputImage.fromFilePath(tmp_file.path);
+        // FIXME: Problem here with format for text recognizer
         final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
         detections.add(recognizedText.text);
 
         img.drawRect(
-          imageCopy,
+          detectionImg,
           x1: x1,
           y1: y1,
           x2: x2,
@@ -196,7 +189,7 @@ class DeckScannerState extends State<DeckScanner> {
         );
 
         img.drawString(
-            imageCopy,
+            detectionImg,
             recognizedText.text,
             font: img.arial48,
             x: x1,
@@ -206,10 +199,11 @@ class DeckScannerState extends State<DeckScanner> {
       }
     }
 
-    return imageCopy;
+    return inputImage;
   }
 
-  Future<void> _takePictureAndProcess() async {
+  Future<void> _takePictureAndProcess({bool debug = false}) async {
+
     try {
       await _initializeControllerFuture;
       await _loadModelsFuture;
@@ -221,17 +215,22 @@ class DeckScannerState extends State<DeckScanner> {
         ),
       );
 
+      // If debug
+      final data = await rootBundle.load("assets/test_image.jpeg");
+      // If not debug
       final picture = await _controller.takePicture();
-      final processedImage = await _processImage(picture.path);
-      final jpg = img.encodeJpg(processedImage);
-      final newFilePath = picture.path.replaceAll(".jpg", "_detections.jpg");
-      await File(newFilePath).writeAsBytes(jpg);
+      final bytes = await File(picture.path).readAsBytes();
+      img.Image inputImage = debug ? img.decodeImage(data.buffer.asUint8List())! : img.decodeImage(bytes)!;
+
+      // FIXME: Bug here with getting right format for display
+      final processedImage = await _processImage(inputImage);
+      File displayFile = File.fromRawPath(processedImage.getBytes());
 
       if (!context.mounted) return;
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => DetectionPreviewScreen(
-            imagePath: newFilePath,
+            imagePath: displayFile.path,
             detections: detections
           ),
         ),
@@ -256,10 +255,26 @@ class DeckScannerState extends State<DeckScanner> {
           }
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _modelsLoaded ? _takePictureAndProcess : null,
-        child: const Icon(Icons.camera_alt),
-      ),
+      floatingActionButton: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        spacing: 20,
+        children: [
+          FloatingActionButton(
+            heroTag: "Btn1",
+            onPressed: () {
+              _modelsLoaded ? _takePictureAndProcess(debug: true) : null;
+            },
+            child: const Icon(Icons.computer),
+          ),
+          FloatingActionButton(
+            heroTag: "Btn2",
+            onPressed: () {
+              _modelsLoaded ? _takePictureAndProcess(debug: false) : null;
+            },
+            child: const Icon(Icons.camera_alt),
+          )
+        ]
+      )
     );
   }
 }
@@ -531,10 +546,8 @@ class DecklistViewerState extends State<DecklistViewer> {
         decoration: TextDecoration.underline
     );
 
-    debugPrint(deck.cards.toString());
-
     var renderCard = (renderValues[0] == "text") ? createTextCard : createVisualCard;
-    var rows = (renderValues[0] == "text") ? 1 : 3;
+    var rows = (renderValues[0] == "text") ? 1 : 2;
 
     for (String type in models.typeOrder) {
 
@@ -586,7 +599,6 @@ class DecklistViewerState extends State<DecklistViewer> {
   }
 
   Widget createVisualCard(models.Card card) {
-    debugPrint("${card.name}: ${card.imageUri}");
     return FittedBox(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(25),
