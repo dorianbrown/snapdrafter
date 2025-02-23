@@ -24,29 +24,29 @@ class DeckStorage {
             """
           CREATE TABLE cards(
             id INTEGER PRIMARY KEY,
-            name TEXT,
-            title TEXT,
-            type TEXT,
+            name TEXT NOT NULL,
+            title TEXT NOT NULL,
+            type TEXT NOT NULL,
             imageUri TEXT,
             colors TEXT,
             manaCost TEXT,
-            manaValue INTEGER)
+            manaValue INTEGER NOT NULL)
           """
         );
         db.execute(
           """
           CREATE TABLE decks(
             id INTEGER PRIMARY KEY, 
-            name TEXT, 
-            datetime TEXT)
+            name TEXT NOT NULL, 
+            datetime TEXT NOT NULL)
           """
         );
         db.execute(
           """
           CREATE TABLE decklists(
             id INTEGER PRIMARY KEY, 
-            deckId INTEGER, 
-            cardId INTEGER)
+            deckId INTEGER NOT NULL, 
+            cardId INTEGER NOT NULL)
           """
         );
         debugPrint("sqflite tables created");
@@ -120,7 +120,7 @@ class DeckStorage {
               imageUri: imageUri,
               colors: colors,
               manaCost: manaCost,
-              manaValue: manaValue != null ? manaValue as int : 0
+              manaValue: manaValue as int
           )
       ];
       if (_allCards.isNotEmpty) {

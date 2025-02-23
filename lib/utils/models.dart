@@ -124,6 +124,10 @@ class Deck {
     return outputString;
   }
 
+  String generateTextExport() {
+    return cards.map((card) => card.name).toList().join("\n");
+  }
+
   @override
   String toString() {
     return "Deck{id: $id, name: $name, datetime: ${dateTime.toIso8601String()}, cards: $cards";
@@ -137,7 +141,7 @@ const List<String> typeOrder = [
   "Sorcery",
   "Artifact",
   "Enchantment",
-  "Battle"
+  "Battle",
   "Land",
 ];
 

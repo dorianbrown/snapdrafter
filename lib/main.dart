@@ -10,8 +10,8 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
-
+import 'package:community_charts_flutter/community_charts_flutter.dart'
+    as charts;
 
 import 'utils/utils.dart';
 import 'utils/data.dart';
@@ -23,8 +23,7 @@ late DeckStorage _deckStorage;
 TextStyle _headerStyle = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.bold,
-    decoration: TextDecoration.underline
-);
+    decoration: TextDecoration.underline);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,10 +60,9 @@ class DeckScannerState extends State<DeckScanner> {
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(
-        widget.camera,
-        ResolutionPreset.ultraHigh  // not ultra-high to possibly speed up app
-    );
+    _controller = CameraController(widget.camera,
+        ResolutionPreset.ultraHigh // not ultra-high to possibly speed up app
+        );
     _initializeControllerFuture = _controller.initialize();
     _loadModelsFuture = _loadModels();
     _initializeDatabaseFuture = _initializeDatabase();
@@ -79,7 +77,7 @@ class DeckScannerState extends State<DeckScanner> {
 
       final modelPath = 'assets/title_detection_yolov11_float16.tflite';
       _detector = await Interpreter.fromAsset(modelPath, options: options);
-      _textRecognizer = await TextRecognizer(script: TextRecognitionScript.latin);
+      _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
       setState(() {
         _modelsLoaded = true;
       });
@@ -105,26 +103,29 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<List<List<double>>> _runInference(img.Image image) async {
-
     final input = _detector.getInputTensor(0); // BWHC
-    final output = _detector.getOutputTensor(0);  // BXYXYC
+    final output = _detector.getOutputTensor(0); // BXYXYC
 
-    int input_w = input.shape[1];
-    int input_h = input.shape[2];
+    int inputW = input.shape[1];
+    int inputH = input.shape[2];
 
     final resizedImage = img.copyResize(
       image,
-      width: input_h,
-      height: input_h,
+      width: inputH,
+      height: inputH,
       maintainAspect: true,
       backgroundColor: img.ColorRgba8(0, 0, 0, 255),
     );
 
-    final inputTensor = List<double>.filled(input.shape.reduce((a, b) => a * b), 0).reshape(input.shape);
-    final outputTensor = List<double>.filled(output.shape.reduce((a, b) => a * b), -1).reshape(output.shape);
+    final inputTensor =
+        List<double>.filled(input.shape.reduce((a, b) => a * b), 0)
+            .reshape(input.shape);
+    final outputTensor =
+        List<double>.filled(output.shape.reduce((a, b) => a * b), -1)
+            .reshape(output.shape);
 
-    for (int y = 0; y < input_h; y++) {
-      for (int x = 0; x < input_w; x++) {
+    for (int y = 0; y < inputH; y++) {
+      for (int x = 0; x < inputW; x++) {
         final pixel = resizedImage.getPixel(x, y);
         inputTensor[0][y][x][0] = pixel.r / 255.0;
         inputTensor[0][y][x][1] = pixel.g / 255.0;
@@ -140,7 +141,6 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<img.Image> _processImage(img.Image inputImage) async {
-
     double widthPadding;
     double heightPadding;
     int scalingFactor;
@@ -160,7 +160,7 @@ class DeckScannerState extends State<DeckScanner> {
     final boundingBoxes = await _runInference(inputImage);
     final threshold = 0.5;
 
-    for (var i=0; i < boundingBoxes.length; i++) {
+    for (var i = 0; i < boundingBoxes.length; i++) {
       var detection = boundingBoxes[i];
       if (detection[4] > threshold) {
         int x1 = (detection[0] * scalingFactor - widthPadding).toInt();
@@ -168,20 +168,16 @@ class DeckScannerState extends State<DeckScanner> {
         int x2 = (detection[2] * scalingFactor - widthPadding).toInt();
         int y2 = (detection[3] * scalingFactor - heightPadding).toInt();
 
-        img.Image detectionImg = img.copyCrop(
-            inputImage,
-            x: x1,
-            y: y1,
-            width: x2-x1,
-            height: y2-y1
-        );
+        img.Image detectionImg = img.copyCrop(inputImage,
+            x: x1, y: y1, width: x2 - x1, height: y2 - y1);
 
-        Directory tmp_dir = await getTemporaryDirectory();
-        File tmp_file = File('${tmp_dir.path}/thumbnail.png');
-        await img.encodeImageFile(tmp_file.path, detectionImg);
+        Directory tmpDir = await getTemporaryDirectory();
+        File tmpFile = File('${tmpDir.path}/thumbnail.png');
+        await img.encodeImageFile(tmpFile.path, detectionImg);
 
-        final detectionImage = InputImage.fromFilePath(tmp_file.path);
-        final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
+        final detectionImage = InputImage.fromFilePath(tmpFile.path);
+        final RecognizedText recognizedText =
+            await _textRecognizer.processImage(detectionImage);
         detections.add(recognizedText.text);
         debugPrint("recognizedText");
 
@@ -195,14 +191,11 @@ class DeckScannerState extends State<DeckScanner> {
           thickness: 5,
         );
 
-        img.drawString(
-            inputImage,
-            recognizedText.text,
+        img.drawString(inputImage, recognizedText.text,
             font: img.arial48,
             x: x1,
             y: y1 - 55,
-            color: img.ColorRgba8(255, 242, 0, 255)
-        );
+            color: img.ColorRgba8(255, 242, 0, 255));
       }
     }
 
@@ -210,7 +203,6 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<void> _takePictureAndProcess({bool debug = false}) async {
-
     try {
       await _initializeControllerFuture;
       await _loadModelsFuture;
@@ -227,7 +219,9 @@ class DeckScannerState extends State<DeckScanner> {
       // If not debug
       final picture = await _controller.takePicture();
       final bytes = await File(picture.path).readAsBytes();
-      img.Image inputImage = debug ? img.decodeImage(data.buffer.asUint8List())! : img.decodeImage(bytes)!;
+      img.Image inputImage = debug
+          ? img.decodeImage(data.buffer.asUint8List())!
+          : img.decodeImage(bytes)!;
 
       final processedImage = await _processImage(inputImage);
 
@@ -235,9 +229,7 @@ class DeckScannerState extends State<DeckScanner> {
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => DetectionPreviewScreen(
-            image: processedImage,
-            detections: detections
-          ),
+              image: processedImage, detections: detections),
         ),
       );
     } catch (e) {
@@ -248,39 +240,37 @@ class DeckScannerState extends State<DeckScanner> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Scan Deck')),
-      drawer: MainMenuDrawer(),
-      body: FutureBuilder<void>(
-        future: _initializeControllerFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.done) {
-            return Center(child: CameraPreview(_controller));
-          } else {
-            return const Center(child: CircularProgressIndicator());
-          }
-        },
-      ),
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        spacing: 20,
-        children: [
-          FloatingActionButton(
-            heroTag: "Btn1",
-            onPressed: () {
-              _modelsLoaded ? _takePictureAndProcess(debug: true) : null;
-            },
-            child: const Icon(Icons.computer),
-          ),
-          FloatingActionButton(
-            heroTag: "Btn2",
-            onPressed: () {
-              _modelsLoaded ? _takePictureAndProcess(debug: false) : null;
-            },
-            child: const Icon(Icons.camera_alt),
-          )
-        ]
-      )
-    );
+        appBar: AppBar(title: const Text('Scan Deck')),
+        drawer: MainMenuDrawer(),
+        body: FutureBuilder<void>(
+          future: _initializeControllerFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              return Center(child: CameraPreview(_controller));
+            } else {
+              return const Center(child: CircularProgressIndicator());
+            }
+          },
+        ),
+        floatingActionButton: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            spacing: 20,
+            children: [
+              FloatingActionButton(
+                heroTag: "Btn1",
+                onPressed: () {
+                  _modelsLoaded ? _takePictureAndProcess(debug: true) : null;
+                },
+                child: const Icon(Icons.computer),
+              ),
+              FloatingActionButton(
+                heroTag: "Btn2",
+                onPressed: () {
+                  _modelsLoaded ? _takePictureAndProcess(debug: false) : null;
+                },
+                child: const Icon(Icons.camera_alt),
+              )
+            ]));
   }
 }
 
@@ -289,35 +279,33 @@ class MainMenuDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          SizedBox(
-            height: 120,
-            child: DrawerHeader(
-              decoration: BoxDecoration(color: Colors.blue),
-              padding: EdgeInsets.fromLTRB(15, 40, 0, 0),
-              child: Text('Decklist Scanner'),
-            ),
+        child: ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        SizedBox(
+          height: 120,
+          child: DrawerHeader(
+            decoration: BoxDecoration(color: Colors.blue),
+            padding: EdgeInsets.fromLTRB(15, 40, 0, 0),
+            child: Text('Decklist Scanner'),
           ),
-          ListTile(
-            title: const Text('Scan Deck'),
-            onTap: () {
-              Navigator.of(context).popUntil(ModalRoute.withName('/'));
-            },
-          ),
-          ListTile(
-            title: const Text('View My Decks'),
-            onTap: () {
-              Navigator.of(context).popUntil(ModalRoute.withName('/'));
-              Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => const MyDecksOverview())
-              );
-            },
-          ),
-        ],
-      )
-    );
+        ),
+        ListTile(
+          title: const Text('Scan Deck'),
+          onTap: () {
+            Navigator.of(context).popUntil(ModalRoute.withName('/'));
+          },
+        ),
+        ListTile(
+          title: const Text('View My Decks'),
+          onTap: () {
+            Navigator.of(context).popUntil(ModalRoute.withName('/'));
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const MyDecksOverview()));
+          },
+        ),
+      ],
+    ));
   }
 }
 
@@ -325,7 +313,8 @@ class DetectionPreviewScreen extends StatelessWidget {
   final img.Image image;
   final List<String> detections;
 
-  const DetectionPreviewScreen({super.key, required this.image, required this.detections});
+  const DetectionPreviewScreen(
+      {super.key, required this.image, required this.detections});
 
   @override
   Widget build(BuildContext context) {
@@ -333,27 +322,25 @@ class DetectionPreviewScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Detection Preview')),
       // TODO: Make this zoom to whole viewcreen.
       body: Center(
-        child: InteractiveViewer(child: Image.memory(img.encodePng(image)))
-      ),
+          child: InteractiveViewer(child: Image.memory(img.encodePng(image)))),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => Center(child: CircularProgressIndicator()),
-            ),
-          );
-          final deckId = await createDeckAndSave(detections);
-          Navigator.of(context).pushAndRemoveUntil(
+          onPressed: () async {
+            Navigator.of(context).push(
               MaterialPageRoute(
-                builder: (context) => DeckViewer(deckId: deckId),
+                builder: (context) =>
+                    Center(child: CircularProgressIndicator()),
               ),
-              ModalRoute.withName('/')
-          );
-          // Make sure to adjust route to go back to 'My Decks'
-        },
-        label: Text("Save Deck"),
-        icon: Icon(Icons.add)
-      ),
+            );
+            final deckId = await createDeckAndSave(detections);
+            Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(
+                  builder: (context) => DeckViewer(deckId: deckId),
+                ),
+                ModalRoute.withName('/'));
+            // Make sure to adjust route to go back to 'My Decks'
+          },
+          label: Text("Save Deck"),
+          icon: Icon(Icons.add)),
     );
   }
 
@@ -363,10 +350,7 @@ class DetectionPreviewScreen extends StatelessWidget {
     final List<models.Card> matchedCards = [];
     debugPrint("Matching detections with database");
     for (final detection in detections) {
-      final match = extractOne(
-        query: detection,
-        choices: choices
-      );
+      final match = extractOne(query: detection, choices: choices);
       debugPrint(match.toString());
       debugPrint(allCards[match.index].toString());
       matchedCards.add(allCards[match.index]);
@@ -385,54 +369,47 @@ class MyDecksOverview extends StatelessWidget {
     Future<List<models.Deck>> decksFuture = _deckStorage.getAllDecks();
     final TextStyle dataColumnStyle = TextStyle(fontWeight: FontWeight.bold);
     return FutureBuilder<List<models.Deck>>(
-      future: decksFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
-        } else {
-          final List<models.Deck>? decks = snapshot.data;
-          return Scaffold(
-            appBar: AppBar(title: Text("My Decks")),
-            drawer: MainMenuDrawer(),
-            body: Container(
-              alignment: Alignment.topCenter,
-              child: ListView(
-                children: [
-                  DataTable(
-                      columns: [
-                        DataColumn(label: Text("Deck Name", style: dataColumnStyle)),
-                        DataColumn(label: Text("Colors", style: dataColumnStyle)),
-                        DataColumn(label: Text("Date", style: dataColumnStyle)),
+        future: decksFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          } else {
+            final List<models.Deck>? decks = snapshot.data;
+            return Scaffold(
+                appBar: AppBar(title: Text("My Decks")),
+                drawer: MainMenuDrawer(),
+                body: Container(
+                    alignment: Alignment.topCenter,
+                    child: ListView(
+                      children: [
+                        DataTable(columns: [
+                          DataColumn(
+                              label: Text("Deck Name", style: dataColumnStyle)),
+                          DataColumn(
+                              label: Text("Colors", style: dataColumnStyle)),
+                          DataColumn(
+                              label: Text("Date", style: dataColumnStyle)),
+                        ], rows: [
+                          ...generateDataRows(decks, context)
+                        ])
                       ],
-                      rows: [
-                        ...generateDataRows(decks, context)
-                      ]
-                  )
-                ],
-              )
-            )
-          );
-        }
-      }
-    );
+                    )));
+          }
+        });
   }
 
   List<DataRow> generateDataRows(List<models.Deck>? decks, context) {
-
     final TextStyle dateColumnStyle = TextStyle(
-      color: Colors.grey.withAlpha(255),
-      fontStyle: FontStyle.italic
-    );
+        color: Colors.grey.withAlpha(255), fontStyle: FontStyle.italic);
 
     var dataRowList = decks?.map((deck) {
-      return DataRow(
-        cells: [DataCell(GestureDetector(
+      return DataRow(cells: [
+        DataCell(GestureDetector(
           onTap: () {
-            Navigator.of(context).push(
-                MaterialPageRoute(builder: (context) => DeckViewer(deckId: deck.id))
-            );
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => DeckViewer(deckId: deck.id)));
           },
           child: Text(deck.name),
         )),
@@ -445,7 +422,8 @@ class MyDecksOverview extends StatelessWidget {
               )
           ],
         )),
-        DataCell(Text(convertDatetimeToString(deck.dateTime), style: dateColumnStyle))
+        DataCell(Text(convertDatetimeToString(deck.dateTime),
+            style: dateColumnStyle))
       ]);
     }).toList();
     if (dataRowList != null) {
@@ -469,7 +447,7 @@ class DeckViewerState extends State<DeckViewer> {
   late Future<List<models.Deck>> decksFuture;
   DeckViewerState(this.deckId);
   List<String> renderValues = ["text", "type", "cmc"];
-  bool? showManaCurve = false;
+  bool? showManaCurve = true;
 
   @override
   void initState() {
@@ -480,98 +458,114 @@ class DeckViewerState extends State<DeckViewer> {
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<models.Deck>>(
-      future: decksFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
-        } else {
-          final List<models.Deck>? decks = snapshot.data;
-          final deck = decks?[deckId - 1];
-          return Scaffold(
-            appBar: AppBar(title: Text("${deck?.name}")),
-            body: Container(
-              // margin: EdgeInsets.fromLTRB(50, 25, 50, 25),
-              alignment: Alignment.topCenter,
-              child: ListView(
-                padding: EdgeInsets.all(10),
-                children: [
-                  Row(
-                    spacing: 8,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      DropdownMenu(
-                        width: 0.25 * MediaQuery.of(context).size.width,
-                        label: Text("Display"),
-                        initialSelection: "text",
-                        inputDecorationTheme: createDropdownStyling(),
-                        textStyle: TextStyle(fontSize: 12),
-                        dropdownMenuEntries: [
-                          DropdownMenuEntry(value: "text", label: "Text"),
-                          DropdownMenuEntry(value: "image", label: "Images")
-                        ],
-                        onSelected: (value) {
-                          renderValues[0] = value!;
-                          setState(() {});
-                        },
-                      ),
-                      DropdownMenu(
-                        width: 0.25 * MediaQuery.of(context).size.width,
-                        label: Text("Group By"),
-                        initialSelection: "type",
-                        inputDecorationTheme: createDropdownStyling(),
-                        textStyle: TextStyle(fontSize: 12),
-                        dropdownMenuEntries: [
-                          DropdownMenuEntry(value: "type", label: "Type"),
-                          DropdownMenuEntry(value: "color", label: "Color")
-                        ],
-                        onSelected: (value) {
-                          renderValues[1] = value!;
-                          setState(() {});
-                        },
-                      ),
-                      DropdownMenu(
-                        width: 0.25 * MediaQuery.of(context).size.width,
-                        label: Text("Sort By"),
-                        initialSelection: "cmc",
-                        inputDecorationTheme: createDropdownStyling(),
-                        textStyle: TextStyle(fontSize: 12),
-                        dropdownMenuEntries: [
-                          DropdownMenuEntry(value: "cmc", label: "CMC"),
-                          DropdownMenuEntry(value: "name", label: "Name")
-                        ],
-                        onSelected: (value) {
-                          renderValues[2] = value!;
-                          setState(() {});
-                        },
-                      ),
-                      Checkbox(
-                        semanticLabel: "test",
-                        visualDensity: VisualDensity.compact,
-                        value: showManaCurve,
-                        onChanged: (bool? value) {
-                          showManaCurve = value;
-                          setState(() {});
-                        }
-                      )
-                    ]
-                  ),
-                  Divider(height: 30),
-                  if (showManaCurve!)
-                    ...generateManaCurve(deck!.cards),
-                  ...generateDeckView(deck!, renderValues)
-                ],
+        future: decksFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return Center(
+              child: CircularProgressIndicator(),
+            );
+          } else {
+            final List<models.Deck>? decks = snapshot.data;
+            final deck = decks?[deckId - 1];
+            debugPrint(deck!.cards.toString());
+            return Scaffold(
+              appBar: AppBar(title: Text(deck.name)),
+              body: Container(
+                // margin: EdgeInsets.fromLTRB(50, 25, 50, 25),
+                alignment: Alignment.topCenter,
+                child: ListView(
+                  padding: EdgeInsets.all(10),
+                  children: [
+                    Row(
+                        spacing: 8,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          DropdownMenu(
+                            width: 0.25 * MediaQuery.of(context).size.width,
+                            label: Text("Display"),
+                            initialSelection: "text",
+                            inputDecorationTheme: createDropdownStyling(),
+                            textStyle: TextStyle(fontSize: 12),
+                            dropdownMenuEntries: [
+                              DropdownMenuEntry(value: "text", label: "Text"),
+                              DropdownMenuEntry(value: "image", label: "Images")
+                            ],
+                            onSelected: (value) {
+                              renderValues[0] = value!;
+                              setState(() {});
+                            },
+                          ),
+                          DropdownMenu(
+                            width: 0.25 * MediaQuery.of(context).size.width,
+                            label: Text("Group By"),
+                            initialSelection: "type",
+                            inputDecorationTheme: createDropdownStyling(),
+                            textStyle: TextStyle(fontSize: 12),
+                            dropdownMenuEntries: [
+                              DropdownMenuEntry(value: "type", label: "Type"),
+                              DropdownMenuEntry(value: "color", label: "Color")
+                            ],
+                            onSelected: (value) {
+                              renderValues[1] = value!;
+                              setState(() {});
+                            },
+                          ),
+                          DropdownMenu(
+                            width: 0.25 * MediaQuery.of(context).size.width,
+                            label: Text("Sort By"),
+                            initialSelection: "cmc",
+                            inputDecorationTheme: createDropdownStyling(),
+                            textStyle: TextStyle(fontSize: 12),
+                            dropdownMenuEntries: [
+                              DropdownMenuEntry(value: "cmc", label: "CMC"),
+                              DropdownMenuEntry(value: "name", label: "Name")
+                            ],
+                            onSelected: (value) {
+                              renderValues[2] = value!;
+                              setState(() {});
+                            },
+                          ),
+                          Checkbox(
+                              semanticLabel: "test",
+                              visualDensity: VisualDensity.compact,
+                              value: showManaCurve,
+                              onChanged: (bool? value) {
+                                showManaCurve = value;
+                                setState(() {});
+                              })
+                        ]),
+                    Divider(height: 30),
+                    if (showManaCurve!) ...generateManaCurve(deck.cards),
+                    ...generateDeckView(deck, renderValues)
+                  ],
+                ),
               ),
-            )
-          );
-        }
-      }
-    );
+              floatingActionButton: FloatingActionButton(
+                heroTag: "Btn1",
+                onPressed: () {
+                  final controller = TextEditingController(text: deck.generateTextExport());
+                  showDialog(
+                      context: context,
+                      builder: (context) => Dialog(
+                          child: Padding(
+                              padding: const EdgeInsets.all(15),
+                              child: TextFormField(
+                                readOnly: true,
+                                keyboardType: TextInputType.multiline,
+                                maxLines: null,
+                                minLines: 10,
+                                controller: controller,
+                                onTap: () => controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.value.text.length),
+                              ))));
+                },
+                child: const Icon(Icons.share),
+              ),
+            );
+          }
+        });
   }
 
   List<Widget> generateManaCurve(List<models.Card> cards) {
-
     List<Widget> outputChildren = [Text("Mana Curve", style: _headerStyle)];
 
     List<int> manaValues = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -581,11 +575,12 @@ class DeckViewerState extends State<DeckViewer> {
     for (var val in manaValues) {
       condition(card) {
         if (val < 7) {
-          return (card.manaValue == val && card.type != "Land");
+          return (card.manaValue == val);
         } else {
-          return (card.manaValue > 6 && card.type != "Land");
+          return (card.manaValue > 6);
         }
       }
+
       nonCreatureSeries.add({
         "manaValue": (val < 7) ? val.toString() : "7+",
         "count": cards
@@ -607,33 +602,24 @@ class DeckViewerState extends State<DeckViewer> {
           id: "Non-Creature",
           domainFn: (datum, _) => datum["manaValue"],
           measureFn: (datum, _) => datum["count"],
-          data: nonCreatureSeries
-      ),
+          data: nonCreatureSeries),
       charts.Series(
-        id: "Creature",
-        domainFn: (datum, _) => datum["manaValue"],
-        measureFn: (datum, _) => datum["count"],
-        data: CreatureSeries
-      )
+          id: "Creature",
+          domainFn: (datum, _) => datum["manaValue"],
+          measureFn: (datum, _) => datum["count"],
+          data: CreatureSeries)
     ];
 
-    outputChildren.add(
-      Container(
+    outputChildren.add(SizedBox(
         height: 200,
         child: charts.BarChart(
-          animate: false,
-          seriesList,
-          barGroupingType: charts.BarGroupingType.stacked,
-          primaryMeasureAxis: charts.NumericAxisSpec(
-              tickProviderSpec: charts.BasicNumericTickProviderSpec(
-                dataIsInWholeNumbers: true,
-                desiredMinTickCount: 4
-              )
-          ),
-          behaviors: [new charts.SeriesLegend()]
-        )
-      )
-    );
+            animate: false,
+            seriesList,
+            barGroupingType: charts.BarGroupingType.stacked,
+            primaryMeasureAxis: charts.NumericAxisSpec(
+                tickProviderSpec: charts.BasicNumericTickProviderSpec(
+                    dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
+            behaviors: [new charts.SeriesLegend()])));
     return outputChildren;
   }
 
@@ -641,38 +627,43 @@ class DeckViewerState extends State<DeckViewer> {
     // Initial setup for rendering
     final List<Widget> deckView = [];
 
-    var renderCard = (renderValues[0] == "text") ? createTextCard : createVisualCard;
+    var renderCard =
+        (renderValues[0] == "text") ? createTextCard : createVisualCard;
     var rows = (renderValues[0] == "text") ? 1 : 2;
 
     final groupingAttribute = renderValues[1];
     final getAttribute = (groupingAttribute == "type")
         ? (card) => card.type
         : (card) => card.color();
-    final uniqueGroupings = (groupingAttribute == "type") ? models.typeOrder : models.colorOrder;
+    final uniqueGroupings =
+        (groupingAttribute == "type") ? models.typeOrder : models.colorOrder;
 
     for (String attribute in uniqueGroupings) {
-
-      List<Widget> header = [Container(padding: EdgeInsets.fromLTRB(0,20,0,5), child: Text(attribute, style: _headerStyle))];
+      List<Widget> header = [
+        Container(
+            padding: EdgeInsets.fromLTRB(0, 20, 0, 5),
+            child: Text(attribute, style: _headerStyle))
+      ];
 
       // Sort by mana cost, updated to dynamic
       if (renderValues[2] == "name") {
-        deck.cards.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+        deck.cards.sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
       } else {
         deck.cards.sort((a, b) => a.manaValue - b.manaValue);
       }
 
       List<Widget> cardWidgets = deck.cards
-        .where((card) => getAttribute(card) == attribute)
-        .map((card) => renderCard(card))
-        .toList();
+          .where((card) => getAttribute(card) == attribute)
+          .map((card) => renderCard(card))
+          .toList();
 
       List<Widget> typeList = [];
       List<Widget> rowChildren = [];
-      for (int i=0; i < cardWidgets.length; i++) {
+      for (int i = 0; i < cardWidgets.length; i++) {
         rowChildren.add(Container(
-          width: (0.94 / rows) * MediaQuery.of(context).size.width,
-          child: cardWidgets[i]
-        ));
+            width: (0.94 / rows) * MediaQuery.of(context).size.width,
+            child: cardWidgets[i]));
         if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
           typeList.add(Row(
             mainAxisAlignment: MainAxisAlignment.start,
@@ -685,8 +676,7 @@ class DeckViewerState extends State<DeckViewer> {
       if (cardWidgets.isNotEmpty) {
         deckView.add(Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: header + typeList
-        ));
+            children: header + typeList));
       }
     }
     return deckView;
@@ -698,16 +688,13 @@ class DeckViewerState extends State<DeckViewer> {
       children: [
         GestureDetector(
           onTap: () => showDialog(
-            context: context,
-            builder: (context) => Container(padding: EdgeInsets.all(30), child: createVisualCard(card))
-          ),
+              context: context,
+              builder: (context) => Container(
+                  padding: EdgeInsets.all(30), child: createVisualCard(card))),
           child: Text(
             card.title,
             overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 16,
-              height: 1.5
-            ),
+            style: TextStyle(fontSize: 16, height: 1.5),
           ),
         ),
         card.createManaCost()
@@ -717,14 +704,12 @@ class DeckViewerState extends State<DeckViewer> {
 
   Widget createVisualCard(models.Card card) {
     return Container(
-      padding: EdgeInsets.all(2),
+        padding: EdgeInsets.all(2),
         child: FittedBox(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(25),
-            child: Image.network(card.imageUri!),
-          )
-        )    
-    );
+            child: ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: Image.network(card.imageUri!),
+        )));
   }
 
   InputDecorationTheme createDropdownStyling() {
@@ -732,9 +717,7 @@ class DeckViewerState extends State<DeckViewer> {
       labelStyle: TextStyle(fontSize: 10),
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      constraints: BoxConstraints.tight(
-        const Size.fromHeight(40)
-      ),
+      constraints: BoxConstraints.tight(const Size.fromHeight(40)),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
       ),
