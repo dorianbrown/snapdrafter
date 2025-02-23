@@ -446,7 +446,7 @@ class DeckViewerState extends State<DeckViewer> {
   final int deckId;
   late Future<List<models.Deck>> decksFuture;
   DeckViewerState(this.deckId);
-  List<String> renderValues = ["text", "type", "cmc"];
+  List<String> renderValues = ["text", "type"];
   bool? showManaCurve = true;
 
   @override
@@ -481,7 +481,7 @@ class DeckViewerState extends State<DeckViewer> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           DropdownMenu(
-                            width: 0.25 * MediaQuery.of(context).size.width,
+                            width: 0.3 * MediaQuery.of(context).size.width,
                             label: Text("Display"),
                             initialSelection: "text",
                             inputDecorationTheme: createDropdownStyling(),
@@ -496,7 +496,7 @@ class DeckViewerState extends State<DeckViewer> {
                             },
                           ),
                           DropdownMenu(
-                            width: 0.25 * MediaQuery.of(context).size.width,
+                            width: 0.3 * MediaQuery.of(context).size.width,
                             label: Text("Group By"),
                             initialSelection: "type",
                             inputDecorationTheme: createDropdownStyling(),
@@ -510,30 +510,23 @@ class DeckViewerState extends State<DeckViewer> {
                               setState(() {});
                             },
                           ),
-                          DropdownMenu(
-                            width: 0.25 * MediaQuery.of(context).size.width,
-                            label: Text("Sort By"),
-                            initialSelection: "cmc",
-                            inputDecorationTheme: createDropdownStyling(),
-                            textStyle: TextStyle(fontSize: 12),
-                            dropdownMenuEntries: [
-                              DropdownMenuEntry(value: "cmc", label: "CMC"),
-                              DropdownMenuEntry(value: "name", label: "Name")
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            spacing: 2,
+                            children: [
+                              Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
+                              Checkbox(
+                                  visualDensity: VisualDensity.compact,
+                                  value: showManaCurve,
+                                  onChanged: (bool? value) {
+                                    showManaCurve = value;
+                                    setState(() {});
+                                  }
+                              ),
                             ],
-                            onSelected: (value) {
-                              renderValues[2] = value!;
-                              setState(() {});
-                            },
-                          ),
-                          Checkbox(
-                              semanticLabel: "test",
-                              visualDensity: VisualDensity.compact,
-                              value: showManaCurve,
-                              onChanged: (bool? value) {
-                                showManaCurve = value;
-                                setState(() {});
-                              })
-                        ]),
+                          )
+                        ]
+                    ),
                     Divider(height: 30),
                     if (showManaCurve!) ...generateManaCurve(deck.cards),
                     ...generateDeckView(deck, renderValues)
@@ -550,10 +543,11 @@ class DeckViewerState extends State<DeckViewer> {
                           child: Padding(
                               padding: const EdgeInsets.all(15),
                               child: TextFormField(
+                                expands: true,
                                 readOnly: true,
                                 keyboardType: TextInputType.multiline,
                                 maxLines: null,
-                                minLines: 10,
+                                minLines: null,
                                 controller: controller,
                                 onTap: () => controller.selection = TextSelection(baseOffset: 0, extentOffset: controller.value.text.length),
                               ))));
@@ -644,14 +638,6 @@ class DeckViewerState extends State<DeckViewer> {
             padding: EdgeInsets.fromLTRB(0, 20, 0, 5),
             child: Text(attribute, style: _headerStyle))
       ];
-
-      // Sort by mana cost, updated to dynamic
-      if (renderValues[2] == "name") {
-        deck.cards.sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
-      } else {
-        deck.cards.sort((a, b) => a.manaValue - b.manaValue);
-      }
 
       List<Widget> cardWidgets = deck.cards
           .where((card) => getAttribute(card) == attribute)
