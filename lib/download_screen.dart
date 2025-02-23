@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
+
+// TODO: Check for wifi connection before downloading.
 
 class DownloadScreen extends StatefulWidget {
   const DownloadScreen({Key? key}) : super(key: key);
@@ -12,8 +16,8 @@ class DownloadScreen extends StatefulWidget {
 }
 
 class _DownloadScreenState extends State<DownloadScreen> {
-  // TODO: We need to track totalBytes and actualBytes separately
   ValueNotifier downloadProgressNotifier = ValueNotifier(0);
+  int totalBytes = 0;
 
   @override
   initState() {
@@ -30,34 +34,40 @@ class _DownloadScreenState extends State<DownloadScreen> {
             valueListenable: downloadProgressNotifier,
             builder: (context, value, snapshot) {
               return Column(
+                spacing: 25,
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Text(
-                    "Downloading Scryfall Card Data",
-                    style: TextStyle(
+                      "Scryfall Card Data",
+                      style: TextStyle(
                         fontSize: 20.0,
                         fontWeight: FontWeight.w600,
-                    )
+                      )
                   ),
-                  const SizedBox(
-                    height: 32,
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+                    child: const Icon(Icons.file_download_outlined, size: 70)
                   ),
-                  LinearProgressIndicator(
-                    value: double.parse(downloadProgressNotifier.value.toString()) / 100,
-                  ),
-                  const SizedBox(
-                    height: 32,
-                  ),
-                  const SizedBox(
-                    height: 15,
+                  Padding(
+                      padding: EdgeInsets.fromLTRB(50, 0, 50, 0),
+                      child: LinearProgressIndicator(
+                        value: totalBytes > 0
+                            ? downloadProgressNotifier.value / totalBytes
+                            : 0,
+                      ),
                   ),
                   Text(
-                    "${downloadProgressNotifier.value}%",
+                    (totalBytes > 0)
+                      ? (downloadProgressNotifier.value < totalBytes)
+                        ? "${(downloadProgressNotifier.value / (1000 * 1000)).ceil()} MB downloaded"
+                        : "Download complete"
+                      : "Querying Scryfall"
+                    ,
                     style: const TextStyle(
                         fontSize: 20.0,
                         fontWeight: FontWeight.w600,
-                        color: Colors.black),
+                        color: Colors.white),
                   ),
                 ],
               );
@@ -74,15 +84,37 @@ class _DownloadScreenState extends State<DownloadScreen> {
     } else {
       directory = (await getApplicationDocumentsDirectory());
     }
+
+    final response = await http.get(Uri.parse("https://api.scryfall.com/bulk-data"));
+    String downloadUri;
+    if (response.statusCode == 200) {
+      var responseMap = jsonDecode(response.body);
+      try {
+        final dataMap = responseMap["data"]
+            .where((x) => x["type"] == "unique_artwork")
+            .toList()[0];
+        downloadUri = dataMap["download_uri"];
+        totalBytes = dataMap["size"];
+      } on Exception catch (e) {
+        throw Exception('Unable to connect to api.scryfall.com: $e');
+      }
+    } else {
+      throw Exception('Unable to connect to api.scryfall.com. Status code: ${response.statusCode}');
+    }
+
+    String outputPath = '${directory.path}/scryfall-card-data.json';
     await Dio().download(
-        // TODO: Use https://api.scryfall.com/bulk-data to get correct download link
-        "https://data.scryfall.io/unique-artwork/unique-artwork-20250223100404.json",
-        '${directory.path}/scryfall-card-data.json',
-        onReceiveProgress: (actualBytes, int totalBytes) {
-          // TODO: If totalBytes == -1, then we need to show #mB downloaded instead of current
-          downloadProgressNotifier.value = (actualBytes / totalBytes * 100).floor();
-        });
-    debugPrint('File downloaded at ${directory.path}/samplePDF.pdf');
+      downloadUri,
+      outputPath,
+      onReceiveProgress: (actualBytes, int _) {
+        downloadProgressNotifier.value = actualBytes;
+      }
+    ).then((onValue) async {
+      final file = await File(outputPath).readAsString();
+      final rawDataMap = jsonDecode(file);
+      // Parse rawData, then write to database
+    });
+    debugPrint('File downloaded at $outputPath');
   }
 
 }

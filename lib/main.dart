@@ -306,7 +306,7 @@ class MainMenuDrawer extends StatelessWidget {
           },
         ),
         ListTile(
-          title: const Text('Download Scryfall Cards'),
+          title: const Text('Download Scryfall Data'),
           onTap: () {
             Navigator.of(context).push(MaterialPageRoute(
                 builder: (context) => const DownloadScreen()));
@@ -474,8 +474,7 @@ class DeckViewerState extends State<DeckViewer> {
             );
           } else {
             final List<models.Deck>? decks = snapshot.data;
-            final deck = decks?[deckId - 1];
-            debugPrint(deck!.cards.toString());
+            final deck = decks![deckId - 1];
             return Scaffold(
               appBar: AppBar(title: Text(deck.name)),
               body: Container(
@@ -572,7 +571,7 @@ class DeckViewerState extends State<DeckViewer> {
 
     List<int> manaValues = [0, 1, 2, 3, 4, 5, 6, 7];
     final nonCreatureSeries = [];
-    final CreatureSeries = [];
+    final creatureSeries = [];
 
     for (var val in manaValues) {
       condition(card) {
@@ -590,7 +589,7 @@ class DeckViewerState extends State<DeckViewer> {
             .where((card) => card.type != "Creature")
             .length
       });
-      CreatureSeries.add({
+      creatureSeries.add({
         "manaValue": (val < 7) ? val.toString() : "7+",
         "count": cards
             .where((card) => condition(card))
@@ -609,7 +608,7 @@ class DeckViewerState extends State<DeckViewer> {
           id: "Creature",
           domainFn: (datum, _) => datum["manaValue"],
           measureFn: (datum, _) => datum["count"],
-          data: CreatureSeries)
+          data: creatureSeries)
     ];
 
     outputChildren.add(SizedBox(
@@ -621,7 +620,7 @@ class DeckViewerState extends State<DeckViewer> {
             primaryMeasureAxis: charts.NumericAxisSpec(
                 tickProviderSpec: charts.BasicNumericTickProviderSpec(
                     dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
-            behaviors: [new charts.SeriesLegend()])));
+            behaviors: [charts.SeriesLegend()])));
     return outputChildren;
   }
 
@@ -655,7 +654,7 @@ class DeckViewerState extends State<DeckViewer> {
       List<Widget> typeList = [];
       List<Widget> rowChildren = [];
       for (int i = 0; i < cardWidgets.length; i++) {
-        rowChildren.add(Container(
+        rowChildren.add(SizedBox(
             width: (0.94 / rows) * MediaQuery.of(context).size.width,
             child: cardWidgets[i]));
         if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
