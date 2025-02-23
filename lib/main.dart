@@ -16,6 +16,7 @@ import 'package:community_charts_flutter/community_charts_flutter.dart'
 import 'utils/utils.dart';
 import 'utils/data.dart';
 import 'utils/models.dart' as models;
+import 'download_screen.dart';
 
 late CameraDescription _firstCamera;
 late DeckStorage _deckStorage;
@@ -302,6 +303,13 @@ class MainMenuDrawer extends StatelessWidget {
             Navigator.of(context).popUntil(ModalRoute.withName('/'));
             Navigator.of(context).push(MaterialPageRoute(
                 builder: (context) => const MyDecksOverview()));
+          },
+        ),
+        ListTile(
+          title: const Text('Download Scryfall Cards'),
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const DownloadScreen()));
           },
         ),
       ],
