@@ -183,6 +183,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
       }
 
       return models.Card(
+          scryfallId: val["id"],
+          oracleId: val["oracle_id"],
           name: val["name"],
           title: val["name"].split(" // ")[0],
           type: cardType,

@@ -2,7 +2,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/material.dart';
 
 class Card {
-  final int? id;
+  final String scryfallId;
+  final String oracleId;
   final String name;
   final String title;
   final String type;  // First hit from list Creature, Artifact, etc
@@ -12,7 +13,8 @@ class Card {
   final int manaValue;
 
   const Card({
-    this.id,
+    required this.scryfallId,
+    required this.oracleId,
     required this.name,
     required this.title,
     required this.type,
@@ -24,14 +26,15 @@ class Card {
 
   Map<String, Object?> toMap() {
     var map = {
-      if (id != null) "id": id,
+      "scryfall_id": scryfallId,
+      "oracle_id": oracleId,
       "name": name,
       "title": title,
       "type": type,
-      "imageUri": imageUri,
+      "image_uri": imageUri,
       "colors": colors,
-      "manaCost": manaCost,
-      "manaValue": manaValue
+      "mana_cost": manaCost,
+      "mana_value": manaValue
     };
     return map;
   }
@@ -69,30 +72,29 @@ class Card {
 
   @override
   String toString() {
-    return "Card{$id, $name, $title, $type, $imageUri, $colors, $manaCost, $manaValue}";
+    return "Card${toMap().toString()}";
   }
 }
 
 class Decklist {
   final int? id;
   final int deckId;
-  final int cardId;
+  final String scryfallId;
 
   const Decklist({
     this.id,
     required this.deckId,
-    required this.cardId
+    required this.scryfallId
   });
 
   Map<String, Object?> toMap() {
-    var map = {'id': id, 'deckId': deckId, 'cardId': cardId};
-    map.removeWhere((k,v) => v == null);
+    var map = {'id': id, 'deck_id': deckId, 'scryfall_id': scryfallId};
     return map;
   }
 
   @override
   String toString() {
-    return 'Dog{id: $id, deckId: $deckId, cardId: $cardId}';
+    return 'DecklistEntry{id: $id, deckId: $deckId, scryfallId: $scryfallId}';
   }
 }
 

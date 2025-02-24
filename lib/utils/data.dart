@@ -9,6 +9,7 @@ import 'models.dart';
 class DeckStorage {
   late Database _database;
   late List<Card> _allCards;
+  Map<String,Card>? _allCardsMap;
   var cardsLoaded = false;
   final String _databaseName = 'decklistScanner.db';
   final int _databaseVersion = 1;
@@ -27,14 +28,15 @@ class DeckStorage {
         db.execute(
             """
           CREATE TABLE cards(
-            id INTEGER PRIMARY KEY,
+            scryfall_id TEXT PRIMARY KEY,
+            oracle_id TEXT NOT NULL,
             name TEXT NOT NULL,
             title TEXT NOT NULL,
             type TEXT NOT NULL,
-            imageUri TEXT,
+            image_uri TEXT,
             colors TEXT,
-            manaCost TEXT,
-            manaValue INTEGER NOT NULL)
+            mana_cost TEXT,
+            mana_value INTEGER NOT NULL)
           """
         );
         db.execute(
@@ -49,15 +51,15 @@ class DeckStorage {
           """
           CREATE TABLE decklists(
             id INTEGER PRIMARY KEY, 
-            deckId INTEGER NOT NULL, 
-            cardId INTEGER NOT NULL)
+            deck_id INTEGER NOT NULL, 
+            scryfall_id TEXT NOT NULL)
           """
         );
         db.execute(
           """
           CREATE TABLE scryfall_metadata(
             id INTEGER PRIMARY KEY,
-            datetime TEXT,
+            datetime TEXT NOT NULL,
             newest_set_name TEXT NOT NULL
           )
           """
@@ -73,10 +75,6 @@ class DeckStorage {
     }
   }
 
-  // TODO: Distinguish between existing cards in table (so only add new) or
-  //      or completely remove and repopulate.
-  // TODO: Or we update keys in decklists table
-  // I think we'll need a real primary key from scryfall to handle conflicts
   Future<void> populateCardsTable(List<Card> cards, Map<String, dynamic> scryfallMetadata) async {
 
     _database.transaction((txn) async {
@@ -98,22 +96,34 @@ class DeckStorage {
     });
   }
 
+  Future<Map<String, Card>> getCardsMap() async {
+    if (_allCardsMap == null) {
+      final allCards = await getAllCards();
+      _allCardsMap = {
+        for (final card in allCards) card.scryfallId: card
+      };
+    }
+    return _allCardsMap!;
+  }
+
   Future<List<Card>> getAllCards() async {
     if (!cardsLoaded) {
       final result = await _database.query('cards');
       _allCards = [
         for (final {
-        "id": id as int,
+        "scryfall_id": scryfallId as String,
+        "oracle_id": oracleId as String,
         "name": name as String,
         "title": title as String,
         "type": type as String,
-        "imageUri": imageUri as String,
+        "image_uri": imageUri as String,
         "colors": colors as String,
-        "manaCost": manaCost as String,
-        "manaValue": manaValue
+        "mana_cost": manaCost as String,
+        "mana_value": manaValue
         } in result)
           Card(
-              id: id,
+              scryfallId: scryfallId,
+              oracleId: oracleId,
               name: name,
               title: title,
               type: type,
@@ -149,7 +159,7 @@ class DeckStorage {
   Future<List<Deck>> getAllDecks() async {
     final decks = await _database.query('decks');
     final decklists = await _database.query('decklists');
-    final cards = await getAllCards();
+    final cardsMap = await getCardsMap();
 
     final List<Deck> deckList = [];
     for (final deck in decks) {
@@ -158,8 +168,8 @@ class DeckStorage {
       final deckDateTime = DateTime.parse(deck['datetime'] as String);
 
       var currentDecklist = decklists
-          .where((x) => x['deckId'] == deckId)
-          .map((x) => cards[int.parse(x['cardId'].toString()) - 1])
+          .where((x) => x['deck_id'] == deckId)
+          .map((x) => cardsMap[x["scryfall_id"]]!)
           .toList();
 
       deckList.add(Deck(
@@ -195,13 +205,13 @@ class DeckStorage {
       for (final card in cards) {
         batch.insert(
             'decklists',
-            Decklist(deckId: deckId, cardId: card.id!).toMap(),
+            Decklist(deckId: deckId, scryfallId: card.scryfallId).toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace
         );
       }
       await batch.commit();
     });
-    debugPrint("Deck insert successfully, deckId: $deckId");
+    debugPrint("Deck insert successfully, deck_id: $deckId");
     return deckId;
   }
 }
