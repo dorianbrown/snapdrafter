@@ -67,6 +67,16 @@ class DeckScannerState extends State<DeckScanner> {
     _initializeControllerFuture = _controller.initialize();
     _loadModelsFuture = _loadModels();
     _initializeDatabaseFuture = _initializeDatabase();
+    _initializeDatabaseFuture.then((val) {
+      _deckStorage.getScryfallMetadata().then((val) {
+        if (val.isEmpty) {
+          if (context.mounted) {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const DownloadScreen()));
+          }
+        }
+      });
+    });
   }
 
   Future<void> _loadModels() async {
