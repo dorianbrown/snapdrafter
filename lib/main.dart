@@ -430,7 +430,7 @@ class MyDecksOverview extends StatelessWidget {
               )
           ],
         )),
-        DataCell(Text(convertDatetimeToString(deck.dateTime),
+        DataCell(Text(convertDatetimeToYMDHM(deck.dateTime),
             style: dateColumnStyle))
       ]);
     }).toList();

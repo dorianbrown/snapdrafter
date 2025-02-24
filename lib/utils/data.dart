@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'dart:convert';
 
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -14,6 +12,12 @@ class DeckStorage {
   var cardsLoaded = false;
   final String _databaseName = 'decklistScanner.db';
   final int _databaseVersion = 1;
+
+  DeckStorage._privateConstructor();
+  static final DeckStorage _instance = DeckStorage._privateConstructor();
+  factory DeckStorage() {
+    return _instance;
+  }
 
   Future<void> init() async {
     _database = await openDatabase(
@@ -49,19 +53,18 @@ class DeckStorage {
             cardId INTEGER NOT NULL)
           """
         );
+        db.execute(
+          """
+          CREATE TABLE scryfall_metadata(
+            id INTEGER PRIMARY KEY,
+            datetime TEXT,
+            newest_set_name TEXT NOT NULL
+          )
+          """
+        );
         debugPrint("sqflite tables created");
       },
     );
-
-    // Populate cards table if it is empty
-    int? cardsInDatabase = await countRows("cards");
-    if (cardsInDatabase == 0) {
-      debugPrint("Populating cards table");
-      populateCardsTable().then((val) async {
-        final int? cardCount = await countRows("cards");
-        debugPrint("Cards in db: $cardCount");
-      });
-    }
 
     // Print row counts of all tables
     for (String tableName in ['cards', 'decks', 'decklists']) {
@@ -70,28 +73,25 @@ class DeckStorage {
     }
   }
 
-  Future<void> populateCardsTable() async {
-    final String cardJsonString = await rootBundle.loadString("assets/card_data.json");
-    final cardsMap = jsonDecode(cardJsonString);
+  // TODO: Distinguish between existing cards in table (so only add new) or
+  //      or completely remove and repopulate.
+  // TODO: Or we update keys in decklists table
+  // I think we'll need a real primary key from scryfall to handle conflicts
+  Future<void> populateCardsTable(List<Card> cards, Map<String, dynamic> scryfallMetadata) async {
 
     _database.transaction((txn) async {
       var batch = txn.batch();
-      for (final cardMap in cardsMap) {
-
-        final input_map = {
-          'name': cardMap['name'],
-          'title': cardMap['name'].split(" // ")[0],
-          'type': cardMap['type'],
-          'imageUri': cardMap['image'],
-          'colors': cardMap['colors'].join(""),
-          'manaCost': cardMap['mana_cost'],
-          'manaValue': cardMap['cmc'].toInt()
-        };
-
+      batch.insert(
+          "scryfall_metadata",
+          scryfallMetadata,
+          conflictAlgorithm: ConflictAlgorithm.replace
+      );
+      batch.delete('cards');  // Removes all rows from table.
+      for (final card in cards) {
         batch.insert(
           'cards',
-          input_map,
-          conflictAlgorithm: ConflictAlgorithm.replace
+          card.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.ignore
         );
       }
       await batch.commit();
@@ -136,6 +136,14 @@ class DeckStorage {
       map,
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+
+  Future<Map<String, dynamic>> getScryfallMetadata() async {
+    final result = await _database.query("scryfall_metadata");
+    for (final res in result) {
+      return res;
+    }
+    return {};
   }
 
   Future<List<Deck>> getAllDecks() async {
@@ -187,7 +195,7 @@ class DeckStorage {
       for (final card in cards) {
         batch.insert(
             'decklists',
-            Decklist(deckId: deckId, cardId: card.id).toMap(),
+            Decklist(deckId: deckId, cardId: card.id!).toMap(),
             conflictAlgorithm: ConflictAlgorithm.replace
         );
       }

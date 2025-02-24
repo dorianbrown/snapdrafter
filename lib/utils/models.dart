@@ -2,7 +2,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/material.dart';
 
 class Card {
-  final int id;
+  final int? id;
   final String name;
   final String title;
   final String type;  // First hit from list Creature, Artifact, etc
@@ -12,7 +12,7 @@ class Card {
   final int manaValue;
 
   const Card({
-    required this.id,
+    this.id,
     required this.name,
     required this.title,
     required this.type,
@@ -24,7 +24,7 @@ class Card {
 
   Map<String, Object?> toMap() {
     var map = {
-      "id": id,
+      if (id != null) "id": id,
       "name": name,
       "title": title,
       "type": type,
