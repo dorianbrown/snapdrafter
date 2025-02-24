@@ -500,8 +500,8 @@ class DeckViewerState extends State<DeckViewer> {
               child: CircularProgressIndicator(),
             );
           } else {
-            final List<models.Deck>? decks = snapshot.data;
-            final deck = decks![deckId - 1];
+            final List<models.Deck> decks = snapshot.data!;
+            final deck = decks[deckId - 1];
             return Scaffold(
               appBar: AppBar(title: Text(deck.name)),
               body: Container(
@@ -673,6 +673,7 @@ class DeckViewerState extends State<DeckViewer> {
             child: Text(attribute, style: _headerStyle))
       ];
 
+      deck.cards.sort((a, b) => a.manaValue.compareTo(b.manaValue));
       List<Widget> cardWidgets = deck.cards
           .where((card) => getAttribute(card) == attribute)
           .map((card) => renderCard(card))
@@ -710,7 +711,10 @@ class DeckViewerState extends State<DeckViewer> {
           onTap: () => showDialog(
               context: context,
               builder: (context) => Container(
-                  padding: EdgeInsets.all(30), child: createVisualCard(card))),
+                  padding: EdgeInsets.all(30),
+                  child: createVisualCard(card)
+              )
+          ),
           child: Text(
             card.title,
             overflow: TextOverflow.ellipsis,
@@ -722,14 +726,26 @@ class DeckViewerState extends State<DeckViewer> {
     );
   }
 
+  // FIXME: This function calling itself is a problem. We'll need make a split
+  // somewhere between showing dialog, and showing normal card images.
   Widget createVisualCard(models.Card card) {
     return Container(
-        padding: EdgeInsets.all(2),
+      padding: EdgeInsets.all(2),
+      child: GestureDetector(
+        onTap: () => showDialog(
+          context: context,
+          builder: (context) => Container(
+            padding: EdgeInsets.all(30), child: createVisualCard(card)
+          )
+        ),
         child: FittedBox(
-            child: ClipRRect(
-          borderRadius: BorderRadius.circular(25),
-          child: Image.network(card.imageUri!),
-        )));
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(25),
+            child: Image.network(card.imageUri!),
+          )
+        )
+      )
+    );
   }
 
   InputDecorationTheme createDropdownStyling() {
