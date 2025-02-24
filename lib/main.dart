@@ -340,7 +340,15 @@ class DetectionPreviewScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('Detection Preview')),
       // TODO: Make this zoom to whole viewcreen.
       body: Center(
-          child: InteractiveViewer(child: Image.memory(img.encodePng(image)))),
+          child: InteractiveViewer(
+              constrained: false,
+              clipBehavior: Clip.none,
+              minScale: 0.1,
+              maxScale: 1,
+              boundaryMargin: const EdgeInsets.all(double.infinity),
+              child: Image.memory(img.encodePng(image))
+          )
+      ),
       floatingActionButton: FloatingActionButton.extended(
           onPressed: () async {
             Navigator.of(context).push(
