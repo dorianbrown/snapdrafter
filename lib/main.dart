@@ -336,16 +336,25 @@ class DetectionPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final viewTransformationController = TransformationController();
+    final zoomFactor = 0.1;
+    final xTranslate = 0.0;
+    final yTranslate = 200.0;
+    viewTransformationController.value.setEntry(0, 0, zoomFactor);
+    viewTransformationController.value.setEntry(1, 1, zoomFactor);
+    viewTransformationController.value.setEntry(2, 2, zoomFactor);
+    viewTransformationController.value.setEntry(0, 3, xTranslate);
+    viewTransformationController.value.setEntry(1, 3, yTranslate);
     return Scaffold(
       appBar: AppBar(title: const Text('Detection Preview')),
-      // TODO: Make this zoom to whole viewcreen.
       body: Center(
           child: InteractiveViewer(
               constrained: false,
               clipBehavior: Clip.none,
               minScale: 0.1,
-              maxScale: 1,
+              maxScale: 0.5,
               boundaryMargin: const EdgeInsets.all(double.infinity),
+              transformationController: viewTransformationController,
               child: Image.memory(img.encodePng(image))
           )
       ),
