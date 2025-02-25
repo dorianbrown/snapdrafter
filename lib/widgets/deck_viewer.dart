@@ -62,7 +62,7 @@ class DeckViewerState extends State<DeckViewer> {
             return Scaffold(
               appBar: AppBar(title: Text(deck.name)),
               body: Container(
-                // margin: EdgeInsets.fromLTRB(50, 25, 50, 25),
+                margin: EdgeInsets.only(bottom: 20),
                 alignment: Alignment.topCenter,
                 child: ListView(
                   padding: EdgeInsets.all(10),

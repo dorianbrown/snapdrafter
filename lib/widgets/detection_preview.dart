@@ -19,25 +19,20 @@ class DetectionPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final viewTransformationController = TransformationController();
-    final zoomFactor = 0.1;
-    final xTranslate = 0.0;
-    final yTranslate = 200.0;
-    viewTransformationController.value.setEntry(0, 0, zoomFactor);
-    viewTransformationController.value.setEntry(1, 1, zoomFactor);
-    viewTransformationController.value.setEntry(2, 2, zoomFactor);
-    viewTransformationController.value.setEntry(0, 3, xTranslate);
-    viewTransformationController.value.setEntry(1, 3, yTranslate);
+    // Make this handle image dimensions. Zoom depends on image resolution
+    final scaleMatrix = Matrix4.identity()..scale(0.5);
+    final viewTransformationController = TransformationController(scaleMatrix);
     return Scaffold(
       appBar: AppBar(title: const Text('Detection Preview')),
       body: Center(
           child: InteractiveViewer(
-              constrained: false,
+              // constrained: false,
               clipBehavior: Clip.none,
-              minScale: 0.1,
-              maxScale: 0.5,
+              minScale: 0.3,
+              maxScale: 1,
               boundaryMargin: const EdgeInsets.all(double.infinity),
               transformationController: viewTransformationController,
+              // alignment: Alignment.center,
               child: Image.memory(img.encodePng(image))
           )
       ),

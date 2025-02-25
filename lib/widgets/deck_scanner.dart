@@ -8,6 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 
 import '/utils/data.dart';
 import 'download_screen.dart';
@@ -33,12 +34,14 @@ class DeckScannerState extends State<DeckScanner> {
   late DeckStorage _deckStorage;
   List<String> detections = [];
   bool _modelsLoaded = false;
+  double _pictureRotation = 0.0;
 
   @override
   void initState() {
     super.initState();
     _controller = CameraController(widget.camera,
-        ResolutionPreset.ultraHigh // not ultra-high to possibly speed up app
+        ResolutionPreset.ultraHigh,
+        enableAudio: false
     );
     _initializeControllerFuture = _controller.initialize();
     _loadModelsFuture = _loadModels();
@@ -53,6 +56,14 @@ class DeckScannerState extends State<DeckScanner> {
         }
       });
     });
+
+    accelerometerEventStream(
+        samplingPeriod: Duration(seconds: 5)
+    ).listen((AccelerometerEvent event) {
+      // TODO: Figure out which quadrants to take for which image rotation.
+      debugPrint("X: ${event.x}, Y: ${event.y}, Z: ${event.z}");
+    });
+
   }
 
   Future<void> _loadModels() async {
