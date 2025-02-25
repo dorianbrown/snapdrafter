@@ -57,13 +57,18 @@ class DeckScannerState extends State<DeckScanner> {
       });
     });
 
+    // Used for ensuring Detection photo has correct orientation
     accelerometerEventStream(
         samplingPeriod: Duration(seconds: 5)
     ).listen((AccelerometerEvent event) {
-      // TODO: Figure out which quadrants to take for which image rotation.
-      debugPrint("X: ${event.x}, Y: ${event.y}, Z: ${event.z}");
+      if (event.x < 0.7 && event.x > -0.7) {
+        _pictureRotation = 0.0;
+      } else if (event.x > 0.7) {
+        _pictureRotation = -90.0;
+      } else if (event.x < -0.7) {
+        _pictureRotation = 90.0;
+      }
     });
-
   }
 
   Future<void> _loadModels() async {
@@ -221,6 +226,7 @@ class DeckScannerState extends State<DeckScanner> {
           ? img.decodeImage(data.buffer.asUint8List())!
           : img.decodeImage(bytes)!;
 
+      inputImage = img.copyRotate(inputImage, angle: _pictureRotation);
       final processedImage = await _processImage(inputImage);
 
       if (!context.mounted) return;
