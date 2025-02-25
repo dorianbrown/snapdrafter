@@ -7,9 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
-import 'utils/data.dart';
-import 'utils/models.dart' as models;
-import 'utils/utils.dart';
+import '/utils/data.dart';
+import '/utils/models.dart' as models;
+import '/utils/utils.dart';
 
 class DownloadScreen extends StatefulWidget {
   const DownloadScreen({Key? key}) : super(key: key);
