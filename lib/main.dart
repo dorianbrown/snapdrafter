@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import '/widgets/deck_scanner.dart';
 import 'package:flutter/services.dart';
+
+import '/widgets/deck_scanner.dart';
+import '/widgets/bluetooth_test.dart';
 
 late CameraDescription _firstCamera;
 

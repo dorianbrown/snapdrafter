@@ -20,12 +20,13 @@ class DetectionPreviewScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Make this handle image dimensions. Zoom depends on image resolution
-    final scaleMatrix = Matrix4.identity()..scale(0.5);
+    final scaleMatrix = Matrix4.identity()..scale(0.8);
     final viewTransformationController = TransformationController(scaleMatrix);
     return Scaffold(
       appBar: AppBar(title: const Text('Detection Preview')),
       body: Center(
           child: InteractiveViewer(
+              // TODO: Fix this behavior, start at right zoom level, and set correct zoom constraints
               // constrained: false,
               clipBehavior: Clip.none,
               minScale: 0.3,

@@ -1,22 +1,11 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:flutter/services.dart' show rootBundle;
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
-import 'package:tflite_flutter/tflite_flutter.dart';
-import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:fuzzywuzzy/fuzzywuzzy.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:community_charts_flutter/community_charts_flutter.dart'
 as charts;
 
-import '/utils/utils.dart';
 import '/utils/data.dart';
 import '/utils/models.dart' as models;
-import 'download_screen.dart';
 
 DeckStorage _deckStorage = DeckStorage();
 
