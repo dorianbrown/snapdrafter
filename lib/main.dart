@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '/widgets/deck_scanner.dart';
-import '/widgets/bluetooth_test.dart';
 
 late CameraDescription _firstCamera;
 

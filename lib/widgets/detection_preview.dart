@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -19,22 +20,27 @@ class DetectionPreviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Make this handle image dimensions. Zoom depends on image resolution
-    final scaleMatrix = Matrix4.identity()..scale(0.8);
-    final viewTransformationController = TransformationController(scaleMatrix);
     return Scaffold(
       appBar: AppBar(title: const Text('Detection Preview')),
       body: Center(
-          child: InteractiveViewer(
-              // TODO: Fix this behavior, start at right zoom level, and set correct zoom constraints
-              // constrained: false,
-              clipBehavior: Clip.none,
-              minScale: 0.3,
-              maxScale: 1,
-              boundaryMargin: const EdgeInsets.all(double.infinity),
-              transformationController: viewTransformationController,
-              // alignment: Alignment.center,
-              child: Image.memory(img.encodePng(image))
+          child: LayoutBuilder(
+              builder: (context, constraints) {
+                double aspectRatio = image.width / image.height;
+                double translationY = 0.5*(constraints.maxHeight - (constraints.maxWidth / aspectRatio));
+                double minScale = constraints.maxWidth / image.width;
+                final scaleMatrix = Matrix4.identity()..scale(minScale);
+                scaleMatrix.setEntry(1, 3, translationY);
+                final viewTransformationController = TransformationController(scaleMatrix);
+                return InteractiveViewer(
+                    constrained: false,
+                    clipBehavior: Clip.none,
+                    minScale: minScale,
+                    maxScale: 1,
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                    transformationController: viewTransformationController,
+                    child: Image.memory(img.encodePng(image))
+                );
+              }
           )
       ),
       floatingActionButton: FloatingActionButton.extended(

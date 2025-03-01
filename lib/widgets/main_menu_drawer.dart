@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'download_screen.dart';
 import '/widgets/decks_overview.dart';
-import '/widgets/bluetooth_test.dart';
 
 class MainMenuDrawer extends StatelessWidget {
   const MainMenuDrawer({super.key});
@@ -39,14 +38,7 @@ class MainMenuDrawer extends StatelessWidget {
                 Navigator.of(context).push(MaterialPageRoute(
                     builder: (context) => const DownloadScreen()));
               },
-            ),
-            ListTile(
-              title: const Text('Bluetooth Test'),
-              onTap: () {
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (context) => BluetoothTest()));
-              },
-            ),
+            )
           ],
         ));
   }

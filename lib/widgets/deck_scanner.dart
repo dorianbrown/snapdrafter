@@ -217,16 +217,18 @@ class DeckScannerState extends State<DeckScanner> {
         ),
       );
 
-      // If debug
-      final data = await rootBundle.load("assets/test_image.jpeg");
-      // If not debug
-      final picture = await _controller.takePicture();
-      final bytes = await File(picture.path).readAsBytes();
-      img.Image inputImage = debug
-          ? img.decodeImage(data.buffer.asUint8List())!
-          : img.decodeImage(bytes)!;
 
-      inputImage = img.copyRotate(inputImage, angle: _pictureRotation);
+      img.Image inputImage;
+      if (debug) {
+        final data = await rootBundle.load("assets/test_image.jpeg");
+        inputImage = img.decodeImage(data.buffer.asUint8List())!;
+      } else {
+        final picture = await _controller.takePicture();
+        final bytes = await File(picture.path).readAsBytes();
+        inputImage = img.decodeImage(bytes)!;
+        inputImage = img.copyRotate(inputImage, angle: _pictureRotation);
+      }
+
       final processedImage = await _processImage(inputImage);
 
       if (!context.mounted) return;
