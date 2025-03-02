@@ -19,35 +19,34 @@ class MyDecksOverview extends StatelessWidget {
     Future<List<models.Deck>> decksFuture = _deckStorage.getAllDecks();
     final TextStyle dataColumnStyle = TextStyle(fontWeight: FontWeight.bold);
     return FutureBuilder<List<models.Deck>>(
-        future: decksFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return Center(
-              child: CircularProgressIndicator(),
-            );
-          } else {
-            final List<models.Deck>? decks = snapshot.data;
-            return Scaffold(
-                appBar: AppBar(title: Text("My Decks")),
-                drawer: MainMenuDrawer(),
-                body: Container(
-                    alignment: Alignment.topCenter,
-                    child: ListView(
-                      children: [
-                        DataTable(columns: [
-                          DataColumn(
-                              label: Text("Deck Name", style: dataColumnStyle)),
-                          DataColumn(
-                              label: Text("Colors", style: dataColumnStyle)),
-                          DataColumn(
-                              label: Text("Date", style: dataColumnStyle)),
-                        ], rows: [
-                          ...generateDataRows(decks, context)
-                        ])
-                      ],
-                    )));
-          }
-        });
+      future: decksFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Center(
+            child: CircularProgressIndicator(),
+          );
+        } else {
+          final List<models.Deck>? decks = snapshot.data;
+          return Scaffold(
+            appBar: AppBar(title: Text("My Decks")),
+            drawer: MainMenuDrawer(),
+            body: ListView(
+              children: [
+                DataTable(columns: [
+                  DataColumn(
+                      label: Text("Deck Name", style: dataColumnStyle)),
+                  DataColumn(
+                      label: Text("Colors", style: dataColumnStyle)),
+                  DataColumn(
+                      label: Text("Date", style: dataColumnStyle)),
+                ], rows: [
+                  ...generateDataRows(decks, context)
+                ])
+              ],
+            )
+          );
+        }
+      });
   }
 
   List<DataRow> generateDataRows(List<models.Deck>? decks, context) {
@@ -56,24 +55,36 @@ class MyDecksOverview extends StatelessWidget {
 
     var dataRowList = decks?.map((deck) {
       return DataRow(cells: [
-        DataCell(GestureDetector(
+        DataCell(
+          Text(deck.name),
           onTap: () {
             Navigator.of(context).push(MaterialPageRoute(
                 builder: (context) => DeckViewer(deckId: deck.id)));
           },
-          child: Text(deck.name),
-        )),
-        DataCell(Row(
-          children: [
-            for (String color in deck.colors.split(""))
-              SvgPicture.asset(
-                "assets/svg_icons/$color.svg",
-                height: 14,
-              )
-          ],
-        )),
-        DataCell(Text(convertDatetimeToYMDHM(deck.dateTime),
-            style: dateColumnStyle))
+        ),
+        DataCell(
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => DeckViewer(deckId: deck.id)));
+          },
+          Row(
+            children: [
+              for (String color in deck.colors.split(""))
+                SvgPicture.asset(
+                  "assets/svg_icons/$color.svg",
+                  height: 14,
+                )
+            ],
+          )
+        ),
+        DataCell(
+          Text(convertDatetimeToYMDHM(deck.dateTime),
+          style: dateColumnStyle),
+          onTap: () {
+            Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => DeckViewer(deckId: deck.id)));
+          },
+        )
       ]);
     }).toList();
     if (dataRowList != null) {

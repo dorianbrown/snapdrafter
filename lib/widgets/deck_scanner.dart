@@ -59,7 +59,7 @@ class DeckScannerState extends State<DeckScanner> {
 
     // Used for ensuring Detection photo has correct orientation
     accelerometerEventStream(
-        samplingPeriod: Duration(seconds: 5)
+        samplingPeriod: Duration(seconds: 1)
     ).listen((AccelerometerEvent event) {
       if (event.x < 0.7 && event.x > -0.7) {
         _pictureRotation = 0.0;
