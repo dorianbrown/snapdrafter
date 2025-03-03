@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -75,8 +74,7 @@ class DetectionPreviewScreen extends StatelessWidget {
       debugPrint(allCards[match.index].toString());
       matchedCards.add(allCards[match.index]);
     }
-    final String deckName = "Draft Deck";
     final DateTime dateTime = DateTime.now();
-    return await _deckStorage.saveDeck(deckName, dateTime, matchedCards);
+    return await _deckStorage.saveDeck(dateTime, matchedCards);
   }
 }

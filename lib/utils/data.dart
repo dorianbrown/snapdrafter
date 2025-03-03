@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:http/http.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+import 'utils.dart';
 import 'models.dart';
 
 class DeckStorage {
@@ -43,7 +46,9 @@ class DeckStorage {
           """
           CREATE TABLE decks(
             id INTEGER PRIMARY KEY, 
-            name TEXT NOT NULL, 
+            win_loss TEXT,
+            set_id TEXT,
+            cube_id int,
             datetime TEXT NOT NULL)
           """
         );
@@ -64,6 +69,15 @@ class DeckStorage {
           )
           """
         );
+        db.execute(
+          """
+          CREATE TABLE sets(
+            code TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            released_at TEXT NOT NULL
+          )
+          """
+        );
         debugPrint("sqflite tables created");
       },
     );
@@ -73,6 +87,56 @@ class DeckStorage {
       final int? rowCount = await countRows(tableName);
       debugPrint("$tableName: $rowCount");
     }
+  }
+
+  Future<void> populateSetsTable() async {
+    final response = await get(Uri.parse('http://api.scryfall.com/sets'));
+
+    if (response.statusCode == 200) {
+      final values = json.decode(response.body);
+      String ymdString = convertDatetimeToYMD(DateTime.now(), sep: "-");
+      final setsData = values['data']
+          .where((x) => (
+            // keep draftable sets
+            ["expansion", "core" ,"masters"].contains(x["set_type"])) &
+            (ymdString.compareTo(x["released_at"]) > 0) &
+            // discard digital sets
+            !x["digital"]
+          )
+          .map((x) => {"code": x["code"], "name": x["name"], "released_at": x["released_at"]})
+          .toList();
+
+      _database.transaction((txn) async {
+        var batch = txn.batch();
+        for (final set in setsData) {
+          batch.insert(
+              "sets",
+              set,
+              conflictAlgorithm: ConflictAlgorithm.replace
+          );
+        }
+        await batch.commit();
+      });
+      debugPrint("Added ${setsData.length} sets to sets table");
+    } else {
+      throw Exception('Failed to load sets');
+    }
+  }
+
+  Future<List<Set>> getAllSets() async {
+    final result = await _database.query('sets');
+     return [
+      for (final {
+      "code": code as String,
+      "name": name as String,
+      "released_at": releasedAt as String,
+      } in result)
+        Set(
+          code: code,
+          name: name,
+          releasedAt: releasedAt
+        )
+    ];
   }
 
   Future<void> populateCardsTable(List<Card> cards, Map<String, dynamic> scryfallMetadata) async {
@@ -122,15 +186,15 @@ class DeckStorage {
         "mana_value": manaValue
         } in result)
           Card(
-              scryfallId: scryfallId,
-              oracleId: oracleId,
-              name: name,
-              title: title,
-              type: type,
-              imageUri: imageUri,
-              colors: colors,
-              manaCost: manaCost,
-              manaValue: manaValue as int
+            scryfallId: scryfallId,
+            oracleId: oracleId,
+            name: name,
+            title: title,
+            type: type,
+            imageUri: imageUri,
+            colors: colors,
+            manaCost: manaCost,
+            manaValue: manaValue as int
           )
       ];
       if (_allCards.isNotEmpty) {
@@ -164,7 +228,9 @@ class DeckStorage {
     final List<Deck> deckList = [];
     for (final deck in decks) {
       final deckId = deck['id'] as int;
-      final deckName = deck['name'] as String;
+      final winLoss = deck['win_loss'] as String?;
+      final setId = deck['set_id'] as String?;
+      final cubeId = deck['cube_id'] as int?;
       final deckDateTime = DateTime.parse(deck['datetime'] as String);
 
       var currentDecklist = decklists
@@ -174,7 +240,9 @@ class DeckStorage {
 
       deckList.add(Deck(
         id: deckId,
-        name: deckName,
+        winLoss: winLoss,
+        setId: setId,
+        cubeId: cubeId,
         dateTime: deckDateTime,
         cards: currentDecklist
       ));
@@ -188,6 +256,11 @@ class DeckStorage {
       where: 'id = ?',
       whereArgs: [id],
     );
+    await _database.delete(
+      'decklists',
+      where: 'deck_id = ?',
+      whereArgs: [id],
+    );
   }
 
   Future<int?> countRows(String tableName) async {
@@ -197,11 +270,11 @@ class DeckStorage {
     return Sqflite.firstIntValue(result);
   }
 
-  Future<int> saveDeck(String name, DateTime dateTime, List<Card> cards) async {
-
-    int deckId = await insertDeck({'name': name, 'dateTime': dateTime.toIso8601String()});
+  Future<int> saveDeck(DateTime dateTime, List<Card> cards) async {
+    int deckId = await insertDeck({'dateTime': dateTime.toIso8601String()});
     _database.transaction((txn) async {
       var batch = txn.batch();
+      batch.delete('decklists', where: 'deck_id = ?', whereArgs: [deckId]);
       for (final card in cards) {
         batch.insert(
             'decklists',

@@ -100,13 +100,17 @@ class Decklist {
 
 class Deck {
   final int id;
-  final String name;
+  final String? winLoss;
+  final String? setId;
+  final int? cubeId;
   final DateTime dateTime;
   final List<Card> cards;
 
   const Deck({
     required this.id,
-    required this.name,
+    this.winLoss,
+    this.setId,
+    this.cubeId,
     required this.dateTime,
     required this.cards
   });
@@ -131,7 +135,30 @@ class Deck {
 
   @override
   String toString() {
-    return "Deck{id: $id, name: $name, datetime: ${dateTime.toIso8601String()}, cards: $cards";
+    final ymd = dateTime.toIso8601String();
+    return "Deck{id: $id, win/loss: $winLoss, set: $setId, cube: $cubeId, datetime: $ymd, cards: $cards";
+  }
+}
+
+class Set {
+  final String code;
+  final String name;
+  final String releasedAt;
+
+  const Set({
+    required this.code,
+    required this.name,
+    required this.releasedAt
+  });
+
+  Map<String, Object?> toMap() {
+    var map = {'code': code, 'name': name, 'releasedAt': releasedAt};
+    return map;
+  }
+
+  @override
+  String toString() {
+    return 'DecklistEntry{code: $code, name: $name, releasedAt: $releasedAt}';
   }
 }
 

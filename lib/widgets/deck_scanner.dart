@@ -47,6 +47,7 @@ class DeckScannerState extends State<DeckScanner> {
     _loadModelsFuture = _loadModels();
     _initializeDatabaseFuture = _initializeDatabase();
     _initializeDatabaseFuture.then((val) {
+      _deckStorage.populateSetsTable();
       _deckStorage.getScryfallMetadata().then((val) {
         if (val.isEmpty) {
           if (context.mounted) {

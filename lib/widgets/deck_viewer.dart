@@ -49,7 +49,7 @@ class DeckViewerState extends State<DeckViewer> {
             final List<models.Deck> decks = snapshot.data!;
             final deck = decks[deckId - 1];
             return Scaffold(
-              appBar: AppBar(title: Text(deck.name)),
+              appBar: AppBar(title: Text("Deck $deckId")),
               body: Container(
                 margin: EdgeInsets.only(bottom: 20),
                 alignment: Alignment.topCenter,
