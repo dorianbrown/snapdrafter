@@ -119,7 +119,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: Text(convertDatetimeToYMDHM(decks[index].dateTime)),
-                    subtitle: Text("W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId!.toUpperCase() ?? '-'}"),
+                    subtitle: Text("W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-'}"),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => DeckViewer(deckId: decks[index].id)
                     )),
