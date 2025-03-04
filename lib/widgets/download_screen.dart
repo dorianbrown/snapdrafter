@@ -132,7 +132,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
       var responseMap = jsonDecode(getResponse.body);
       try {
         final dataMap = responseMap["data"]
-            .where((x) => x["type"] == "unique_artwork")
+            .where((x) => x["type"] == "oracle_cards")
             .toList()[0];
         downloadUri = dataMap["download_uri"];
         totalBytes = dataMap["size"];
@@ -205,17 +205,11 @@ class _DownloadScreenState extends State<DownloadScreen> {
     // handling the entire json object. Might be a better way, but for now this
     // works.
     reviver (key, val) {
-      if (val is Map &&
-          validLayouts.contains(val["layout"]) &&
-          val["reprint"] == false
-      ) {
+      if (val is Map && validLayouts.contains(val["layout"])) {
         if (val["card_faces"] == null && val["image_uris"] == null) {
           return null;
         }
-        if (newestRelease.compareTo(val["released_at"]) < 0 &&
-            val["set_type"] == "expansion" &&
-            DateTime.parse(val["released_at"]).isBefore(DateTime.now())
-        ) {
+        if (newestRelease.compareTo(val["released_at"]) < 0 && val["set_type"] == "expansion") {
           newestRelease = val["released_at"];
           scryfallMetadata["newest_set_name"] = val["set_name"];
         }

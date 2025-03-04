@@ -270,8 +270,7 @@ class DeckStorage {
     return Sqflite.firstIntValue(result);
   }
 
-  Future<int> saveDeck(DateTime dateTime, List<Card> cards) async {
-    int deckId = await insertDeck({'dateTime': dateTime.toIso8601String()});
+  Future<void> updateDecklist(int deckId, List<Card> cards) async {
     _database.transaction((txn) async {
       var batch = txn.batch();
       batch.delete('decklists', where: 'deck_id = ?', whereArgs: [deckId]);
@@ -284,6 +283,11 @@ class DeckStorage {
       }
       await batch.commit();
     });
+  }
+
+  Future<int> saveNewDeck(DateTime dateTime, List<Card> cards) async {
+    int deckId = await insertDeck({'dateTime': dateTime.toIso8601String()});
+    updateDecklist(deckId, cards);
     debugPrint("Deck insert successfully, deck_id: $deckId");
     return deckId;
   }

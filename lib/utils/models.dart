@@ -104,9 +104,9 @@ class Deck {
   final String? setId;
   final int? cubeId;
   final DateTime dateTime;
-  final List<Card> cards;
+  List<Card> cards;
 
-  const Deck({
+  Deck({
     required this.id,
     this.winLoss,
     this.setId,
