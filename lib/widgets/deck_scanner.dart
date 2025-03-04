@@ -40,7 +40,7 @@ class DeckScannerState extends State<DeckScanner> {
   void initState() {
     super.initState();
     _controller = CameraController(widget.camera,
-        ResolutionPreset.ultraHigh,
+        ResolutionPreset.max,
         enableAudio: false
     );
     _initializeControllerFuture = _controller.initialize();

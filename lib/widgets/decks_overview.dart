@@ -122,7 +122,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                     subtitle: Text("W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-'}"),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => DeckViewer(deckId: decks[index].id)
-                    )),
+                    )).then((_) => refreshDecks()),
                   )
                 );
               },

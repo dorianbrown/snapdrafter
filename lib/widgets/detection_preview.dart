@@ -69,12 +69,13 @@ class DetectionPreviewScreen extends StatelessWidget {
     final List<models.Card> matchedCards = [];
     debugPrint("Matching detections with database");
     for (final detection in detections) {
+      debugPrint("Matching $detection with database");
       final match = extractOne(query: detection, choices: choices);
       debugPrint(match.toString());
       debugPrint(allCards[match.index].toString());
       matchedCards.add(allCards[match.index]);
     }
     final DateTime dateTime = DateTime.now();
-    return await _deckStorage.saveDeck(dateTime, matchedCards);
+    return await _deckStorage.saveNewDeck(dateTime, matchedCards);
   }
 }
