@@ -7,7 +7,7 @@ String convertDatetimeToYMDHM(DateTime datetime) {
   return outputString;
 }
 
-String convertDatetimeToYMD(DateTime datetime, {String sep = "/"}) {
+String convertDatetimeToYMD(DateTime datetime, {String sep = "-"}) {
   String outputString = datetime.year.toString();
   outputString += "$sep${datetime.month.toString().padLeft(2,'0')}";
   outputString += "$sep${datetime.day.toString().padLeft(2,'0')}";

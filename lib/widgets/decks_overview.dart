@@ -118,8 +118,11 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                       decks[index].setId != null ? "Draft: ${setsMap[decks[index].setId]}" : "Draft Deck ${index + 1}",
                       overflow: TextOverflow.ellipsis,
                     ),
-                    trailing: Text(convertDatetimeToYMDHM(decks[index].dateTime)),
-                    subtitle: Text("W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-'}"),
+                    trailing: Icon(Icons.keyboard_arrow_right_rounded, size: 25,),
+                    subtitle: Text(
+                        "W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-' }  |  ${convertDatetimeToYMD(decks[index].dateTime)}",
+                        overflow: TextOverflow.ellipsis,
+                    ),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => DeckViewer(deckId: decks[index].id)
                     )).then((_) => refreshDecks()),

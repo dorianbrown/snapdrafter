@@ -235,7 +235,7 @@ class DeckViewerState extends State<DeckViewer> {
         primaryMeasureAxis: charts.NumericAxisSpec(
           tickProviderSpec: charts.BasicNumericTickProviderSpec(
             dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
-        behaviors: [charts.SeriesLegend()])));
+        behaviors: [charts.SeriesLegend(showMeasures: true)])));
     return outputChildren;
   }
 

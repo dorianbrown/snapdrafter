@@ -8,7 +8,6 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:sensors_plus/sensors_plus.dart';
 
 import '/utils/data.dart';
 import 'download_screen.dart';
@@ -34,7 +33,7 @@ class DeckScannerState extends State<DeckScanner> {
   late DeckStorage _deckStorage;
   List<String> detections = [];
   bool _modelsLoaded = false;
-  double _pictureRotation = 0.0;
+  final double _pictureRotation = -90.0;
 
   @override
   void initState() {
@@ -43,11 +42,12 @@ class DeckScannerState extends State<DeckScanner> {
         ResolutionPreset.max,
         enableAudio: false
     );
+    _controller.setFlashMode(FlashMode.off);
+
     _initializeControllerFuture = _controller.initialize();
     _loadModelsFuture = _loadModels();
     _initializeDatabaseFuture = _initializeDatabase();
     _initializeDatabaseFuture.then((val) {
-      _deckStorage.populateSetsTable();
       _deckStorage.getScryfallMetadata().then((val) {
         if (val.isEmpty) {
           if (context.mounted) {
@@ -56,19 +56,6 @@ class DeckScannerState extends State<DeckScanner> {
           }
         }
       });
-    });
-
-    // Used for ensuring Detection photo has correct orientation
-    accelerometerEventStream(
-        samplingPeriod: Duration(seconds: 1)
-    ).listen((AccelerometerEvent event) {
-      if (event.x < 0.7 && event.x > -0.7) {
-        _pictureRotation = 0.0;
-      } else if (event.x > 0.7) {
-        _pictureRotation = -90.0;
-      } else if (event.x < -0.7) {
-        _pictureRotation = 90.0;
-      }
     });
   }
 
@@ -164,6 +151,7 @@ class DeckScannerState extends State<DeckScanner> {
     final boundingBoxes = await _runInference(inputImage);
     final threshold = 0.5;
 
+    List<Future> allFutures = [];
     for (var i = 0; i < boundingBoxes.length; i++) {
       var detection = boundingBoxes[i];
       if (detection[4] > threshold) {
@@ -179,11 +167,11 @@ class DeckScannerState extends State<DeckScanner> {
         File tmpFile = File('${tmpDir.path}/thumbnail.png');
         await img.encodeImageFile(tmpFile.path, detectionImg);
 
+        // TODO: Try using isolates here
         final detectionImage = InputImage.fromFilePath(tmpFile.path);
-        final RecognizedText recognizedText =
-        await _textRecognizer.processImage(detectionImage);
+        final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
         detections.add(recognizedText.text);
-        debugPrint("recognizedText");
+        debugPrint("recognizedText: ${recognizedText.text}");
 
         img.drawRect(
           inputImage,
