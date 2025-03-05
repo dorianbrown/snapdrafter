@@ -9,7 +9,6 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_isolate/flutter_isolate.dart';
 
 import '/utils/data.dart';
 import 'download_screen.dart';

@@ -49,7 +49,6 @@ dependencies:
   sensors_plus: ^6.1.1
   flutter_slidable: ^4.0.0
   diffutil_dart: ^4.0.1
-  flutter_isolate: ^2.1.0
 
 dev_dependencies:
   flutter_test:
