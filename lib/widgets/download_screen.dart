@@ -29,6 +29,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
   initState() {
     super.initState();
     deckStorage = DeckStorage();
+    deckStorage.populateSetsTable();
     deckStorage.getScryfallMetadata().then((value) {
       scryfallMetadata = value;
       setState(() {});
