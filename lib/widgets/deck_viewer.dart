@@ -244,7 +244,7 @@ class DeckViewerState extends State<DeckViewer> {
     final List<Widget> deckView = [];
 
     var renderCard =
-    (renderValues[0] == "text") ? createTextCard : createVisualCard;
+    (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
     var rows = (renderValues[0] == "text") ? 1 : 2;
 
     final groupingAttribute = renderValues[1];
@@ -270,8 +270,7 @@ class DeckViewerState extends State<DeckViewer> {
       List<Widget> typeList = [];
       List<Widget> rowChildren = [];
       for (int i = 0; i < cardWidgets.length; i++) {
-        rowChildren.add(SizedBox(
-            width: (0.94 / rows) * MediaQuery.of(context).size.width,
+        rowChildren.add(Expanded(
             child: cardWidgets[i]));
         if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
           typeList.add(Row(
@@ -319,20 +318,32 @@ class DeckViewerState extends State<DeckViewer> {
   Widget createVisualCard(Card card) {
     return Container(
       padding: EdgeInsets.all(2),
-      child: GestureDetector(
-        onTap: () => showDialog(
-          context: context,
-          builder: (context) => Container(
-            padding: EdgeInsets.all(30), child: createVisualCard(card)
-          )
-        ),
-        child: FittedBox(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(25),
-            child: Image.network(card.imageUri!),
-          )
+      child: FittedBox(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: Image.network(card.imageUri!),
         )
       )
+    );
+  }
+
+  Widget createVisualCardPopup(Card card) {
+    return Container(
+        padding: EdgeInsets.all(2),
+        child: GestureDetector(
+            onTap: () => showDialog(
+                context: context,
+                builder: (context) => Container(
+                    padding: EdgeInsets.all(30), child: createVisualCard(card)
+                )
+            ),
+            child: FittedBox(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(25),
+                  child: Image.network(card.imageUri!),
+                )
+            )
+        )
     );
   }
 
