@@ -1,0 +1,1 @@
+/home/dorian/StudioProjects/hello_world/build/app/intermediates/cxx/Debug/675444x2/obj/arm64-v8a

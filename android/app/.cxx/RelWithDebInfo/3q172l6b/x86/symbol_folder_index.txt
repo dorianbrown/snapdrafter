@@ -1,0 +1,1 @@
+/home/dorian/StudioProjects/hello_world/build/app/intermediates/cxx/RelWithDebInfo/3q172l6b/obj/x86

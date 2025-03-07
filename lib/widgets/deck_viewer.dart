@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
 import 'package:diffutil_dart/diffutil.dart';
 import 'package:collection/collection.dart';
+import 'package:http/http.dart' as http;
 
 import '/utils/data.dart';
 import '/utils/models.dart';
@@ -32,6 +34,16 @@ class DeckViewerState extends State<DeckViewer> {
   List<String> renderValues = ["text", "type"];
   bool? showManaCurve = true;
 
+  final myInputDecorationTheme = InputDecorationTheme(
+    labelStyle: TextStyle(fontSize: 10),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+    constraints: BoxConstraints.tight(const Size.fromHeight(40)),
+    border: OutlineInputBorder(
+    borderRadius: BorderRadius.circular(8),
+    ),
+  );
+
   @override
   void initState() {
     super.initState();
@@ -55,61 +67,59 @@ class DeckViewerState extends State<DeckViewer> {
           return Scaffold(
             appBar: AppBar(title: Text("Deck $deckId")),
             body: Container(
-              margin: EdgeInsets.only(bottom: 20),
+              margin: const EdgeInsets.only(bottom: 20),
               alignment: Alignment.topCenter,
               child: ListView(
-                padding: EdgeInsets.all(10),
+                padding: const EdgeInsets.all(10),
                 children: [
                   Row(
-                      spacing: 8,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        DropdownMenu(
-                          width: 0.3 * MediaQuery.of(context).size.width,
-                          label: Text("Display"),
-                          initialSelection: "text",
-                          inputDecorationTheme: createDropdownStyling(),
-                          textStyle: TextStyle(fontSize: 12),
-                          dropdownMenuEntries: [
-                            DropdownMenuEntry(value: "text", label: "Text"),
-                            DropdownMenuEntry(value: "image", label: "Images")
-                          ],
-                          onSelected: (value) {
-                            renderValues[0] = value!;
-                            setState(() {});
-                          },
-                        ),
-                        DropdownMenu(
-                          width: 0.3 * MediaQuery.of(context).size.width,
-                          label: Text("Group By"),
-                          initialSelection: "type",
-                          inputDecorationTheme: createDropdownStyling(),
-                          textStyle: TextStyle(fontSize: 12),
-                          dropdownMenuEntries: [
-                            DropdownMenuEntry(value: "type", label: "Type"),
-                            DropdownMenuEntry(value: "color", label: "Color")
-                          ],
-                          onSelected: (value) {
-                            renderValues[1] = value!;
-                            setState(() {});
-                          },
-                        ),
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          spacing: 2,
-                          children: [
-                            Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
-                            Checkbox(
-                                visualDensity: VisualDensity.compact,
-                                value: showManaCurve,
-                                onChanged: (bool? value) {
-                                  showManaCurve = value;
-                                  setState(() {});
-                                }
-                            ),
-                          ],
-                        )
-                      ]
+                    spacing: 8,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      DropdownMenu(
+                        label: const Text("Display"),
+                        initialSelection: "text",
+                        inputDecorationTheme: myInputDecorationTheme,
+                        textStyle: const TextStyle(fontSize: 12),
+                        dropdownMenuEntries: [
+                          DropdownMenuEntry(value: "text", label: "Text"),
+                          DropdownMenuEntry(value: "image", label: "Images")
+                        ],
+                        onSelected: (value) {
+                          renderValues[0] = value!;
+                          setState(() {});
+                        },
+                      ),
+                      DropdownMenu(
+                        label: const Text("Group By"),
+                        initialSelection: "type",
+                        inputDecorationTheme: myInputDecorationTheme,
+                        textStyle: const TextStyle(fontSize: 12),
+                        dropdownMenuEntries: [
+                          DropdownMenuEntry(value: "type", label: "Type"),
+                          DropdownMenuEntry(value: "color", label: "Color")
+                        ],
+                        onSelected: (value) {
+                          renderValues[1] = value!;
+                          setState(() {});
+                        },
+                      ),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        spacing: 2,
+                        children: [
+                          const Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
+                          Checkbox(
+                              visualDensity: VisualDensity.compact,
+                              value: showManaCurve,
+                              onChanged: (bool? value) {
+                                showManaCurve = value;
+                                setState(() {});
+                              }
+                          ),
+                        ],
+                      )
+                    ]
                   ),
                   Divider(height: 30),
                   if (showManaCurve!) ...generateManaCurve(deck.cards),
@@ -134,11 +144,11 @@ class DeckViewerState extends State<DeckViewer> {
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
-                        child: Text("Discard")
+                        child: const Text("Discard")
                       ),
                       TextButton(
                           onPressed: () => findChangesAndUpdate(controller.text, deck.generateTextExport(), allCards, deck),
-                          child: Text("Save")
+                          child: const Text("Save")
                       )
                     ],
                   )
@@ -244,7 +254,7 @@ class DeckViewerState extends State<DeckViewer> {
     final List<Widget> deckView = [];
 
     var renderCard =
-    (renderValues[0] == "text") ? createTextCard : createVisualCard;
+    (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
     var rows = (renderValues[0] == "text") ? 1 : 2;
 
     final groupingAttribute = renderValues[1];
@@ -257,8 +267,8 @@ class DeckViewerState extends State<DeckViewer> {
     for (String attribute in uniqueGroupings) {
       List<Widget> header = [
         Container(
-            padding: EdgeInsets.fromLTRB(0, 20, 0, 5),
-            child: Text(attribute, style: _headerStyle))
+          padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
+          child: Text(attribute, style: _headerStyle))
       ];
 
       deck.cards.sort((a, b) => a.manaValue.compareTo(b.manaValue));
@@ -270,22 +280,29 @@ class DeckViewerState extends State<DeckViewer> {
       List<Widget> typeList = [];
       List<Widget> rowChildren = [];
       for (int i = 0; i < cardWidgets.length; i++) {
-        rowChildren.add(SizedBox(
-            width: (0.94 / rows) * MediaQuery.of(context).size.width,
-            child: cardWidgets[i]));
+        rowChildren.add(
+          Expanded(
+            child: cardWidgets[i]
+          )
+        );
         if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
-          typeList.add(Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: rowChildren,
-          ));
+          typeList.add(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: rowChildren,
+            )
+          );
           rowChildren = [];
         }
       }
 
       if (cardWidgets.isNotEmpty) {
-        deckView.add(Column(
+        deckView.add(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: header + typeList));
+            children: header + typeList
+          )
+        );
       }
     }
     return deckView;
@@ -298,9 +315,16 @@ class DeckViewerState extends State<DeckViewer> {
         GestureDetector(
           onTap: () => showDialog(
             context: context,
-            builder: (context) => Container(
-              padding: EdgeInsets.all(30),
-              child: createVisualCard(card)
+            builder: (context) => AlertDialog(
+              scrollable: true,
+              title: Text("Card Information", style: TextStyle(fontSize: 18),),
+              content: CardPopup(card: card),
+              actions: [
+                TextButton(
+                  child: Text("Dismiss"),
+                  onPressed: () => Navigator.of(context).pop(),
+                )
+              ],
             )
           ),
           child: Text(
@@ -314,16 +338,31 @@ class DeckViewerState extends State<DeckViewer> {
     );
   }
 
-  // FIXME: This function calling itself is a problem. We'll need make a split
-  // somewhere between showing dialog, and showing normal card images.
   Widget createVisualCard(Card card) {
+    return FittedBox(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: Image.network(card.imageUri!),
+      )
+    );
+  }
+
+  Widget createVisualCardPopup(Card card) {
     return Container(
       padding: EdgeInsets.all(2),
       child: GestureDetector(
         onTap: () => showDialog(
           context: context,
-          builder: (context) => Container(
-            padding: EdgeInsets.all(30), child: createVisualCard(card)
+          builder: (context) => AlertDialog(
+            scrollable: true,
+            title: Text("Card Information", style: TextStyle(fontSize: 18),),
+            content: CardPopup(card: card),
+            actions: [
+              TextButton(
+                child: Text("Dismiss"),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            ],
           )
         ),
         child: FittedBox(
@@ -335,16 +374,76 @@ class DeckViewerState extends State<DeckViewer> {
       )
     );
   }
+}
 
-  InputDecorationTheme createDropdownStyling() {
-    return InputDecorationTheme(
-      labelStyle: TextStyle(fontSize: 10),
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-      constraints: BoxConstraints.tight(const Size.fromHeight(40)),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-      ),
+class CardPopup extends StatefulWidget {
+  final Card card;
+  const CardPopup({super.key, required this.card});
+
+  @override
+  State<CardPopup> createState() => _CardPopupState();
+}
+
+class _CardPopupState extends State<CardPopup> {
+  late Future rulingsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    rulingsFuture = getRulingsData(widget.card.scryfallId);
+    rulingsFuture.then((_) => setState(() {}));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      spacing: 20,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: MediaQuery.of(context).size.width * 0.5,
+          child: FittedBox(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(25),
+                child: Image.network(widget.card.imageUri!),
+              )
+          )
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [Text("Rulings", style: _headerStyle)]
+        ),
+        FutureBuilder(
+          future: rulingsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              final rulings = snapshot.data!;
+              return Column(
+                children: [
+                  for (var ruling in rulings)
+                    ListTile(
+                      contentPadding: EdgeInsets.all(0),
+                      title: Text(ruling["published_at"]),
+                      subtitle: Text(ruling["comment"]),
+                    )
+                ]
+              );
+            }
+            return const CircularProgressIndicator();
+          }
+        ),
+      ]
     );
+  }
+
+  Future getRulingsData(String scryfallId) async {
+    final response = await http.get(Uri.parse("https://api.scryfall.com/cards/$scryfallId/rulings"));
+    if (response.statusCode == 200) {
+      final payload = json.decode(response.body);
+      final rulings = payload["data"];
+      return rulings;
+    } else {
+      throw Exception("Failed to load rulings");
+    }
   }
 }

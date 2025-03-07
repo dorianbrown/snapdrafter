@@ -49,6 +49,7 @@ dependencies:
   sensors_plus: ^6.1.1
   flutter_slidable: ^4.0.0
   diffutil_dart: ^4.0.1
+  image_picker: ^1.1.2
 
 dev_dependencies:
   flutter_test:
