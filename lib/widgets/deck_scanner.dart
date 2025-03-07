@@ -9,6 +9,7 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '/utils/data.dart';
 import 'download_screen.dart';
@@ -116,24 +117,47 @@ class DeckScannerState extends State<DeckScanner> {
             children: [
               FloatingActionButton(
                 heroTag: "Btn1",
-                onPressed: () {
-                  _modelsLoaded ? _runCardDetection(debug: true) : null;
+                onPressed: () async {
+                  if (_modelsLoaded) {
+                    final data = await rootBundle.load("assets/test_image.jpeg");
+                    img.Image inputImage = img.decodeImage(data.buffer.asUint8List())!;
+                    _runCardDetection(inputImage);
+                  }
                 },
                 child: const Icon(Icons.computer),
               ),
-              FloatingActionButton(
+              FloatingActionButton.extended(
                 heroTag: "Btn2",
-                onPressed: () {
-                  _modelsLoaded ? _runCardDetection(debug: false) : null;
+                label: const Text("Upload"),
+                onPressed: () async {
+                  if (_modelsLoaded) {
+                    final ImagePicker picker = ImagePicker();
+                    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+                    if (image != null) {
+                      img.Image inputImage = img.decodeImage(File(image.path).readAsBytesSync())!;
+                      _runCardDetection(inputImage);
+                    }
+                  }
                 },
-                child: const Icon(Icons.camera_alt),
+                icon: const Icon(Icons.upload),
+              ),
+              FloatingActionButton.extended(
+                heroTag: "Btn3",
+                label: const Text("Capture"),
+                onPressed: () async {
+                  if (_modelsLoaded) {
+                    img.Image inputImage = await _getInputImage();
+                    _runCardDetection(inputImage);
+                  };
+                },
+                icon: const Icon(Icons.camera),
               )
             ]
         )
     );
   }
 
-  Future<void> _runCardDetection({bool debug = false}) async {
+  Future<void> _runCardDetection(img.Image inputImage) async {
     // 1. Take picture (or load from disk)
     // 2. Run titleDetection isolate
     // 3. for each detection: transcribeDetection isolate
@@ -146,15 +170,6 @@ class DeckScannerState extends State<DeckScanner> {
             Center(child: CircularProgressIndicator()),
       ),
     );
-
-    // Image Loading
-    img.Image inputImage;
-    if (debug) {
-      final data = await rootBundle.load("assets/test_image.jpeg");
-      inputImage = img.decodeImage(data.buffer.asUint8List())!;
-    } else {
-      inputImage = await Isolate.run(_getInputImage);
-    }
 
     // Yolo title detection
     List<List<int>> detections = _titleDetection(inputImage);
