@@ -46,74 +46,74 @@ class _DownloadScreenState extends State<DownloadScreen> {
       appBar: AppBar(title: const Text('Flutter File Download')),
       body: Center(
         child: ValueListenableBuilder(
-            valueListenable: downloadProgressNotifier,
-            builder: (context, value, snapshot) {
-              return Column(
-                spacing: 25,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text(
-                      "Scryfall Card Data",
-                      style: TextStyle(
+          valueListenable: downloadProgressNotifier,
+          builder: (context, value, snapshot) {
+            return Column(
+              spacing: 25,
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                    "Scryfall Card Data",
+                    style: TextStyle(
+                      fontSize: 20.0,
+                      fontWeight: FontWeight.w600,
+                    )
+                ),
+                if (scryfallMetadata != null)
+                  Table(
+                    columnWidths: {
+                      0: FixedColumnWidth(120),
+                      1: IntrinsicColumnWidth()
+                    },
+                    children: [
+                      TableRow(
+                        children: [
+                          Text("Last download:", style: metadataStyle),
+                          Text(scryfallMetadata?['datetime'] ?? 'None', style: metadataStyle)
+                        ]
+                      ),
+                      TableRow(
+                          children: [
+                            Text("Latest set:", style: metadataStyle),
+                            Text(scryfallMetadata?['newest_set_name'] ?? 'None', style: metadataStyle)
+                          ]
+                      ),
+                    ],
+                  ),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
+                  child: const Icon(Icons.file_download_outlined, size: 70)
+                ),
+                Padding(
+                    padding: EdgeInsets.fromLTRB(50, 0, 50, 0),
+                    child: LinearProgressIndicator(
+                      value: totalBytes > 0
+                          ? downloadProgressNotifier.value / totalBytes
+                          : 0,
+                    ),
+                ),
+                (isDownloading)
+                  ? Text(
+                    (totalBytes > 0)
+                      ? (downloadProgressNotifier.value < totalBytes)
+                        ? "${(downloadProgressNotifier.value / (1000 * 1000)).ceil()} MB downloaded"
+                        : "Processing download..."
+                      : "Querying Scryfall"
+                    ,
+                    style: const TextStyle(
                         fontSize: 20.0,
                         fontWeight: FontWeight.w600,
-                      )
-                  ),
-                  if (scryfallMetadata != null)
-                    Table(
-                      columnWidths: {
-                        0: FixedColumnWidth(120),
-                        1: IntrinsicColumnWidth()
-                      },
-                      children: [
-                        TableRow(
-                          children: [
-                            Text("Last download:", style: metadataStyle),
-                            Text(scryfallMetadata?['datetime'] ?? 'None', style: metadataStyle)
-                          ]
-                        ),
-                        TableRow(
-                            children: [
-                              Text("Latest set:", style: metadataStyle),
-                              Text(scryfallMetadata?['newest_set_name'] ?? 'None', style: metadataStyle)
-                            ]
-                        ),
-                      ],
-                    ),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
-                    child: const Icon(Icons.file_download_outlined, size: 70)
-                  ),
-                  Padding(
-                      padding: EdgeInsets.fromLTRB(50, 0, 50, 0),
-                      child: LinearProgressIndicator(
-                        value: totalBytes > 0
-                            ? downloadProgressNotifier.value / totalBytes
-                            : 0,
-                      ),
-                  ),
-                  (isDownloading)
-                    ? Text(
-                      (totalBytes > 0)
-                        ? (downloadProgressNotifier.value < totalBytes)
-                          ? "${(downloadProgressNotifier.value / (1000 * 1000)).ceil()} MB downloaded"
-                          : "Processing download..."
-                        : "Querying Scryfall"
-                      ,
-                      style: const TextStyle(
-                          fontSize: 20.0,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white),
-                    )
-                    : ElevatedButton(onPressed: () {
-                      isDownloading = true;
-                      downloadFileFromServer();
-                      setState(() {});
-                  }, child: Text("Download?"))
-                ],
-              );
-            }),
+                        color: Colors.white),
+                  )
+                  : ElevatedButton(onPressed: () {
+                    isDownloading = true;
+                    downloadFileFromServer();
+                    setState(() {});
+                }, child: Text("Download?"))
+              ],
+            );
+          }),
       )
     );
   }

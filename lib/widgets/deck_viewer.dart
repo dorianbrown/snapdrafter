@@ -28,11 +28,12 @@ class DeckViewer extends StatefulWidget {
 
 class DeckViewerState extends State<DeckViewer> {
   final int deckId;
+  DeckViewerState(this.deckId);
+
   late Future<List<Deck>> decksFuture;
   late Future<List<Card>> allCardsFuture;
-  DeckViewerState(this.deckId);
   List<String> renderValues = ["text", "type"];
-  bool? showManaCurve = true;
+  bool? showManaCurve = false;
 
   final myInputDecorationTheme = InputDecorationTheme(
     labelStyle: TextStyle(fontSize: 10),
@@ -401,7 +402,7 @@ class _CardPopupState extends State<CardPopup> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: MediaQuery.of(context).size.width * 0.5,
+          width: MediaQuery.of(context).size.width * 0.7,
           child: FittedBox(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(25),
