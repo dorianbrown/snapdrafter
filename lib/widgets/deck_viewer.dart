@@ -372,7 +372,7 @@ class DeckViewerState extends State<DeckViewer> {
                 alignment: Alignment.bottomLeft,
                 margin: EdgeInsets.symmetric(vertical: 15, horizontal: 13),
                 child: Text(
-                  "1x",
+                  "${count}x",
                   style: TextStyle(
                     fontSize: 10,
                     color: Colors.white,
