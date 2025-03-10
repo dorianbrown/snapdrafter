@@ -34,9 +34,6 @@ class DeckViewerState extends State<DeckViewer> {
   late Future<List<Card>> allCardsFuture;
   List<String> renderValues = ["text", "type"];
   bool? showManaCurve = false;
-  // These are used for dropdown menus controlling how decklist is displayed
-  TextEditingController displayController = TextEditingController(text: "Text");
-  TextEditingController sortingController = TextEditingController(text: "Type");
 
   final myInputDecorationTheme = InputDecorationTheme(
     labelStyle: TextStyle(fontSize: 10),
@@ -82,7 +79,7 @@ class DeckViewerState extends State<DeckViewer> {
                     children: [
                       DropdownMenu(
                         label: const Text("Display"),
-                        controller: displayController,
+                        initialSelection: "text",
                         inputDecorationTheme: myInputDecorationTheme,
                         textStyle: const TextStyle(fontSize: 12),
                         dropdownMenuEntries: [
@@ -96,7 +93,7 @@ class DeckViewerState extends State<DeckViewer> {
                       ),
                       DropdownMenu(
                         label: const Text("Group By"),
-                        controller: sortingController,
+                        initialSelection: "type",
                         inputDecorationTheme: myInputDecorationTheme,
                         textStyle: const TextStyle(fontSize: 12),
                         dropdownMenuEntries: [
@@ -117,9 +114,8 @@ class DeckViewerState extends State<DeckViewer> {
                               visualDensity: VisualDensity.compact,
                               value: showManaCurve,
                               onChanged: (bool? value) {
-                                setState(() {
-                                  showManaCurve = value;
-                                });
+                                showManaCurve = value;
+                                setState(() {});
                               }
                           ),
                         ],
@@ -243,15 +239,15 @@ class DeckViewerState extends State<DeckViewer> {
     ];
 
     outputChildren.add(SizedBox(
-        height: 200,
-        child: charts.BarChart(
-            animate: false,
-            seriesList,
-            barGroupingType: charts.BarGroupingType.stacked,
-            primaryMeasureAxis: charts.NumericAxisSpec(
-                tickProviderSpec: charts.BasicNumericTickProviderSpec(
-                    dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
-            behaviors: [charts.SeriesLegend(showMeasures: true)])));
+      height: 200,
+      child: charts.BarChart(
+        animate: false,
+        seriesList,
+        barGroupingType: charts.BarGroupingType.stacked,
+        primaryMeasureAxis: charts.NumericAxisSpec(
+          tickProviderSpec: charts.BasicNumericTickProviderSpec(
+            dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
+        behaviors: [charts.SeriesLegend(showMeasures: true)])));
     return outputChildren;
   }
 
@@ -261,6 +257,7 @@ class DeckViewerState extends State<DeckViewer> {
 
     var renderCard =
     (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
+    var rows = (renderValues[0] == "text") ? 1 : 2;
 
     final groupingAttribute = renderValues[1];
     final getAttribute = (groupingAttribute == "type")
@@ -269,7 +266,6 @@ class DeckViewerState extends State<DeckViewer> {
     final uniqueGroupings =
     (groupingAttribute == "type") ? typeOrder : colorOrder;
 
-    // Here we loop over unique groupings and generate the widgets for each grouping
     for (String attribute in uniqueGroupings) {
       List<Widget> header = [
         Container(
@@ -277,28 +273,36 @@ class DeckViewerState extends State<DeckViewer> {
           child: Text(attribute, style: _headerStyle))
       ];
 
-      // Here we generate all the widgets within the current grouping
       deck.cards.sort((a, b) => a.manaValue.compareTo(b.manaValue));
       List<Widget> cardWidgets = deck.cards
           .where((card) => getAttribute(card) == attribute)
           .map((card) => renderCard(card))
           .toList();
 
+      List<Widget> typeList = [];
+      List<Widget> rowChildren = [];
+      for (int i = 0; i < cardWidgets.length; i++) {
+        rowChildren.add(
+          Expanded(
+            child: cardWidgets[i]
+          )
+        );
+        if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
+          typeList.add(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: rowChildren,
+            )
+          );
+          rowChildren = [];
+        }
+      }
+
       if (cardWidgets.isNotEmpty) {
         deckView.add(
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: header + (
-              (renderValues[0] == "text")
-                ? cardWidgets
-                : [GridView.count(
-                  physics: NeverScrollableScrollPhysics(),
-                  childAspectRatio: 0.72,
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  children: cardWidgets,
-                )]
-            )
+            children: header + typeList
           )
         );
       }
