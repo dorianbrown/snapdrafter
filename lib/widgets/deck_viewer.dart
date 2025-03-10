@@ -159,7 +159,8 @@ class DeckViewerState extends State<DeckViewer> {
             ),
           );
         }
-      });
+      }
+    );
   }
 
   findChangesAndUpdate(String newText, String originalText, List<Card> allCards, Deck deck) {

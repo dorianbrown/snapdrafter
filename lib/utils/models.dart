@@ -65,7 +65,7 @@ class Card {
         for (final match in RegExp(r'{(.*?)}|(//)').allMatches(manaCost!))
           match[0] == "//"
               ? Text(" // ", style: TextStyle(fontSize: 16))
-              : SvgPicture.asset("assets/svg_icons/${match[1]}.svg", height: 14)
+              : SvgPicture.asset("assets/svg_icons/${match[1]!.replaceAll("/", "")}.svg", height: 14)
       ]
     );
   }

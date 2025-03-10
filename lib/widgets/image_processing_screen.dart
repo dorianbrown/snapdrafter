@@ -6,10 +6,8 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
 import '/widgets/detection_preview.dart';
-import '/utils/data.dart';
 
 class deckImageProcessing extends StatefulWidget {
   final img.Image inputImage;
@@ -28,7 +26,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   late TextRecognizer _textRecognizer;
   late Future<void> _loadModelsFuture;
 
-  DeckStorage _deckStorage = DeckStorage();
   ValueNotifier<int> processingStatus = ValueNotifier(0);
   bool _titleDetected = false;
   int _numDetections = -1;
@@ -79,7 +76,9 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         Text("Finding titles in image..."),
-                        LinearProgressIndicator(),
+                        _titleDetected
+                          ? Text("Done!")
+                          : LinearProgressIndicator(),
                         if (_titleDetected)
                           Text("Recognizing text in titles..."),
                           LinearProgressIndicator(
@@ -119,12 +118,13 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         .toList();
 
     // Update progress bar as each future completes
-    _numDetections = detectionTextFutures.length;
-    detectionTextFutures.map(
-      (future) => future.then(
-        (_) => setState(() => processingStatus.value = processingStatus.value + 1)
-      )
-    );
+    for (var future in detectionTextFutures) {
+      future.then((_) {
+        debugPrint("Finished OCRing detection ${processingStatus.value}");
+        setState(() => processingStatus.value = processingStatus.value + 1);
+      });
+    }
+
     List<String> detectionText = await Future.wait(detectionTextFutures);
 
     // TODO: Fix isolate run here. Getting `can't send Future` error
@@ -247,6 +247,15 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     File tmpFile = File('${tmpDir.path}/thumbnail_${x1}_${x2}_${y1}_${y2}.png');
     await img.encodeImageFile(tmpFile.path, detectionImg);
     final detectionImage = InputImage.fromFilePath(tmpFile.path);
+    // final detectionImage = InputImage.fromBytes(
+    //     bytes: detectionImg.getBytes(order: img.ChannelOrder.bgra),
+    //     metadata: InputImageMetadata(
+    //         size: Size(detectionImg.width.toDouble(), detectionImg.height.toDouble()),
+    //         rotation: InputImageRotation.rotation0deg,
+    //         format: InputImageFormat.bgra8888,
+    //         bytesPerRow: 4 * detectionImg.width
+    //     )
+    // );
     // Run MLKit text recognition
     final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
     debugPrint("Text: ${recognizedText.text}");
