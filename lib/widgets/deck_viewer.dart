@@ -28,11 +28,15 @@ class DeckViewer extends StatefulWidget {
 
 class DeckViewerState extends State<DeckViewer> {
   final int deckId;
+  DeckViewerState(this.deckId);
+
   late Future<List<Deck>> decksFuture;
   late Future<List<Card>> allCardsFuture;
-  DeckViewerState(this.deckId);
   List<String> renderValues = ["text", "type"];
-  bool? showManaCurve = true;
+  bool? showManaCurve = false;
+  // These are used for dropdown menus controlling how decklist is displayed
+  TextEditingController displayController = TextEditingController(text: "Text");
+  TextEditingController sortingController = TextEditingController(text: "Type");
 
   final myInputDecorationTheme = InputDecorationTheme(
     labelStyle: TextStyle(fontSize: 10),
@@ -78,7 +82,7 @@ class DeckViewerState extends State<DeckViewer> {
                     children: [
                       DropdownMenu(
                         label: const Text("Display"),
-                        initialSelection: "text",
+                        controller: displayController,
                         inputDecorationTheme: myInputDecorationTheme,
                         textStyle: const TextStyle(fontSize: 12),
                         dropdownMenuEntries: [
@@ -92,7 +96,7 @@ class DeckViewerState extends State<DeckViewer> {
                       ),
                       DropdownMenu(
                         label: const Text("Group By"),
-                        initialSelection: "type",
+                        controller: sortingController,
                         inputDecorationTheme: myInputDecorationTheme,
                         textStyle: const TextStyle(fontSize: 12),
                         dropdownMenuEntries: [
@@ -113,8 +117,9 @@ class DeckViewerState extends State<DeckViewer> {
                               visualDensity: VisualDensity.compact,
                               value: showManaCurve,
                               onChanged: (bool? value) {
-                                showManaCurve = value;
-                                setState(() {});
+                                setState(() {
+                                  showManaCurve = value;
+                                });
                               }
                           ),
                         ],
@@ -158,7 +163,8 @@ class DeckViewerState extends State<DeckViewer> {
             ),
           );
         }
-      });
+      }
+    );
   }
 
   findChangesAndUpdate(String newText, String originalText, List<Card> allCards, Deck deck) {
@@ -237,15 +243,15 @@ class DeckViewerState extends State<DeckViewer> {
     ];
 
     outputChildren.add(SizedBox(
-      height: 200,
-      child: charts.BarChart(
-        animate: false,
-        seriesList,
-        barGroupingType: charts.BarGroupingType.stacked,
-        primaryMeasureAxis: charts.NumericAxisSpec(
-          tickProviderSpec: charts.BasicNumericTickProviderSpec(
-            dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
-        behaviors: [charts.SeriesLegend(showMeasures: true)])));
+        height: 200,
+        child: charts.BarChart(
+            animate: false,
+            seriesList,
+            barGroupingType: charts.BarGroupingType.stacked,
+            primaryMeasureAxis: charts.NumericAxisSpec(
+                tickProviderSpec: charts.BasicNumericTickProviderSpec(
+                    dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
+            behaviors: [charts.SeriesLegend(showMeasures: true)])));
     return outputChildren;
   }
 
@@ -255,7 +261,6 @@ class DeckViewerState extends State<DeckViewer> {
 
     var renderCard =
     (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
-    var rows = (renderValues[0] == "text") ? 1 : 2;
 
     final groupingAttribute = renderValues[1];
     final getAttribute = (groupingAttribute == "type")
@@ -264,6 +269,7 @@ class DeckViewerState extends State<DeckViewer> {
     final uniqueGroupings =
     (groupingAttribute == "type") ? typeOrder : colorOrder;
 
+    // Here we loop over unique groupings and generate the widgets for each grouping
     for (String attribute in uniqueGroupings) {
       List<Widget> header = [
         Container(
@@ -271,36 +277,29 @@ class DeckViewerState extends State<DeckViewer> {
           child: Text(attribute, style: _headerStyle))
       ];
 
+      // Here we generate all the widgets within the current grouping
       deck.cards.sort((a, b) => a.manaValue.compareTo(b.manaValue));
       List<Widget> cardWidgets = deck.cards
           .where((card) => getAttribute(card) == attribute)
-          .map((card) => renderCard(card))
+          .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
+          .entries.map((entry) => renderCard(entry.key, entry.value))
           .toList();
-
-      List<Widget> typeList = [];
-      List<Widget> rowChildren = [];
-      for (int i = 0; i < cardWidgets.length; i++) {
-        rowChildren.add(
-          Expanded(
-            child: cardWidgets[i]
-          )
-        );
-        if (((i + 1) % rows == 0) || (i == cardWidgets.length - 1)) {
-          typeList.add(
-            Row(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: rowChildren,
-            )
-          );
-          rowChildren = [];
-        }
-      }
 
       if (cardWidgets.isNotEmpty) {
         deckView.add(
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: header + typeList
+            children: header + (
+              (renderValues[0] == "text")
+                ? cardWidgets
+                : [GridView.count(
+                  physics: NeverScrollableScrollPhysics(),
+                  childAspectRatio: 0.72,
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  children: cardWidgets,
+                )]
+            )
           )
         );
       }
@@ -308,33 +307,33 @@ class DeckViewerState extends State<DeckViewer> {
     return deckView;
   }
 
-  Widget createTextCard(Card card) {
-    return Row(
-      spacing: 8,
-      children: [
-        GestureDetector(
-          onTap: () => showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              scrollable: true,
-              title: Text("Card Information", style: TextStyle(fontSize: 18),),
-              content: CardPopup(card: card),
-              actions: [
-                TextButton(
-                  child: Text("Dismiss"),
-                  onPressed: () => Navigator.of(context).pop(),
-                )
-              ],
-            )
-          ),
-          child: Text(
-            card.title,
+  Widget createTextCard(Card card, int count) {
+    return GestureDetector(
+      onTap: () => showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            scrollable: true,
+            title: Text("Card Information", style: TextStyle(fontSize: 18),),
+            content: CardPopup(card: card),
+            actions: [
+              TextButton(
+                child: Text("Dismiss"),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            ],
+          )
+      ),
+      child: Row(
+        spacing: 8,
+        children: [
+          Text(
+            (count > 1) ? "$count x ${card.title}" : card.title,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 16, height: 1.5),
           ),
-        ),
-        card.createManaCost()
-      ],
+          card.createManaCost()
+        ],
+      )
     );
   }
 
@@ -347,7 +346,7 @@ class DeckViewerState extends State<DeckViewer> {
     );
   }
 
-  Widget createVisualCardPopup(Card card) {
+  Widget createVisualCardPopup(Card card, int count) {
     return Container(
       padding: EdgeInsets.all(2),
       child: GestureDetector(
@@ -365,11 +364,28 @@ class DeckViewerState extends State<DeckViewer> {
             ],
           )
         ),
-        child: FittedBox(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(25),
-            child: Image.network(card.imageUri!),
-          )
+        child: Stack(
+          children: [
+            createVisualCard(card),
+            if (count > 1)
+              Container(
+                alignment: Alignment.bottomLeft,
+                margin: EdgeInsets.symmetric(vertical: 15, horizontal: 13),
+                child: Text(
+                  "1x",
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    background: Paint()
+                      ..color = Colors.black.withAlpha(180)
+                      ..strokeWidth = 11
+                      ..strokeJoin = StrokeJoin.round
+                      ..strokeCap = StrokeCap.round
+                      ..style = PaintingStyle.stroke,
+                  ),
+                ),
+              )
+          ],
         )
       )
     );
@@ -401,7 +417,7 @@ class _CardPopupState extends State<CardPopup> {
       mainAxisSize: MainAxisSize.min,
       children: [
         SizedBox(
-          width: MediaQuery.of(context).size.width * 0.5,
+          width: MediaQuery.of(context).size.width * 0.7,
           child: FittedBox(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(25),
