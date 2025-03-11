@@ -81,12 +81,6 @@ class DeckStorage {
         debugPrint("sqflite tables created");
       },
     );
-
-    // Print row counts of all tables
-    for (String tableName in ['cards', 'decks', 'decklists']) {
-      final int? rowCount = await countRows(tableName);
-      debugPrint("$tableName: $rowCount");
-    }
   }
 
   Future<void> populateSetsTable() async {

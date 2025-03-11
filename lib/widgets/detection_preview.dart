@@ -53,16 +53,11 @@ class DetectionPreviewScreen extends StatelessWidget {
             ),
           );
           final deckId = await createDeckAndSave(detections);
-          Navigator.of(context).popUntil(ModalRoute.withName('/'));
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => MyDecksOverview(),
-            ),
-          );
-          Navigator.of(context).push(
+          Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) => DeckViewer(deckId: deckId),
             ),
+            ModalRoute.withName('/')
           );
         },
         label: Text("Save Deck"),

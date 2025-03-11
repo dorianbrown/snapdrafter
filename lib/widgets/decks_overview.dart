@@ -3,14 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:hello_world/widgets/download_screen.dart';
 
 import '/utils/utils.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/widgets/deck_viewer.dart';
 import '/widgets/main_menu_drawer.dart';
-
-DeckStorage _deckStorage = DeckStorage();
+import '/widgets/deck_scanner.dart';
 
 TextStyle _headerStyle = TextStyle(
     fontSize: 20,
@@ -27,11 +27,13 @@ class MyDecksOverview extends StatefulWidget {
 class MyDecksOverviewState extends State<MyDecksOverview> {
   late Future<List<Deck>> decksFuture;
   late Future<List<Set>> setsFuture;
+  late Future buildFuture;
+  late DeckStorage _deckStorage;
 
   @override
   void initState() {
     super.initState();
-    _deckStorage.init();
+    _deckStorage = DeckStorage();
     decksFuture = _deckStorage.getAllDecks();
     setsFuture = _deckStorage.getAllSets();
   }
@@ -46,11 +48,41 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("My Decks")),
-      drawer: MainMenuDrawer(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButton: FloatingActionButton(
+        shape: CircleBorder(),
+        child: Icon(Icons.add),
+        onPressed: () => Navigator.of(context).push(
+            MaterialPageRoute(
+                builder: (context) => DeckScanner()
+            )
+        )
+      ),
+      bottomNavigationBar: BottomAppBar(
+        height: 65,
+        shape: CircularNotchedRectangle(),
+        child: Row(
+          children: [
+            IconButton(
+              icon: Icon(Icons.sync_alt),
+              onPressed: () => debugPrint("Pressed 1")
+            ),
+            Spacer(),
+            IconButton(
+              icon: Icon(Icons.download),
+              onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (context) => DownloadScreen()
+                  )
+              )
+            ),
+          ]
+        ),
+      ),
       body: FutureBuilder(
         future: Future.wait([decksFuture, setsFuture]),
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
+          if (snapshot.connectionState != ConnectionState.done || snapshot.data == null) {
             return Center(child: CircularProgressIndicator());
           } else {
             // Getting state
