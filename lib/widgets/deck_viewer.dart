@@ -60,11 +60,13 @@ class DeckViewerState extends State<DeckViewer> {
     return FutureBuilder(
       future: Future.wait([decksFuture, allCardsFuture]),
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        if (snapshot.connectionState != ConnectionState.done || snapshot.data == null) {
           return Center(
             child: CircularProgressIndicator(),
           );
         } else {
+          // FIXME: When returning from DetectionPreview, on first scan, these
+          // are null. Not clear how we get into this path, when these are null
           final decks = snapshot.data![0] as List<Deck> ;
           final allCards = snapshot.data![1] as List<Card>;
           final deck = decks.where((deck) => deck.id == deckId).first;

@@ -67,6 +67,7 @@ class DeckScannerState extends State<DeckScanner> {
             mainAxisAlignment: MainAxisAlignment.end,
             spacing: 20,
             children: [
+              // TODO: Hide this behind debug flag or something?
               FloatingActionButton(
                 heroTag: "Btn1",
                 onPressed: () async {

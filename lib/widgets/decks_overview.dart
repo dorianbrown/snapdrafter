@@ -36,6 +36,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
     _deckStorage = DeckStorage();
     decksFuture = _deckStorage.getAllDecks();
     setsFuture = _deckStorage.getAllSets();
+    decksFuture.then((_) {
+      setState(() {});
+    });
   }
 
   void refreshDecks() {

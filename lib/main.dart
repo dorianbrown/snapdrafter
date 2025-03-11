@@ -14,8 +14,8 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
   ]);
 
-  DeckStorage _deckStorage = DeckStorage();
-  await _deckStorage.init();
+  DeckStorage deckStorage = DeckStorage();
+  await deckStorage.init();
 
   runApp(
     MaterialApp(
