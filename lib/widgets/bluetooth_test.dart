@@ -1,7 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import '/utils/bluetooth_managers.dart';
 
 class BluetoothTest extends StatefulWidget {
