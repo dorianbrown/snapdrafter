@@ -8,6 +8,9 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:path_provider/path_provider.dart';
 
 import '/widgets/detection_preview.dart';
+import '/utils/data.dart';
+
+DeckStorage _deckStorage = DeckStorage();
 
 class deckImageProcessing extends StatefulWidget {
   final img.Image inputImage;
@@ -26,7 +29,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   late TextRecognizer _textRecognizer;
   late Future<void> _loadModelsFuture;
 
-  ValueNotifier<int> processingStatus = ValueNotifier(0);
+  int ocrProgress = 0;
   bool _titleDetected = false;
   int _numDetections = -1;
 
@@ -83,10 +86,10 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                           Text("Recognizing text in titles..."),
                           LinearProgressIndicator(
                               value: _numDetections > 0
-                                  ? processingStatus.value / _numDetections
+                                  ? ocrProgress / _numDetections
                                   : 0
                           ),
-                        if (_titleDetected && processingStatus.value == _numDetections)
+                        if (_titleDetected && ocrProgress == _numDetections)
                           Text("Writing detections to preview image...")
                       ]
                   );
@@ -117,11 +120,13 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         .map((detection) => _transcribeDetection(detection, inputImage))
         .toList();
 
+    _numDetections = detectionTextFutures.length;
+
     // Update progress bar as each future completes
     for (var future in detectionTextFutures) {
       future.then((_) {
-        debugPrint("Finished OCRing detection ${processingStatus.value}");
-        setState(() => processingStatus.value = processingStatus.value + 1);
+        debugPrint("Finished OCRing detection ${ocrProgress + 1}");
+        setState(() => ocrProgress = ocrProgress + 1);
       });
     }
 
@@ -159,7 +164,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       img.drawString(inputImage, detectionText[i],
           font: img.arial48,
           x: x1,
-          y: y1 - 55,
+          y: y1 - 55,  // Place text above box
           color: img.ColorRgba8(255, 242, 0, 255)
       );
     }
@@ -232,6 +237,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   }
 
   Future<String> _transcribeDetection(List<int> detection, img.Image inputImage) async {
+
     // Extract only relevant part from inputImage
     var [x1, y1, x2, y2] = detection;
     debugPrint("Detection: $detection");
@@ -241,6 +247,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         width: x2 - x1,
         height: y2 - y1
     );
+
     // Convert img.Image to MLKit inputImage
     // TODO: Figure out how to do this in memory
     Directory tmpDir = await getTemporaryDirectory();

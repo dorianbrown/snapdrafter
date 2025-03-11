@@ -2,13 +2,11 @@ import 'dart:async';
 import 'dart:isolate';
 
 import 'package:flutter/material.dart' hide Card;
-import 'package:hello_world/widgets/decks_overview.dart';
 import 'package:image/image.dart' as img;
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
 import '/widgets/deck_viewer.dart';
 import '/utils/data.dart';
-import '/utils/models.dart';
 
 DeckStorage _deckStorage = DeckStorage();
 
@@ -53,16 +51,11 @@ class DetectionPreviewScreen extends StatelessWidget {
             ),
           );
           final deckId = await createDeckAndSave(detections);
-          Navigator.of(context).popUntil(ModalRoute.withName('/'));
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => MyDecksOverview(),
-            ),
-          );
-          Navigator.of(context).push(
+          Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) => DeckViewer(deckId: deckId),
             ),
+            ModalRoute.withName('/')
           );
         },
         label: Text("Save Deck"),

@@ -7,15 +7,10 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
-import '/utils/data.dart';
-import 'download_screen.dart';
-import '/widgets/main_menu_drawer.dart';
 import '/widgets/image_processing_screen.dart';
 
 class DeckScanner extends StatefulWidget {
-  const DeckScanner({super.key, required this.camera});
-
-  final CameraDescription camera;
+  const DeckScanner({super.key});
 
   @override
   DeckScannerState createState() => DeckScannerState();
@@ -24,42 +19,25 @@ class DeckScanner extends StatefulWidget {
 class DeckScannerState extends State<DeckScanner> {
   late CameraController _controller;
   late Future<void> _initializeControllerFuture;
-  late Future<void> _initializeDatabaseFuture;
-  late DeckStorage _deckStorage;
   final double _pictureRotation = -90.0;
 
   @override
   void initState() {
     super.initState();
-    _controller = CameraController(widget.camera,
+    _initializeControllerFuture = _createCameraController();
+  }
+
+  Future<void> _createCameraController() async {
+    final cameras = await availableCameras();
+    _controller = CameraController(cameras.first,
         ResolutionPreset.max,
         enableAudio: false
     );
-
     _initializeControllerFuture = _controller.initialize();
     _initializeControllerFuture.then((_) {
       _controller.setFlashMode(FlashMode.off);
     });
-    _initializeDatabaseFuture = _initializeDatabase();
-    // Check if Scryfall data is downloaded, else launch screen
-    _initializeDatabaseFuture.then((val) {
-      _deckStorage.getScryfallMetadata().then((val) {
-        if (val.isEmpty) {
-          if (context.mounted) {
-            Navigator.of(context).push(MaterialPageRoute(
-                builder: (context) => const DownloadScreen()));
-          }
-        }
-      });
-    });
-  }
-
-  Future<void> _initializeDatabase() async {
-    _deckStorage = DeckStorage();
-    await _deckStorage.init().then((val) async {
-      var decks = await _deckStorage.getAllDecks();
-      debugPrint("Decks: $decks");
-    });
+    return _initializeControllerFuture;
   }
 
   @override
@@ -72,7 +50,6 @@ class DeckScannerState extends State<DeckScanner> {
   Widget build(BuildContext context) {
     return Scaffold(
         appBar: AppBar(title: const Text('Scan Deck')),
-        drawer: MainMenuDrawer(),
         body: FutureBuilder<void>(
           future: _initializeControllerFuture,
           builder: (context, snapshot) {
@@ -87,12 +64,13 @@ class DeckScannerState extends State<DeckScanner> {
             mainAxisAlignment: MainAxisAlignment.end,
             spacing: 20,
             children: [
+              // TODO: Hide this behind debug flag or something?
               FloatingActionButton(
                 heroTag: "Btn1",
                 onPressed: () async {
                   final data = await rootBundle.load("assets/test_image.jpeg");
                   img.Image inputImage = img.decodeImage(data.buffer.asUint8List())!;
-                  Navigator.of(context).push(
+                  Navigator.of(context).pushReplacement(
                     MaterialPageRoute(
                       builder: (context) => deckImageProcessing(inputImage: inputImage)
                     )
@@ -108,7 +86,7 @@ class DeckScannerState extends State<DeckScanner> {
                   final XFile? image = await picker.pickImage(source: ImageSource.gallery);
                   if (image != null) {
                     img.Image inputImage = img.decodeImage(File(image.path).readAsBytesSync())!;
-                    Navigator.of(context).push(
+                    Navigator.of(context).pushReplacement(
                         MaterialPageRoute(
                             builder: (context) => deckImageProcessing(inputImage: inputImage)
                         )
@@ -122,7 +100,7 @@ class DeckScannerState extends State<DeckScanner> {
                 label: const Text("Capture"),
                 onPressed: () async {
                   img.Image inputImage = await _getInputImage();
-                  Navigator.of(context).push(
+                  Navigator.of(context).pushReplacement(
                       MaterialPageRoute(
                           builder: (context) => deckImageProcessing(inputImage: inputImage)
                       )
