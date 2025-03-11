@@ -9,7 +9,6 @@ import '/utils/utils.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/widgets/deck_viewer.dart';
-import '/widgets/main_menu_drawer.dart';
 import '/widgets/deck_scanner.dart';
 
 TextStyle _headerStyle = TextStyle(
