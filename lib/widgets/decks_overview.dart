@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
-import 'package:hello_world/widgets/download_screen.dart';
 
 import '/utils/utils.dart';
 import '/utils/route_observer.dart';
@@ -11,6 +10,7 @@ import '/utils/data.dart';
 import '/utils/models.dart';
 import '/widgets/deck_viewer.dart';
 import '/widgets/deck_scanner.dart';
+import '/widgets/download_screen.dart';
 
 TextStyle _headerStyle = TextStyle(
     fontSize: 20,
