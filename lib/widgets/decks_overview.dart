@@ -54,11 +54,13 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
       floatingActionButton: FloatingActionButton(
         shape: CircleBorder(),
         child: Icon(Icons.add),
-        onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (context) => DeckScanner()
-            )
-        )
+        onPressed: () async {
+          Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (context) => DeckScanner()
+              )
+          );
+        },
       ),
       bottomNavigationBar: BottomAppBar(
         height: 65,
@@ -169,7 +171,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                       decks[index].setId != null ? "Draft: ${setsMap[decks[index].setId]}" : "Draft Deck ${index + 1}",
                       overflow: TextOverflow.ellipsis,
                     ),
-                    trailing: Icon(Icons.keyboard_arrow_right_rounded, size: 25,),
+                    trailing: Icon(Icons.keyboard_arrow_right_rounded, size: 25),
                     subtitle: Text(
                         "W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-' }  |  ${convertDatetimeToYMD(decks[index].dateTime)}",
                         overflow: TextOverflow.ellipsis,
