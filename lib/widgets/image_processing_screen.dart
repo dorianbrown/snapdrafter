@@ -36,12 +36,20 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   int matchingProgress = 0;
   bool _titleDetected = false;
   int _numDetections = -1;
+  String? errorMessage;
 
   @override
   void initState() {
     super.initState();
     _loadModelsFuture = _loadModels();
-    _loadModelsFuture.then((_) => _runCardDetection(inputImage));
+    try {
+      _loadModelsFuture.then((_) => _runCardDetection(inputImage));
+    } catch (e) {
+      // Save error message and display on screen
+      setState(() {
+        errorMessage = e.toString();
+      });
+    }
   }
 
   Future<void> _loadModels() async {
@@ -95,6 +103,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                           Text("Progress: $ocrProgress / $_numDetections"),
                           Text("Matching OCR to cards database..."),
                           Text("Progress: $matchingProgress / $_numDetections"),
+                          Text(errorMessage ?? "")
                       ]
                   );
                 }
