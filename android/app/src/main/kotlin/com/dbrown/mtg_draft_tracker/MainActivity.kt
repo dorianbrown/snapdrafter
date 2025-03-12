@@ -1,4 +1,4 @@
-package com.example.hello_world
+package com.dbrown.mtg_draft_tracker
 
 import io.flutter.embedding.android.FlutterActivity
 
