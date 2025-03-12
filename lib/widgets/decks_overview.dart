@@ -6,6 +6,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:hello_world/widgets/download_screen.dart';
 
 import '/utils/utils.dart';
+import '/utils/route_observer.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/widgets/deck_viewer.dart';
@@ -23,7 +24,7 @@ class MyDecksOverview extends StatefulWidget {
   MyDecksOverviewState createState() => MyDecksOverviewState();
 }
 
-class MyDecksOverviewState extends State<MyDecksOverview> {
+class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late Future<List<Deck>> decksFuture;
   late Future<List<Set>> setsFuture;
   late Future buildFuture;
@@ -38,6 +39,20 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
     decksFuture.then((_) {
       setState(() {});
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route changes
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  // Make sure decks are up-to-date when we return to page
+  @override
+  void didPopNext() {
+    debugPrint("didPopNext() was fired");
+    refreshDecks();
   }
 
   void refreshDecks() {
@@ -143,19 +158,18 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                       onPressed: (_) {
                         showDialog(
                           context: context,
-                          builder: (_) => AlertDialog(
+                          builder: (dialogContext) => AlertDialog(
                             title: Text('Confirmation'),
                             content: Text('Are you sure you want to delete this deck?'),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
+                                onPressed: () => Navigator.of(dialogContext).pop(),
                                 child: Text("Cancel")
                               ),
                               TextButton(
                                 onPressed: () {
                                   _deckStorage.deleteDeck(decks[index].id);
-                                  refreshDecks();
-                                  Navigator.of(context).pop();
+                                  Navigator.of(dialogContext).pop();
                                 },
                                 child: Text("Delete")
                               )

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '/utils/data.dart';
 import '/widgets/decks_overview.dart';
+import '/utils/route_observer.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,6 +13,7 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
   ]);
 
+  // Initialize DeckStorage to have it available in future
   DeckStorage deckStorage = DeckStorage();
   await deckStorage.init();
 
@@ -19,6 +21,7 @@ Future<void> main() async {
     MaterialApp(
       theme: ThemeData.dark(),
       home: MyDecksOverview(),
+      navigatorObservers: [routeObserver],
     ),
   );
 }
