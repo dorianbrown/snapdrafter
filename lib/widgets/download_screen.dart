@@ -43,7 +43,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
       color: Colors.white38
     );
     return Scaffold(
-      appBar: AppBar(title: const Text('Flutter File Download')),
+      appBar: AppBar(title: const Text('Scryfall Download')),
       body: Center(
         child: ValueListenableBuilder(
           valueListenable: downloadProgressNotifier,

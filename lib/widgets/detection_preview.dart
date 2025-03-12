@@ -7,15 +7,16 @@ import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
 import '/widgets/deck_viewer.dart';
 import '/utils/data.dart';
+import '/utils/models.dart';
 
 DeckStorage _deckStorage = DeckStorage();
 
 class DetectionPreviewScreen extends StatelessWidget {
   final img.Image image;
-  final List<String> detections;
+  final List<Card> matchedCards;
 
   const DetectionPreviewScreen(
-    {super.key, required this.image, required this.detections});
+    {super.key, required this.image, required this.matchedCards});
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +51,7 @@ class DetectionPreviewScreen extends StatelessWidget {
                   Center(child: CircularProgressIndicator()),
             ),
           );
-          final deckId = await createDeckAndSave(detections);
+          final deckId = await createDeckAndSave(matchedCards);
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) => DeckViewer(deckId: deckId),
@@ -63,22 +64,7 @@ class DetectionPreviewScreen extends StatelessWidget {
     );
   }
 
-  Future<int> createDeckAndSave(List<String> detections) async {
-    final allCards = await _deckStorage.getAllCards();
-    final choices = allCards.map((card) => card.title).toList();
-    final List<Future> matchedFutures = [];
-    debugPrint("Matching detections with database");
-    for (final detection in detections) {
-      debugPrint("Matching $detection with database");
-      Future matchFuture = Isolate.run(() {
-        return extractOne(query: detection, choices: choices);
-      });
-      matchedFutures.add(matchFuture);
-    }
-
-    final matches = await Future.wait(matchedFutures);
-    final matchedCards = matches.map((match) => allCards[match.index]).toList();
-
+  Future<int> createDeckAndSave(List<Card> matchedCards) async {
     final DateTime dateTime = DateTime.now();
     return await _deckStorage.saveNewDeck(dateTime, matchedCards);
   }

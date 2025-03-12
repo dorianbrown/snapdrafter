@@ -6,6 +6,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:hello_world/widgets/download_screen.dart';
 
 import '/utils/utils.dart';
+import '/utils/route_observer.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/widgets/deck_viewer.dart';
@@ -23,7 +24,7 @@ class MyDecksOverview extends StatefulWidget {
   MyDecksOverviewState createState() => MyDecksOverviewState();
 }
 
-class MyDecksOverviewState extends State<MyDecksOverview> {
+class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late Future<List<Deck>> decksFuture;
   late Future<List<Set>> setsFuture;
   late Future buildFuture;
@@ -40,6 +41,20 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
     });
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route changes
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  // Make sure decks are up-to-date when we return to page
+  @override
+  void didPopNext() {
+    debugPrint("didPopNext() was fired");
+    refreshDecks();
+  }
+
   void refreshDecks() {
     setState(() {
       decksFuture = _deckStorage.getAllDecks();
@@ -54,11 +69,13 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
       floatingActionButton: FloatingActionButton(
         shape: CircleBorder(),
         child: Icon(Icons.add),
-        onPressed: () => Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (context) => DeckScanner()
-            )
-        )
+        onPressed: () async {
+          Navigator.of(context).push(
+              MaterialPageRoute(
+                  builder: (context) => DeckScanner()
+              )
+          );
+        },
       ),
       bottomNavigationBar: BottomAppBar(
         height: 65,
@@ -92,6 +109,23 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
             final sets = snapshot.data![1] as List<Set>;
             final setsMap = {for (Set set in sets) set.code: set.name};
 
+            if (decks.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  spacing: 20,
+                  children: [
+                    Spacer(flex: 4),
+                    Text("No decks found", style: TextStyle(fontSize: 20)),
+                    Spacer(flex: 3),
+                    Text('Use the add button below to scan a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white54)),
+                    Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 40),
+                    Spacer(flex: 1)
+                  ]
+                )
+              );
+            }
+
             // View constructor
             return ListView.separated(
               itemCount: decks.length,
@@ -124,19 +158,18 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                       onPressed: (_) {
                         showDialog(
                           context: context,
-                          builder: (_) => AlertDialog(
+                          builder: (dialogContext) => AlertDialog(
                             title: Text('Confirmation'),
                             content: Text('Are you sure you want to delete this deck?'),
                             actions: [
                               TextButton(
-                                onPressed: () => Navigator.of(context).pop(),
+                                onPressed: () => Navigator.of(dialogContext).pop(),
                                 child: Text("Cancel")
                               ),
                               TextButton(
                                 onPressed: () {
                                   _deckStorage.deleteDeck(decks[index].id);
-                                  refreshDecks();
-                                  Navigator.of(context).pop();
+                                  Navigator.of(dialogContext).pop();
                                 },
                                 child: Text("Delete")
                               )
@@ -152,14 +185,14 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                       decks[index].setId != null ? "Draft: ${setsMap[decks[index].setId]}" : "Draft Deck ${index + 1}",
                       overflow: TextOverflow.ellipsis,
                     ),
-                    trailing: Icon(Icons.keyboard_arrow_right_rounded, size: 25,),
+                    trailing: Icon(Icons.keyboard_arrow_right_rounded, size: 25),
                     subtitle: Text(
                         "W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-' }  |  ${convertDatetimeToYMD(decks[index].dateTime)}",
                         overflow: TextOverflow.ellipsis,
                     ),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => DeckViewer(deckId: decks[index].id)
-                    )).then((_) => refreshDecks()),
+                    )),
                   )
                 );
               },
