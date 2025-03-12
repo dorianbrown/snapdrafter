@@ -6,6 +6,7 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter/services.dart';
 
 import '/widgets/image_processing_screen.dart';
 
@@ -25,6 +26,9 @@ class DeckScannerState extends State<DeckScanner> {
   void initState() {
     super.initState();
     _initializeControllerFuture = _createCameraController();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+    ]);
   }
 
   Future<void> _createCameraController() async {
@@ -43,18 +47,22 @@ class DeckScannerState extends State<DeckScanner> {
   @override
   void dispose() {
     _controller.dispose();
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+    ]);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: const Text('Scan Deck')),
+        appBar: AppBar(title: const Text('Scan Deck'), backgroundColor: Color.fromARGB(150, 0, 0, 0)),
+        extendBodyBehindAppBar: true,
         body: FutureBuilder<void>(
           future: _initializeControllerFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.done) {
-              return Center(child: CameraPreview(_controller));
+              return Center(child: RotatedBox(quarterTurns: -1, child: CameraPreview(_controller)));
             } else {
               return const Center(child: CircularProgressIndicator());
             }
@@ -76,11 +84,11 @@ class DeckScannerState extends State<DeckScanner> {
                     )
                   );
                 },
-                child: const Icon(Icons.computer),
+                child: const Icon(Icons.handyman),
               ),
               FloatingActionButton.extended(
                 heroTag: "Btn2",
-                label: const Text("Upload"),
+                label: const Text("From File"),
                 onPressed: () async {
                   final ImagePicker picker = ImagePicker();
                   final XFile? image = await picker.pickImage(source: ImageSource.gallery);
@@ -93,7 +101,7 @@ class DeckScannerState extends State<DeckScanner> {
                     );
                   }
                 },
-                icon: const Icon(Icons.upload),
+                icon: const Icon(Icons.file_open),
               ),
               FloatingActionButton.extended(
                 heroTag: "Btn3",

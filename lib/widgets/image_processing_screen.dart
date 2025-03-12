@@ -89,6 +89,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                                   ? ocrProgress / _numDetections
                                   : 0
                           ),
+                          Text("Progress: $ocrProgress / $_numDetections"),
                         if (_titleDetected && ocrProgress == _numDetections)
                           Text("Writing detections to preview image...")
                       ]
@@ -104,8 +105,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
   Future<void> _runCardDetection(img.Image inputImage) async {
     // 1. Take picture (or load from disk)
-    // 2. Run titleDetection isolate
-    // 3. for each detection: transcribeDetection isolate
+    // 2. Run titleDetection
+    // 3. for each detection: transcribeDetection
     // 4. Combine these into output image.
 
     // Yolo title detection

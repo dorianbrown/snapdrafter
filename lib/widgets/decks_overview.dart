@@ -92,6 +92,23 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
             final sets = snapshot.data![1] as List<Set>;
             final setsMap = {for (Set set in sets) set.code: set.name};
 
+            if (decks.isEmpty) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  spacing: 20,
+                  children: [
+                    Spacer(flex: 4),
+                    Text("No decks found", style: TextStyle(fontSize: 20)),
+                    Spacer(flex: 3),
+                    Text('Use the add button below to scan a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white54)),
+                    Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 40),
+                    Spacer(flex: 1)
+                  ]
+                )
+              );
+            }
+
             // View constructor
             return ListView.separated(
               itemCount: decks.length,
