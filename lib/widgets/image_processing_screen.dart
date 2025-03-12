@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'dart:isolate';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart' hide Card;
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -9,6 +10,8 @@ import 'package:path_provider/path_provider.dart';
 
 import '/widgets/detection_preview.dart';
 import '/utils/data.dart';
+import '/utils/utils.dart';
+import '/utils/models.dart';
 
 DeckStorage _deckStorage = DeckStorage();
 
@@ -30,6 +33,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   late Future<void> _loadModelsFuture;
 
   int ocrProgress = 0;
+  int matchingProgress = 0;
   bool _titleDetected = false;
   int _numDetections = -1;
 
@@ -82,7 +86,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                         _titleDetected
                           ? Text("Done!")
                           : LinearProgressIndicator(),
-                        if (_titleDetected)
                           Text("Recognizing text in titles..."),
                           LinearProgressIndicator(
                               value: _numDetections > 0
@@ -90,8 +93,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                                   : 0
                           ),
                           Text("Progress: $ocrProgress / $_numDetections"),
-                        if (_titleDetected && ocrProgress == _numDetections)
-                          Text("Writing detections to preview image...")
+                          Text("Matching OCR to cards database..."),
+                          Text("Progress: $matchingProgress / $_numDetections"),
                       ]
                   );
                 }
@@ -133,19 +136,23 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     List<String> detectionText = await Future.wait(detectionTextFutures);
 
-    // TODO: Fix isolate run here. Getting `can't send Future` error
-    // final allCards = await _deckStorage.getAllCards();
-    // final choices = allCards.map((card) => card.title).toList();
-    // final List<Future> matchedFutures = [];
-    // debugPrint("Matching detections with database");
-    // for (final text in detectionText) {
-    //   debugPrint("Matching $text with database");
-    //   Future matchFuture = Isolate.run(() => _fuzzyMatch(text, choices));
-    //   matchedFutures.add(matchFuture);
-    // }
-    //
-    // final matches = await Future.wait(matchedFutures);
-    // detectionText = matches.map((match) => allCards[match].name).toList();
+    final allCards = await _deckStorage.getAllCards();
+    final choices = allCards.map((card) => card.title).toList();
+    final List<Future> matchedFutures = [];
+    debugPrint("Matching detections with database");
+    for (final text in detectionText) {
+      debugPrint("Matching $text with database");
+      final matchParams = MatchParams(query: text, choices: choices);
+      Future matchFuture = compute(runFuzzyMatch, matchParams);
+      matchFuture.then((_) {
+        debugPrint("Finished OCRing detection ${ocrProgress + 1}");
+        setState(() => matchingProgress = matchingProgress + 1);
+      });
+      matchedFutures.add(matchFuture);
+    }
+
+    final matches = await Future.wait(matchedFutures);
+    List<Card> matchedCards = matches.map((match) => allCards[match]).toList();
 
     // Add annotations to image
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
@@ -162,7 +169,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         thickness: 5,
       );
       // Add text to image
-      img.drawString(inputImage, detectionText[i],
+      img.drawString(inputImage, matchedCards[i].name,
           font: img.arial48,
           x: x1,
           y: y1 - 55,  // Place text above box
@@ -173,7 +180,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => DetectionPreviewScreen(
-            image: outputImage, detections: detectionText),
+            image: outputImage, matchedCards: matchedCards),
       ),
     );
   }

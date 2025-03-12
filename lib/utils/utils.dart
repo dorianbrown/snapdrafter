@@ -27,7 +27,14 @@ bool regexValidator(String input, String pattern) {
   return input.isNotEmpty && !regex.hasMatch(input);
 }
 
-int fuzzyMatch(String query, List<String> choices) {
-  ExtractedResult<String> match = extractOne(query: query, choices: choices);
+class MatchParams {
+  final String query;
+  final List<String> choices;
+
+  MatchParams({required this.query, required this.choices});
+}
+
+int runFuzzyMatch(MatchParams params) {
+  final match = extractOne(query: params.query, choices: params.choices);
   return match.index;
 }
