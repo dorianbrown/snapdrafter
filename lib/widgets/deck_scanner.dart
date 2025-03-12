@@ -72,20 +72,6 @@ class DeckScannerState extends State<DeckScanner> {
             mainAxisAlignment: MainAxisAlignment.end,
             spacing: 20,
             children: [
-              // TODO: Hide this behind debug flag or something?
-              FloatingActionButton(
-                heroTag: "Btn1",
-                onPressed: () async {
-                  final data = await rootBundle.load("assets/test_image.jpeg");
-                  img.Image inputImage = img.decodeImage(data.buffer.asUint8List())!;
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => deckImageProcessing(inputImage: inputImage)
-                    )
-                  );
-                },
-                child: const Icon(Icons.handyman),
-              ),
               FloatingActionButton.extended(
                 heroTag: "Btn2",
                 label: const Text("From File"),

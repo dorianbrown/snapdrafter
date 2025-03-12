@@ -134,8 +134,10 @@ class DeckViewerState extends State<DeckViewer> {
                 ],
               ),
             ),
-            floatingActionButton: FloatingActionButton(
+            floatingActionButton: FloatingActionButton.extended(
+              label: const Text("Edit"),
               heroTag: "Btn1",
+              icon: const Icon(Icons.edit),
               onPressed: () {
                 final controller = TextEditingController(text: deck.generateTextExport());
                 showDialog(
@@ -161,7 +163,6 @@ class DeckViewerState extends State<DeckViewer> {
                   )
                 );
               },
-              child: const Icon(Icons.edit),
             ),
           );
         }
