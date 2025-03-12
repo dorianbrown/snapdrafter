@@ -176,7 +176,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                     ),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => DeckViewer(deckId: decks[index].id)
-                    )).then((_) => refreshDecks()),
+                    )),
                   )
                 );
               },
