@@ -8,9 +8,9 @@ import '/utils/utils.dart';
 import '/utils/route_observer.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
-import '/widgets/deck_viewer.dart';
-import '/widgets/deck_scanner.dart';
-import '/widgets/download_screen.dart';
+import 'deck_viewer.dart';
+import 'deck_scanner.dart';
+import 'download_screen.dart';
 
 TextStyle _headerStyle = TextStyle(
     fontSize: 20,
@@ -67,6 +67,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       appBar: AppBar(title: Text("My Decks")),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
+        tooltip: "Add a deck to your collection",
         shape: CircleBorder(),
         child: Icon(Icons.add),
         onPressed: () async {
@@ -84,10 +85,11 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           children: [
             IconButton(
               icon: Icon(Icons.sync_alt),
-              onPressed: () => debugPrint("Pressed 1")
+              onPressed: null
             ),
             Spacer(),
             IconButton(
+              tooltip: "Download Scryfall data",
               icon: Icon(Icons.download),
               onPressed: () => Navigator.of(context).push(
                   MaterialPageRoute(
@@ -118,8 +120,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     Spacer(flex: 4),
                     Text("No decks found", style: TextStyle(fontSize: 20)),
                     Spacer(flex: 3),
-                    Text('Use the add button below to scan a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white54)),
-                    Icon(Icons.keyboard_arrow_down, color: Colors.white54, size: 40),
+                    Text('Use the add button below to scan a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white38)),
+                    Icon(Icons.keyboard_arrow_down, color: Colors.white38, size: 40),
                     Spacer(flex: 1)
                   ]
                 )

@@ -8,7 +8,7 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 
-import '/widgets/image_processing_screen.dart';
+import 'image_processing_screen.dart';
 
 class DeckScanner extends StatefulWidget {
   const DeckScanner({super.key});
