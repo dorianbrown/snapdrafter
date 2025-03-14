@@ -83,12 +83,13 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       floatingActionButtonLocation: ExpandableFab.location,
       floatingActionButton: ExpandableFab(
         key: _expandableFabKey,
-        type: ExpandableFabType.up,
-        pos: ExpandableFabPos.right,
+        type: ExpandableFabType.fan,
+        pos: ExpandableFabPos.center,
+        fanAngle: 120,
         overlayStyle: ExpandableFabOverlayStyle(color: Colors.black87.withAlpha(0)),
-        distance: 75,
+        distance: 90,
         openButtonBuilder: FloatingActionButtonBuilder(
-          size: 50,
+          size: 56,
           builder: (BuildContext context, void Function()? onPressed,
               Animation<double> progress) {
             return FloatingActionButton(
@@ -100,7 +101,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           },
         ),
         closeButtonBuilder: FloatingActionButtonBuilder(
-          size: 50,
+          size: 56,
           builder: (BuildContext context, void Function()? onPressed,
               Animation<double> progress) {
             return FloatingActionButton(
