@@ -21,6 +21,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Set up Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: 17
+          distribution: "temurin"
+
       # Download and install flutter packages
       - name: Install Flutter
         uses: subosito/flutter-action@v2
