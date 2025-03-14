@@ -12,7 +12,6 @@ import 'models.dart';
 class DeckStorage {
   late Database _database;
   late List<Card> _allCards;
-  Map<String,Card>? _allCardsMap;
   var cardsLoaded = false;
   final String _databaseName = 'decklistScanner.db';
   final int _databaseVersion = 1;
@@ -155,13 +154,7 @@ class DeckStorage {
   }
 
   Future<Map<String, Card>> getCardsMap() async {
-    if (_allCardsMap == null) {
-      final allCards = await getAllCards();
-      _allCardsMap = {
-        for (final card in allCards) card.scryfallId: card
-      };
-    }
-    return _allCardsMap!;
+    return {};
   }
 
   Future<List<Card>> getAllCards() async {
@@ -216,8 +209,13 @@ class DeckStorage {
 
   Future<List<Deck>> getAllDecks() async {
     final decks = await _database.query('decks');
-    final decklists = await _database.query('decklists');
-    final cardsMap = await getCardsMap();
+    final cards = await _database.rawQuery(
+      """
+      SELECT decklists.deck_id, cards.*
+      FROM decklists 
+      INNER JOIN cards ON decklists.scryfall_id = cards.scryfall_id 
+      """
+    );
 
     final List<Deck> deckList = [];
     for (final deck in decks) {
@@ -227,9 +225,9 @@ class DeckStorage {
       final cubeId = deck['cube_id'] as int?;
       final deckDateTime = DateTime.parse(deck['datetime'] as String);
 
-      var currentDecklist = decklists
+      var currentDecklist = cards
           .where((x) => x['deck_id'] == deckId)
-          .map((x) => cardsMap[x["scryfall_id"]]!)
+          .map((x) => Card.fromMap(x))
           .toList();
 
       deckList.add(Deck(

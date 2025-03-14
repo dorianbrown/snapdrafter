@@ -52,6 +52,7 @@ class DetectionPreviewScreen extends StatelessWidget {
             ),
           );
           final deckId = await createDeckAndSave(matchedCards);
+          debugPrint("Deck saved with id: $deckId");
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) => DeckViewer(deckId: deckId),

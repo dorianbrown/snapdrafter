@@ -39,6 +39,15 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     decksFuture.then((_) {
       setState(() {});
     });
+    _deckStorage.getAllCards().then((cards) async {
+      if (cards.isEmpty) {
+        Navigator.of(context).push(
+            MaterialPageRoute(
+                builder: (context) => DownloadScreen()
+            )
+        );
+      }
+    });
   }
 
   @override
