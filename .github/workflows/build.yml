@@ -3,7 +3,6 @@ name: Build
 
 # Controls what will trigger the workflow. Change it to your needs.
 on:
-  # A new push to the "main" branch.
   push:
     branches: [ "release" ]
   workflow_dispatch:
@@ -26,7 +25,7 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.10.0" # Change to the version you use in your project
+          flutter-version: "3.6.2" # Change to the version you use in your project
 
       - name: Build unsigned release app bundle
         run: flutter build appbundle
