@@ -25,7 +25,8 @@ jobs:
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.6.2" # Change to the version you use in your project
+          channel: stable
+          flutter-version-file: pubspec.yaml # path to pubspec.yaml
 
       - name: Build unsigned release app bundle
         run: flutter build appbundle
