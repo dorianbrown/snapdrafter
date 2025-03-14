@@ -1,11 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 
 import 'image_processing_screen.dart';
@@ -72,23 +70,6 @@ class DeckScannerState extends State<DeckScanner> {
             mainAxisAlignment: MainAxisAlignment.end,
             spacing: 20,
             children: [
-              FloatingActionButton.extended(
-                heroTag: "Btn2",
-                label: const Text("From File"),
-                onPressed: () async {
-                  final ImagePicker picker = ImagePicker();
-                  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                  if (image != null) {
-                    img.Image inputImage = img.decodeImage(File(image.path).readAsBytesSync())!;
-                    Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                            builder: (context) => deckImageProcessing(inputImage: inputImage)
-                        )
-                    );
-                  }
-                },
-                icon: const Icon(Icons.file_open),
-              ),
               FloatingActionButton.extended(
                 heroTag: "Btn3",
                 label: const Text("Capture"),

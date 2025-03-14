@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:image/image.dart' as img;
+import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 
 import '/utils/utils.dart';
 import '/utils/route_observer.dart';
@@ -11,6 +15,7 @@ import '/utils/models.dart';
 import 'deck_viewer.dart';
 import 'deck_scanner.dart';
 import 'download_screen.dart';
+import 'image_processing_screen.dart';
 
 TextStyle _headerStyle = TextStyle(
     fontSize: 20,
@@ -29,6 +34,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late Future<List<Set>> setsFuture;
   late Future buildFuture;
   late DeckStorage _deckStorage;
+  final _expandableFabKey = GlobalKey<ExpandableFabState>();
 
   @override
   void initState() {
@@ -74,22 +80,90 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("My Decks")),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        tooltip: "Add a deck to your collection",
-        shape: CircleBorder(),
-        child: Icon(Icons.add),
-        onPressed: () async {
-          Navigator.of(context).push(
-              MaterialPageRoute(
-                  builder: (context) => DeckScanner()
-              )
-          );
-        },
+      floatingActionButtonLocation: ExpandableFab.location,
+      floatingActionButton: ExpandableFab(
+        key: _expandableFabKey,
+        type: ExpandableFabType.up,
+        pos: ExpandableFabPos.right,
+        overlayStyle: ExpandableFabOverlayStyle(color: Colors.black87.withAlpha(0)),
+        distance: 75,
+        openButtonBuilder: FloatingActionButtonBuilder(
+          size: 50,
+          builder: (BuildContext context, void Function()? onPressed,
+              Animation<double> progress) {
+            return FloatingActionButton(
+              heroTag: null,
+              onPressed: null,
+              shape: CircleBorder(),
+              child: const Icon(Icons.add),
+            );
+          },
+        ),
+        closeButtonBuilder: FloatingActionButtonBuilder(
+          size: 50,
+          builder: (BuildContext context, void Function()? onPressed,
+              Animation<double> progress) {
+            return FloatingActionButton(
+              mini: true,
+              backgroundColor: Colors.grey,
+              foregroundColor: Colors.black87,
+              heroTag: null,
+              onPressed: null,
+              shape: CircleBorder(),
+              splashColor: Colors.white38,
+              child: const Icon(Icons.close),
+            );
+          },
+        ),
+        children: [
+          FloatingActionButton(
+            heroTag: null,
+            shape: CircleBorder(),
+            child: const Icon(Icons.folder),
+            onPressed: () async {
+              final state = _expandableFabKey.currentState;
+              if (state != null) {
+                state.toggle();
+              }
+              final ImagePicker picker = ImagePicker();
+              final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+              if (image != null) {
+                img.Image inputImage = img.decodeImage(File(image.path).readAsBytesSync())!;
+                Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (context) => deckImageProcessing(inputImage: inputImage)
+                    )
+                );
+              }
+            },
+          ),
+          FloatingActionButton(
+            heroTag: null,
+            shape: CircleBorder(),
+            child: const Icon(Icons.camera),
+            onPressed: () {
+              final state = _expandableFabKey.currentState;
+              if (state != null) {
+                state.toggle();
+              }
+              Navigator.of(context).push(
+                  MaterialPageRoute(
+                      builder: (context) => DeckScanner()
+                  )
+              );
+            },
+          ),
+          FloatingActionButton(
+            heroTag: null,
+            shape: CircleBorder(),
+            onPressed: null,
+            child: const Icon(Icons.text_fields_outlined),
+          )
+        ],
       ),
       bottomNavigationBar: BottomAppBar(
         height: 65,
-        shape: CircularNotchedRectangle(),
+        // shape: CircularNotchedRectangle(),
         child: Row(
           children: [
             IconButton(
@@ -129,9 +203,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     Spacer(flex: 4),
                     Text("No decks found", style: TextStyle(fontSize: 20)),
                     Spacer(flex: 3),
-                    Text('Use the add button below to scan a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white38)),
-                    Icon(Icons.keyboard_arrow_down, color: Colors.white38, size: 40),
-                    Spacer(flex: 1)
+                    Text('Use the "+" button below to add a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white38)),
+                    Spacer(flex: 3)
                   ]
                 )
               );
