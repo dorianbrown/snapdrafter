@@ -1,14 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter/services.dart';
 
-import '/widgets/image_processing_screen.dart';
+import 'image_processing_screen.dart';
 
 class DeckScanner extends StatefulWidget {
   const DeckScanner({super.key});
@@ -72,37 +70,6 @@ class DeckScannerState extends State<DeckScanner> {
             mainAxisAlignment: MainAxisAlignment.end,
             spacing: 20,
             children: [
-              // TODO: Hide this behind debug flag or something?
-              FloatingActionButton(
-                heroTag: "Btn1",
-                onPressed: () async {
-                  final data = await rootBundle.load("assets/test_image.jpeg");
-                  img.Image inputImage = img.decodeImage(data.buffer.asUint8List())!;
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(
-                      builder: (context) => deckImageProcessing(inputImage: inputImage)
-                    )
-                  );
-                },
-                child: const Icon(Icons.handyman),
-              ),
-              FloatingActionButton.extended(
-                heroTag: "Btn2",
-                label: const Text("From File"),
-                onPressed: () async {
-                  final ImagePicker picker = ImagePicker();
-                  final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-                  if (image != null) {
-                    img.Image inputImage = img.decodeImage(File(image.path).readAsBytesSync())!;
-                    Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                            builder: (context) => deckImageProcessing(inputImage: inputImage)
-                        )
-                    );
-                  }
-                },
-                icon: const Icon(Icons.file_open),
-              ),
               FloatingActionButton.extended(
                 heroTag: "Btn3",
                 label: const Text("Capture"),

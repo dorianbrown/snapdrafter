@@ -24,6 +24,16 @@ class Card {
     required this.manaValue
   });
 
+  // Equality operator for comparing cards
+  @override
+  bool operator ==(Object other) {
+    if (other is! Card) return false;
+    return scryfallId == other.scryfallId;
+  }
+
+  @override
+  int get hashCode => scryfallId.hashCode;
+
   Map<String, Object?> toMap() {
     var map = {
       "scryfall_id": scryfallId,
@@ -37,6 +47,20 @@ class Card {
       "mana_value": manaValue
     };
     return map;
+  }
+
+  static Card fromMap(Map<String, dynamic> map) {
+    return Card(
+      scryfallId: map["scryfall_id"],
+      oracleId: map["oracle_id"],
+      name: map["name"],
+      title: map["title"],
+      type: map["type"],
+      imageUri: map["image_uri"],
+      colors: map["colors"],
+      manaCost: map["mana_cost"],
+      manaValue: map["mana_value"]
+    );
   }
 
   String color() {
@@ -74,6 +98,7 @@ class Card {
   String toString() {
     return "Card${toMap().toString()}";
   }
+
 }
 
 class Decklist {

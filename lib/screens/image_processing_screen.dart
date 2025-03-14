@@ -8,7 +8,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
 
-import '/widgets/detection_preview.dart';
+import 'detection_preview.dart';
 import '/utils/data.dart';
 import '/utils/utils.dart';
 import '/utils/models.dart';
@@ -36,12 +36,21 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   int matchingProgress = 0;
   bool _titleDetected = false;
   int _numDetections = -1;
+  String? errorMessage;
 
   @override
   void initState() {
     super.initState();
     _loadModelsFuture = _loadModels();
-    _loadModelsFuture.then((_) => _runCardDetection(inputImage));
+    _loadModelsFuture.then((_) {
+      _runCardDetection(inputImage).catchError((e) {
+        // Save error message and display on screen
+        setState(() {
+          errorMessage = e.toString();
+        });
+      });
+    });
+
   }
 
   Future<void> _loadModels() async {
@@ -95,6 +104,13 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                           Text("Progress: $ocrProgress / $_numDetections"),
                           Text("Matching OCR to cards database..."),
                           Text("Progress: $matchingProgress / $_numDetections"),
+                          if (errorMessage != null)
+                            Text("Error:", style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold
+                            )),
+                            Text(errorMessage ?? "")
                       ]
                   );
                 }
@@ -156,6 +172,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     // Add annotations to image
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
+    final overlayColor = img.ColorRgba8(255, 242, 0, 255);
+
     for (var i = 0; i < detections.length; i++) {
       var [x1, y1, x2, y2] = detections[i];
       // Draw bounding box around detected title
@@ -165,7 +183,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         y1: y1,
         x2: x2,
         y2: y2,
-        color: img.ColorRgba8(255, 242, 0, 255),
+        color: overlayColor,
         thickness: 5,
       );
       // Add text to image
@@ -173,9 +191,19 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
           font: img.arial48,
           x: x1,
           y: y1 - 55,  // Place text above box
-          color: img.ColorRgba8(255, 242, 0, 255)
+          color: overlayColor
       );
     }
+
+    // Add count of cards to image
+    img.drawString(
+      inputImage,
+      "Total Cards: ${matchedCards.length}",
+      font: img.arial48,
+      x: inputImage.width - 400,
+      y: inputImage.height - 150,
+      color: overlayColor
+    );
 
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(

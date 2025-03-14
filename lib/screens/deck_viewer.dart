@@ -130,12 +130,23 @@ class DeckViewerState extends State<DeckViewer> {
                   ),
                   Divider(height: 30),
                   if (showManaCurve!) ...generateManaCurve(deck.cards),
+                  Container(
+                      padding: EdgeInsets.fromLTRB(0, 0, 10, 0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text("# Cards: ${deck.cards.length}", style: TextStyle(fontSize: 16, height: 1.5))
+                        ],
+                      )
+                  ),
                   ...generateDeckView(deck, renderValues)
                 ],
               ),
             ),
-            floatingActionButton: FloatingActionButton(
+            floatingActionButton: FloatingActionButton.extended(
+              label: const Text("Edit"),
               heroTag: "Btn1",
+              icon: const Icon(Icons.edit),
               onPressed: () {
                 final controller = TextEditingController(text: deck.generateTextExport());
                 showDialog(
@@ -161,7 +172,6 @@ class DeckViewerState extends State<DeckViewer> {
                   )
                 );
               },
-              child: const Icon(Icons.edit),
             ),
           );
         }
@@ -273,11 +283,6 @@ class DeckViewerState extends State<DeckViewer> {
 
     // Here we loop over unique groupings and generate the widgets for each grouping
     for (String attribute in uniqueGroupings) {
-      List<Widget> header = [
-        Container(
-          padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
-          child: Text(attribute, style: _headerStyle))
-      ];
 
       // Here we generate all the widgets within the current grouping
       deck.cards.sort((a, b) => a.manaValue.compareTo(b.manaValue));
@@ -286,6 +291,17 @@ class DeckViewerState extends State<DeckViewer> {
           .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
           .entries.map((entry) => renderCard(entry.key, entry.value))
           .toList();
+
+      int numCards = deck.cards
+          .where((card) => getAttribute(card) == attribute)
+          .length;
+
+      // Generate the header text
+      List<Widget> header = [
+        Container(
+          padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
+          child: Text("$attribute ($numCards)", style: _headerStyle))
+      ];
 
       if (cardWidgets.isNotEmpty) {
         deckView.add(
@@ -404,12 +420,13 @@ class CardPopup extends StatefulWidget {
 
 class _CardPopupState extends State<CardPopup> {
   late Future rulingsFuture;
+  late Future cardDataFuture;
 
   @override
   void initState() {
     super.initState();
     rulingsFuture = getRulingsData(widget.card.scryfallId);
-    rulingsFuture.then((_) => setState(() {}));
+    cardDataFuture = getCardData(widget.card.scryfallId);
   }
 
   @override
@@ -427,6 +444,17 @@ class _CardPopupState extends State<CardPopup> {
               )
           )
         ),
+        FutureBuilder(
+            future: cardDataFuture,
+            builder: (context, snapshot) {
+              if (snapshot.hasData) {
+                final Map<String, dynamic> cardData = snapshot.data!;
+                return displayCardData(cardData);
+              }
+              return const CircularProgressIndicator();
+            }
+        ),
+        Divider(height: 4,),
         Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [Text("Rulings", style: _headerStyle)]
@@ -454,6 +482,16 @@ class _CardPopupState extends State<CardPopup> {
     );
   }
 
+  Future getCardData(String scryfallId) async {
+    final response = await http.get(Uri.parse("https://api.scryfall.com/cards/$scryfallId"));
+    if (response.statusCode == 200) {
+      final payload = json.decode(response.body);
+      return payload;
+    } else {
+      throw Exception("Failed to load rulings");
+    }
+  }
+
   Future getRulingsData(String scryfallId) async {
     final response = await http.get(Uri.parse("https://api.scryfall.com/cards/$scryfallId/rulings"));
     if (response.statusCode == 200) {
@@ -464,4 +502,23 @@ class _CardPopupState extends State<CardPopup> {
       throw Exception("Failed to load rulings");
     }
   }
+}
+
+Widget displayCardData(Map<String, dynamic> cardData) {
+  final String oracleText = cardData["oracle_text"];
+  final String typeLine = cardData["type_line"];
+
+  final style = TextStyle(fontStyle: FontStyle.italic);
+
+  return Column(
+    spacing: 8,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Divider(height: 6),
+      Text(typeLine, style: style),
+      Divider(height: 6, endIndent: 225),
+      for (String text in oracleText.split("\n"))
+        Text(text, style: style),
+    ],
+  );
 }

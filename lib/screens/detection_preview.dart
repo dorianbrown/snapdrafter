@@ -5,7 +5,7 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:image/image.dart' as img;
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
-import '/widgets/deck_viewer.dart';
+import 'deck_viewer.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
 
@@ -52,6 +52,7 @@ class DetectionPreviewScreen extends StatelessWidget {
             ),
           );
           final deckId = await createDeckAndSave(matchedCards);
+          debugPrint("Deck saved with id: $deckId");
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) => DeckViewer(deckId: deckId),
