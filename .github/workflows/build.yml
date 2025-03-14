@@ -3,7 +3,6 @@ name: Build
 
 # Controls what will trigger the workflow. Change it to your needs.
 on:
-  # A new push to the "main" branch.
   push:
     branches: [ "release" ]
   workflow_dispatch:
@@ -22,11 +21,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
+      - name: Set up Java
+        uses: actions/setup-java@v2
+        with:
+          java-version: 17
+          distribution: "temurin"
+
       # Download and install flutter packages
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.10.0" # Change to the version you use in your project
+          channel: stable
+          flutter-version-file: pubspec.yaml # path to pubspec.yaml
 
       - name: Build Unsigned App Bundle
         run: flutter build appbundle
@@ -40,3 +46,12 @@ jobs:
           alias: ${{ secrets.KEY_ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Upload to Play Store (Internal Testing)
+        uses: r0adkll/upload-google-play@v1.0.18
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
+          packageName: com.dbrown.mtg_draft_tracker
+          releaseFiles: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          mappingFile: ./build/app/outputs/mapping/release/mapping.txt
+          track: internal
