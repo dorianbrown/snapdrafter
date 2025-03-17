@@ -187,7 +187,7 @@ class DeckViewerState extends State<DeckViewer> {
     for (var update in textDiff.getUpdatesWithData()) {
       if (update is DataInsert) {
         update as DataInsert<String>;
-        Card? matchedCard = allCards.firstWhereOrNull((card) => card.title == update.data);
+        Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == update.data);
         if (matchedCard == null) {
           // TODO: Figure out how to show snackbar inside AlertDialog
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Card not found: '${update.data}'")));
@@ -345,7 +345,7 @@ class DeckViewerState extends State<DeckViewer> {
         spacing: 8,
         children: [
           Text(
-            (count > 1) ? "$count x ${card.title}" : card.title,
+            (count > 1) ? "$count x ${card.title}" : card.name,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 16, height: 1.5),
           ),
@@ -504,21 +504,28 @@ class _CardPopupState extends State<CardPopup> {
   }
 }
 
+// FIXME: Update for MDFC
 Widget displayCardData(Map<String, dynamic> cardData) {
-  final String oracleText = cardData["oracle_text"];
-  final String typeLine = cardData["type_line"];
+  List<dynamic>? cardFaces = cardData["card_faces"];
 
   final style = TextStyle(fontStyle: FontStyle.italic);
+
+  cardFaces ??= [cardData];
+
+  List<Widget> widgets = [];
+  for (var cardFace in cardFaces) {
+    widgets += [
+      Divider(height: 6),
+      Text(cardFace["type_line"], style: style),
+      Divider(height: 6, endIndent: 225),
+      for (String text in cardFace["oracle_text"].split("\n"))
+        Text(text, style: style),
+    ];
+  }
 
   return Column(
     spacing: 8,
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Divider(height: 6),
-      Text(typeLine, style: style),
-      Divider(height: 6, endIndent: 225),
-      for (String text in oracleText.split("\n"))
-        Text(text, style: style),
-    ],
+    children: widgets
   );
 }
