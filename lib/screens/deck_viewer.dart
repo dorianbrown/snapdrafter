@@ -504,7 +504,6 @@ class _CardPopupState extends State<CardPopup> {
   }
 }
 
-// FIXME: Update for MDFC
 Widget displayCardData(Map<String, dynamic> cardData) {
   List<dynamic>? cardFaces = cardData["card_faces"];
 
