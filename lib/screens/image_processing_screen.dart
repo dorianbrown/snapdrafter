@@ -60,7 +60,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         // options.addDelegate(GpuDelegateV2());
       }
 
-      final modelPath = 'assets/title_detection_yolov11_float16.tflite';
+      final modelPath = 'assets/run22_fp16.tflite';
       _detector = await Interpreter.fromAsset(modelPath, options: options);
       _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
       setState(() {});
@@ -160,8 +160,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       debugPrint("Matching $text with database");
       final matchParams = MatchParams(query: text, choices: choices);
       Future matchFuture = compute(runFuzzyMatch, matchParams);
-      matchFuture.then((_) {
-        debugPrint("Finished OCRing detection ${ocrProgress + 1}");
+      matchFuture.then((match) {
         setState(() => matchingProgress = matchingProgress + 1);
       });
       matchedFutures.add(matchFuture);
