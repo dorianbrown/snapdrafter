@@ -1,5 +1,6 @@
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/material.dart';
+import 'package:image/image.dart' as img;
 
 class Card {
   final String scryfallId;
@@ -207,3 +208,15 @@ const List<String> colorOrder = [
   "Multicolor",
   "Colorless"
 ];
+
+class Detection {
+  final Card card;
+  final String ocrText;
+  final img.Image textImage;
+
+  const Detection({
+    required this.card,
+    required this.ocrText,
+    required this.textImage
+  });
+}

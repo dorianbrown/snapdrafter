@@ -173,6 +173,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
     final overlayColor = img.ColorRgba8(255, 242, 0, 255);
 
+    List<Detection> detectionOutput = [];
+
     for (var i = 0; i < detections.length; i++) {
       var [x1, y1, x2, y2] = detections[i];
       // Draw bounding box around detected title
@@ -186,28 +188,41 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         thickness: 5,
       );
       // Add text to image
-      img.drawString(inputImage, matchedCards[i].name,
+      img.drawString(outputImage, matchedCards[i].name,
           font: img.arial48,
           x: x1,
           y: y1 - 55,  // Place text above box
           color: overlayColor
       );
+
+      // Create output list
+      detectionOutput.add(Detection(
+        card: matchedCards[i],
+        ocrText: detectionText[i],
+        textImage: img.copyCrop(
+          inputImage,
+          x: x1,
+          y: y1,
+          width: x2 - x1,
+          height: y2 - y1
+        )
+      ));
     }
 
     // Add count of cards to image
     img.drawString(
-      inputImage,
+      outputImage,
       "Total Cards: ${matchedCards.length}",
       font: img.arial48,
-      x: inputImage.width - 400,
-      y: inputImage.height - 150,
+      x: outputImage.width - 400,
+      y: outputImage.height - 150,
       color: overlayColor
     );
 
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (context) => DetectionPreviewScreen(
-            image: outputImage, matchedCards: matchedCards),
+            image: outputImage, detections: detectionOutput),
       ),
     );
   }
