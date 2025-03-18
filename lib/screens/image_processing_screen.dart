@@ -128,6 +128,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     // 3. for each detection: transcribeDetection
     // 4. Combine these into output image.
 
+    final img.Image inputImageCopy = inputImage.clone();
+
     // Yolo title detection
     List<List<int>> detections = _titleDetection(inputImage);
     setState(() {
@@ -200,7 +202,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         card: matchedCards[i],
         ocrText: detectionText[i],
         textImage: img.copyCrop(
-          inputImage,
+          inputImageCopy,
           x: x1,
           y: y1,
           width: x2 - x1,

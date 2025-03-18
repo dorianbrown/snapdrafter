@@ -48,10 +48,10 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         itemCount: detections.length,
         itemBuilder: (context, index) {
           return Dismissible(
+            confirmDismiss: confirmDeletion,
             key: UniqueKey(),
             background: Container(color: Colors.red,),
             onDismissed: (direction) {
-              // FIXME: When removing 25, then 26, using the index for removal causes issues
               setState(() {
                 detections.removeAt(index);
               });
@@ -187,5 +187,27 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   Future<int> createDeckAndSave(List<Card> matchedCards) async {
     final DateTime dateTime = DateTime.now();
     return await _deckStorage.saveNewDeck(dateTime, matchedCards);
+  }
+
+  Future<bool> confirmDeletion(direction) async {
+    return await showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: const Text("Confirm"),
+        content: const Text("Are you sure you wish to delete this item?"),
+        actions: <Widget>[
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text("DELETE")
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text("CANCEL"),
+          ),
+        ],
+      );
+    },
+    );
   }
 }
