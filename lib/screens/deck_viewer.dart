@@ -81,52 +81,7 @@ class DeckViewerState extends State<DeckViewer> {
                   Row(
                     spacing: 8,
                     mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      DropdownMenu(
-                        label: const Text("Display"),
-                        controller: displayController,
-                        inputDecorationTheme: myInputDecorationTheme,
-                        textStyle: const TextStyle(fontSize: 12),
-                        dropdownMenuEntries: [
-                          DropdownMenuEntry(value: "text", label: "Text"),
-                          DropdownMenuEntry(value: "image", label: "Images")
-                        ],
-                        onSelected: (value) {
-                          renderValues[0] = value!;
-                          setState(() {});
-                        },
-                      ),
-                      DropdownMenu(
-                        label: const Text("Group By"),
-                        controller: sortingController,
-                        inputDecorationTheme: myInputDecorationTheme,
-                        textStyle: const TextStyle(fontSize: 12),
-                        dropdownMenuEntries: [
-                          DropdownMenuEntry(value: "type", label: "Type"),
-                          DropdownMenuEntry(value: "color", label: "Color")
-                        ],
-                        onSelected: (value) {
-                          renderValues[1] = value!;
-                          setState(() {});
-                        },
-                      ),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        spacing: 2,
-                        children: [
-                          const Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
-                          Checkbox(
-                              visualDensity: VisualDensity.compact,
-                              value: showManaCurve,
-                              onChanged: (bool? value) {
-                                setState(() {
-                                  showManaCurve = value;
-                                });
-                              }
-                          ),
-                        ],
-                      )
-                    ]
+                    children: generateControls()
                   ),
                   Divider(height: 30),
                   if (showManaCurve!) ...generateManaCurve(deck.cards),
@@ -143,35 +98,23 @@ class DeckViewerState extends State<DeckViewer> {
                 ],
               ),
             ),
-            floatingActionButton: FloatingActionButton.extended(
-              label: const Text("Edit"),
-              heroTag: "Btn1",
-              icon: const Icon(Icons.edit),
-              onPressed: () {
-                final controller = TextEditingController(text: deck.generateTextExport());
-                showDialog(
-                  context: context,
-                  builder: (dialogContext) => AlertDialog(
-                    content: TextFormField(
-                      expands: true,
-                      keyboardType: TextInputType.multiline,
-                      maxLines: null,
-                      minLines: null,
-                      controller: controller,
-                    ),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text("Discard")
-                      ),
-                      TextButton(
-                          onPressed: () => findChangesAndUpdate(controller.text, deck.generateTextExport(), allCards, deck),
-                          child: const Text("Save")
-                      )
-                    ],
-                  )
-                );
-              },
+            bottomNavigationBar: BottomAppBar(
+              height: 70,
+              child: Row(
+                children: [
+                  IconButton(
+                    icon: Icon(Icons.back_hand),
+                    onPressed: () => showRandomHand(deck),
+                  ),
+                  Spacer(),
+                  TextButton.icon(
+                    label: Text("Edit"),
+                    icon: Icon(Icons.edit_note),
+                    onPressed: () => showDeckEditor(deck, allCards),
+                  ),
+
+                ],
+              ),
             ),
           );
         }
@@ -207,6 +150,133 @@ class DeckViewerState extends State<DeckViewer> {
     _deckStorage.updateDecklist(deck.id, cardsCopy).then((_) {
       Navigator.of(context).pop();
     });
+  }
+
+  List<Widget> generateControls() {
+    return [
+      DropdownMenu(
+        label: const Text("Display"),
+        controller: displayController,
+        inputDecorationTheme: myInputDecorationTheme,
+        textStyle: const TextStyle(fontSize: 12),
+        dropdownMenuEntries: [
+          DropdownMenuEntry(value: "text", label: "Text"),
+          DropdownMenuEntry(value: "image", label: "Images")
+        ],
+        onSelected: (value) {
+          renderValues[0] = value!;
+          setState(() {});
+        },
+      ),
+      DropdownMenu(
+        label: const Text("Group By"),
+        controller: sortingController,
+        inputDecorationTheme: myInputDecorationTheme,
+        textStyle: const TextStyle(fontSize: 12),
+        dropdownMenuEntries: [
+          DropdownMenuEntry(value: "type", label: "Type"),
+          DropdownMenuEntry(value: "color", label: "Color"),
+          // DropdownMenuEntry(value: "mv", label: "Mana Value")
+        ],
+        onSelected: (value) {
+          renderValues[1] = value!;
+          setState(() {});
+        },
+      ),
+      Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        spacing: 2,
+        children: [
+          const Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
+          Checkbox(
+              visualDensity: VisualDensity.compact,
+              value: showManaCurve,
+              onChanged: (bool? value) {
+                setState(() {
+                  showManaCurve = value;
+                });
+              }
+          ),
+        ],
+      )
+    ];
+  }
+
+  void showRandomHand(Deck deck) {
+
+    List<Card> hand = deck.cards.sample(7);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: Text("Sample Starting Hand"),
+              titleTextStyle: TextStyle(fontSize: 16),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: 5,
+                children: [
+                  Row(
+                    spacing: 5,
+                    children: hand.sublist(0,3).map((card) => Flexible(flex: 1, child: createVisualCard(card))).toList(),
+                  ),
+                  Row(
+                    spacing: 5,
+                    children: hand.sublist(3,6).map((card) => Flexible(flex: 1, child: createVisualCard(card))).toList(),
+                  ),
+                  Row(
+                    spacing: 5,
+                    children: [Spacer(flex: 1), Flexible(flex: 1, child: createVisualCard(hand[6])), Spacer(flex: 1)],
+                  )
+                ],
+              ),
+              actionsAlignment: MainAxisAlignment.center,
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text("Back")
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {hand = deck.cards.sample(7);});
+                  },
+                  child: const Text("New Hand"),
+                )
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+
+  void showDeckEditor(Deck deck, List<Card> allCards) {
+    final controller = TextEditingController(text: deck.generateTextExport());
+    showDialog(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          content: TextFormField(
+            expands: true,
+            keyboardType: TextInputType.multiline,
+            maxLines: null,
+            minLines: null,
+            controller: controller,
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("Discard")
+            ),
+            TextButton(
+                onPressed: () => findChangesAndUpdate(controller.text, deck.generateTextExport(), allCards, deck),
+                child: const Text("Save")
+            )
+          ],
+        )
+    );
   }
 
   List<Widget> generateManaCurve(List<Card> cards) {
@@ -274,6 +344,7 @@ class DeckViewerState extends State<DeckViewer> {
     var renderCard =
     (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
 
+    // TODO: Rework this to accept mana_value as grouping
     final groupingAttribute = renderValues[1];
     final getAttribute = (groupingAttribute == "type")
         ? (card) => card.type
