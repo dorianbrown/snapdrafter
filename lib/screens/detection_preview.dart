@@ -48,7 +48,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         itemCount: detections.length,
         itemBuilder: (context, index) {
           return Dismissible(
-            key: Key(index.toString()),
+            key: UniqueKey(),
             background: Container(color: Colors.red,),
             onDismissed: (direction) {
               // FIXME: When removing 25, then 26, using the index for removal causes issues
