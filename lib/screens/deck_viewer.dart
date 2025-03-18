@@ -65,8 +65,6 @@ class DeckViewerState extends State<DeckViewer> {
             child: CircularProgressIndicator(),
           );
         } else {
-          // FIXME: When returning from DetectionPreview, on first scan, these
-          // are null. Not clear how we get into this path, when these are null
           final decks = snapshot.data![0] as List<Deck> ;
           final allCards = snapshot.data![1] as List<Card>;
           final deck = decks.where((deck) => deck.id == deckId).first;
@@ -130,18 +128,28 @@ class DeckViewerState extends State<DeckViewer> {
     for (var update in textDiff.getUpdatesWithData()) {
       if (update is DataInsert) {
         update as DataInsert<String>;
-        Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == update.data);
+        debugPrint("Update at [${update.position}]: ${update.data}");
+        final regex = RegExp(r'^(\d)\s(.+)$');
+        var regexMatch = regex.allMatches(update.data);
+        int count = int.parse(regexMatch.first[1]!);
+        String cardName = regexMatch.first[2]!;
+        Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == cardName);
         if (matchedCard == null) {
           // TODO: Figure out how to show snackbar inside AlertDialog
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Card not found: '${update.data}'")));
           debugPrint("Card not found: $update.data");
           return;
         }
-        cardsCopy.insert(update.position, matchedCard);
+        for (int i = 0; i < count; i++) {
+          cardsCopy.add(matchedCard);
+        }
       }
       if (update is DataRemove) {
         update as DataRemove<String>;
-        cardsCopy.removeAt(update.position);
+        final regex = RegExp(r'^(\d)\s(.+)$');
+        var regexMatch = regex.allMatches(update.data);
+        String cardName = regexMatch.first[2]!;
+        cardsCopy.removeWhere((card) => card.name == cardName);
       }
     }
     setState(() {

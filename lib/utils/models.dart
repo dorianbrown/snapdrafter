@@ -1,3 +1,4 @@
+import 'package:collection/collection.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
@@ -156,7 +157,12 @@ class Deck {
   }
 
   String generateTextExport() {
-    return cards.map((card) => card.name).toList().join("\n");
+    return cards
+        .map((card) => card.name)
+        .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
+        .entries.map((entry) => "${entry.value} ${entry.key}")
+        .toList()
+        .join("\n");
   }
 
   @override
