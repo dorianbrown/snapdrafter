@@ -23,16 +23,17 @@ class DetectionPreviewScreen extends StatefulWidget {
 
 class _detectionPreviewState extends State<DetectionPreviewScreen> {
   final img.Image image;
-  final List<Detection> detections;
+  List<Detection> detections;
   _detectionPreviewState(this.image, this.detections);
 
   late Uint8List imagePng;
   List<Card> allCards = [];
-  ScrollController _scrollController = new ScrollController();
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
+    detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
     _deckStorage.getAllCards().then((value) => setState(() {allCards = value;}));
     imagePng = img.encodePng(image);
   }
@@ -78,7 +79,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                   flex: 1,
                   child: Autocomplete(
                     initialValue: TextEditingValue(text: detections[index].card.name),
-                    optionsViewOpenDirection: OptionsViewOpenDirection.up,
+                    optionsViewOpenDirection: OptionsViewOpenDirection.down,
                     optionsBuilder: (val) {
                       if (val.text == "") {
                         return const Iterable<String>.empty();
@@ -128,14 +129,14 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           children: [
             IconButton(
               onPressed: () async {
-                detections.add(Detection(
-                  card: allCards.firstWhere((x) => x.name == "Black Lotus"),
-                  ocrText: ""
-                ));
+                detections = [Detection(
+                    card: allCards.firstWhere((x) => x.name == "Black Lotus"),
+                    ocrText: ""
+                )] + detections;
                 setState(() {});
                 _scrollController
                     .animateTo(
-                    _scrollController.position.extentTotal,
+                    _scrollController.position.minScrollExtent,
                       duration: const Duration(milliseconds: 500
                     ),
                   curve: Curves.easeOut

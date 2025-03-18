@@ -3,6 +3,7 @@ import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Card;
+import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -160,12 +161,12 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     final allCards = await _deckStorage.getAllCards();
     final choices = allCards.map((card) => card.title).toList();
-    final List<Future> matchedFutures = [];
+    final List<Future<ExtractedResult<String>>> matchedFutures = [];
     debugPrint("Matching detections with database");
     for (final text in detectionText) {
       debugPrint("Matching $text with database");
       final matchParams = MatchParams(query: text, choices: choices);
-      Future matchFuture = compute(runFuzzyMatch, matchParams);
+      Future<ExtractedResult<String>> matchFuture = compute(runFuzzyMatch, matchParams);
       matchFuture.then((match) {
         setState(() => matchingProgress = matchingProgress + 1);
       });
@@ -173,7 +174,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     }
 
     final matches = await Future.wait(matchedFutures);
-    List<Card> matchedCards = matches.map((match) => allCards[match]).toList();
+    List<Card> matchedCards = matches.map((match) => allCards[match.index]).toList();
 
     // Add annotations to image
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
@@ -205,6 +206,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       detectionOutput.add(Detection(
         card: matchedCards[i],
         ocrText: detectionText[i],
+        ocrDistance: matches[i].score,
         textImage: img.copyCrop(
           inputImageCopy,
           x: x1,

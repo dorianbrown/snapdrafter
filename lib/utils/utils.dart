@@ -1,5 +1,8 @@
+import 'package:fuzzywuzzy/algorithms/weighted_ratio.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:fuzzywuzzy/model/extracted_result.dart';
+import 'package:fuzzywuzzy/ratios/partial_ratio.dart';
+import 'package:fuzzywuzzy/ratios/simple_ratio.dart';
 
 String convertDatetimeToYMDHM(DateTime datetime) {
   String outputString = datetime.year.toString().substring(0,4);
@@ -34,7 +37,11 @@ class MatchParams {
   MatchParams({required this.query, required this.choices});
 }
 
-int runFuzzyMatch(MatchParams params) {
-  final match = extractOne(query: params.query, choices: params.choices);
-  return match.index;
+ExtractedResult<String> runFuzzyMatch(MatchParams params) {
+  final match = extractOne(
+    query: params.query,
+    choices: params.choices,
+    ratio: SimpleRatio()
+  );
+  return match;
 }
