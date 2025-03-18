@@ -129,7 +129,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
             IconButton(
               onPressed: () async {
                 detections.add(Detection(
-                  card: allCards.firstWhere((x) => x.name == "Fblthp, the Lost"),
+                  card: allCards.firstWhere((x) => x.name == "Black Lotus"),
                   ocrText: ""
                 ));
                 setState(() {});
