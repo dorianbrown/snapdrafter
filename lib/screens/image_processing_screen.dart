@@ -91,26 +91,30 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text("Finding titles in image..."),
-                        _titleDetected
-                          ? Text("Done!")
-                          : LinearProgressIndicator(),
-                          Text("Recognizing text in titles..."),
-                          LinearProgressIndicator(
-                              value: _numDetections > 0
-                                  ? ocrProgress / _numDetections
-                                  : 0
-                          ),
-                          Text("Progress: $ocrProgress / $_numDetections"),
-                          Text("Matching OCR to cards database..."),
-                          Text("Progress: $matchingProgress / $_numDetections"),
-                          if (errorMessage != null)
-                            Text("Error:", style: TextStyle(
-                              color: Colors.redAccent,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold
-                            )),
-                            Text(errorMessage ?? "")
+                        Spacer(flex: 4,),
+                        Text("Recognizing text in titles..."),
+                        LinearProgressIndicator(
+                            value: _numDetections > 0
+                                ? ocrProgress / _numDetections
+                                : 0
+                        ),
+                        Text("Progress: $ocrProgress / $_numDetections"),
+                        Spacer(flex: 1,),
+                        Text("Matching OCR to cards database..."),
+                        LinearProgressIndicator(
+                            value: _numDetections > 0
+                                ? matchingProgress / _numDetections
+                                : 0
+                        ),
+                        Text("Progress: $matchingProgress / $_numDetections"),
+                        if (errorMessage != null)
+                          Text("Error:", style: TextStyle(
+                            color: Colors.redAccent,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold
+                          )),
+                          Text(errorMessage ?? ""),
+                        Spacer(flex: 3,)
                       ]
                   );
                 }
