@@ -70,11 +70,6 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                           : Text(""),
                     )
                 ),
-                if (kDebugMode)
-                  Expanded(
-                    flex: 1,
-                    child: Text(detections[index].ocrText, style: TextStyle(height: 1.1),)
-                  ),
                 Expanded(
                   flex: 1,
                   child: Autocomplete(

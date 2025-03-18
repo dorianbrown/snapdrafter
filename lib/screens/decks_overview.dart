@@ -291,8 +291,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   Widget createEditDialog(Deck deck, List<Set> sets) {
 
-    final winLossController = TextEditingController(text: deck.winLoss);
     final dateTimeController = TextEditingController(text: convertDatetimeToYMDHM(deck.dateTime));
+    final winController = WheelPickerController(itemCount: 4, initialIndex: 4);
+    final lossController = WheelPickerController(itemCount: 4, initialIndex: 4);
     final _formKey = GlobalKey<FormState>();
     String? currentSetId = deck.setId;
 
@@ -309,39 +310,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               mainAxisAlignment: MainAxisAlignment.center,
               mainAxisSize: MainAxisSize.min,
               children: [
-                SizedBox(
-                  height: 80,
-                  width: 50,
-                  child: WheelPicker(
-                    selectedIndexColor: Colors.white,
-                    initialIndex: 4,
-                    itemCount: 4,
-                    looping: false,
-                    builder: (context, index) => Text((3 - index).toString(), style: TextStyle(fontSize: 24),),
-                    style: WheelPickerStyle(
-                      itemExtent: 25,
-                      diameterRatio: 1.2,
-                      surroundingOpacity: 0.3
-                    ),
-                  ),
-                ),
+                generateWinLossPicker(winController),
                 Text("-", style: TextStyle(fontSize: 24)),
-                SizedBox(
-                  height: 80,
-                  width: 50,
-                  child: WheelPicker(
-                    selectedIndexColor: Colors.white,
-                    initialIndex: 4,
-                    itemCount: 4,
-                    looping: false,
-                    builder: (context, index) => Text((3 - index).toString(), style: TextStyle(fontSize: 24),),
-                    style: WheelPickerStyle(
-                        itemExtent: 25,
-                        diameterRatio: 1.2,
-                        surroundingOpacity: 0.3
-                    ),
-                  ),
-                ),
+                generateWinLossPicker(lossController),
               ],
             ),
             Text("Set:", style: _headerStyle),
@@ -379,9 +350,10 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 // Since this is an existing deck_id, it should overwrite
                 // metadata in db.
                 final dt = DateTime.parse(dateTimeController.text);
+                final String winLoss = "${3 - winController.selected}/${3 - lossController.selected}";
                 _deckStorage.insertDeck({
                   'id': deck.id,
-                  'win_loss': winLossController.text,
+                  'win_loss': winLoss,
                   'set_id': currentSetId,
                   'datetime': dt.toIso8601String()});
                 refreshDecks();
@@ -391,6 +363,25 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             child: Text("Save")
         )
       ],
+    );
+  }
+
+  Widget generateWinLossPicker(WheelPickerController controller) {
+
+    return SizedBox(
+      height: 80,
+      width: 50,
+      child: WheelPicker(
+        controller: controller,
+        selectedIndexColor: Colors.white,
+        looping: false,
+        builder: (context, index) => Text((3 - index).toString(), style: TextStyle(fontSize: 24),),
+        style: WheelPickerStyle(
+            itemExtent: 25,
+            diameterRatio: 1.2,
+            surroundingOpacity: 0.3
+        ),
+      ),
     );
   }
 
