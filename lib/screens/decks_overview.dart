@@ -7,6 +7,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
+import 'package:wheel_picker/wheel_picker.dart';
 
 import '/utils/utils.dart';
 import '/utils/route_observer.dart';
@@ -303,16 +304,45 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("Win / Loss:", style: _headerStyle),
-            TextFormField(
-              controller: winLossController,
-              decoration: InputDecoration(border: OutlineInputBorder()),
-              autovalidateMode: AutovalidateMode.always,
-              validator: (value) {
-                return regexValidator(value!, r'^\d/\d$')
-                    ? "Must be {W}/{L} format"
-                    : null;
-              },
+            Text("Win - Loss:", style: _headerStyle),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  height: 80,
+                  width: 50,
+                  child: WheelPicker(
+                    selectedIndexColor: Colors.white,
+                    initialIndex: 4,
+                    itemCount: 4,
+                    looping: false,
+                    builder: (context, index) => Text((3 - index).toString(), style: TextStyle(fontSize: 24),),
+                    style: WheelPickerStyle(
+                      itemExtent: 25,
+                      diameterRatio: 1.2,
+                      surroundingOpacity: 0.3
+                    ),
+                  ),
+                ),
+                Text("-", style: TextStyle(fontSize: 24)),
+                SizedBox(
+                  height: 80,
+                  width: 50,
+                  child: WheelPicker(
+                    selectedIndexColor: Colors.white,
+                    initialIndex: 4,
+                    itemCount: 4,
+                    looping: false,
+                    builder: (context, index) => Text((3 - index).toString(), style: TextStyle(fontSize: 24),),
+                    style: WheelPickerStyle(
+                        itemExtent: 25,
+                        diameterRatio: 1.2,
+                        surroundingOpacity: 0.3
+                    ),
+                  ),
+                ),
+              ],
             ),
             Text("Set:", style: _headerStyle),
             DropdownMenu(
