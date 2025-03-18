@@ -1,9 +1,8 @@
 import 'dart:async';
-import 'dart:isolate';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Card;
 import 'package:image/image.dart' as img;
-import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 
 import 'deck_viewer.dart';
 import '/utils/data.dart';
@@ -27,14 +26,15 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   final List<Detection> detections;
   _detectionPreviewState(this.image, this.detections);
 
-  late List<Card> matchedCards;
+  late Uint8List imagePng;
   List<Card> allCards = [];
+  ScrollController _scrollController = new ScrollController();
 
   @override
   void initState() {
     super.initState();
-    matchedCards = detections.map((x) => x.card).toList();
     _deckStorage.getAllCards().then((value) => setState(() {allCards = value;}));
+    imagePng = img.encodePng(image);
   }
 
   @override
@@ -42,39 +42,63 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Detection Preview')),
       body: ListView.separated(
+        controller: _scrollController,
         separatorBuilder: (context, index) => Divider(indent: 10, endIndent: 10,),
         padding: EdgeInsets.all(5),
         itemCount: detections.length,
         itemBuilder: (context, index) {
-          return Row(
-            spacing: 15,
-            children: [
-              Text("${index + 1}"),
-              Expanded(
-                flex: 1,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: 30),
-                    child: Image.memory(
-                      img.encodePng(detections[index].textImage),
-                    ),
+          return Dismissible(
+            key: Key(index.toString()),
+            background: Container(color: Colors.red,),
+            onDismissed: (direction) {
+              // FIXME: When removing 25, then 26, using the index for removal causes issues
+              setState(() {
+                detections.removeAt(index);
+              });
+            },
+            child: Row(
+              spacing: 15,
+              children: [
+                Text("${index + 1}"),
+                Expanded(
+                  flex: 1,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: 30),
+                      child: detections[index].textImage != null
+                          ? Image.memory(img.encodePng(detections[index].textImage!))
+                          : Text(""),
+                    )
+                ),
+                if (kDebugMode)
+                  Expanded(
+                    flex: 1,
+                    child: Text(detections[index].ocrText, style: TextStyle(height: 1.1),)
+                  ),
+                Expanded(
+                  flex: 1,
+                  child: Autocomplete(
+                    initialValue: TextEditingValue(text: detections[index].card.name),
+                    optionsViewOpenDirection: OptionsViewOpenDirection.up,
+                    optionsBuilder: (val) {
+                      if (val.text == "") {
+                        return const Iterable<String>.empty();
+                      }
+                      return allCards
+                          .where((el) => el.name.toLowerCase().contains(val.text.toLowerCase()))
+                          .map((el) => el.name)
+                          .toList();
+                    },
+                    onSelected: (option) {
+                      Card newCard = allCards.firstWhere((x) => x.name == option);
+                      setState(() {
+                        detections[index].card = newCard;
+                      });
+                      debugPrint(detections.map((x) => x.card.name).toList().toString());
+                    },
                   )
-              ),
-              Expanded(
-                flex: 1,
-                child: Text(detections[index].ocrText, style: TextStyle(height: 1.1),)
-              ),
-              Expanded(
-                flex: 1,
-                child: DropdownButton(
-                  value: matchedCards.isNotEmpty ? matchedCards[index].name : null,
-                  items: allCards.isNotEmpty ? allCards.map((x) => DropdownMenuItem(
-                    value: x.name,
-                    child: Text(x.name),
-                  )).toList() : [],
-                  onChanged: null
-                )
-              ),
-            ],
+                ),
+              ],
+            )
           );
         }
       ),
@@ -103,7 +127,20 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         child: Row(
           children: [
             IconButton(
-              onPressed: null,
+              onPressed: () async {
+                detections.add(Detection(
+                  card: allCards.firstWhere((x) => x.name == "Fblthp, the Lost"),
+                  ocrText: ""
+                ));
+                setState(() {});
+                _scrollController
+                    .animateTo(
+                    _scrollController.position.extentTotal,
+                      duration: const Duration(milliseconds: 500
+                    ),
+                  curve: Curves.easeOut
+                );
+              },
               icon: Icon(Icons.add)
             ),
             IconButton(
@@ -141,7 +178,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               maxScale: 1,
               boundaryMargin: const EdgeInsets.all(double.infinity),
               transformationController: viewTransformationController,
-              child: Image.memory(img.encodePng(image))
+              child: Image.memory(imagePng)
           );
         }
     );

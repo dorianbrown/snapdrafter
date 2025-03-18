@@ -210,13 +210,13 @@ const List<String> colorOrder = [
 ];
 
 class Detection {
-  final Card card;
+  Card card;
   final String ocrText;
-  final img.Image textImage;
+  final img.Image? textImage;
 
-  const Detection({
+  Detection({
     required this.card,
     required this.ocrText,
-    required this.textImage
+    this.textImage
   });
 }
