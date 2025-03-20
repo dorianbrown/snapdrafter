@@ -71,7 +71,6 @@ class DeckViewerState extends State<DeckViewer> {
           return Scaffold(
             appBar: AppBar(title: Text("Deck $deckId")),
             body: Container(
-              margin: const EdgeInsets.only(bottom: 20),
               alignment: Alignment.topCenter,
               child: ListView(
                 padding: const EdgeInsets.all(10),
@@ -97,7 +96,7 @@ class DeckViewerState extends State<DeckViewer> {
               ),
             ),
             bottomNavigationBar: BottomAppBar(
-              height: 70,
+              height: 65,
               child: Row(
                 children: [
                   IconButton(

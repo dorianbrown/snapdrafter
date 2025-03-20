@@ -165,7 +165,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       ),
       bottomNavigationBar: BottomAppBar(
         height: 65,
-        // shape: CircularNotchedRectangle(),
         child: Row(
           children: [
             IconButton(
@@ -315,7 +314,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 generateWinLossPicker(lossController),
               ],
             ),
+            SizedBox(height: 10),
             Text("Set:", style: _headerStyle),
+            SizedBox(height: 5),
             DropdownMenu(
               initialSelection: currentSetId,
               dropdownMenuEntries: (sets
@@ -325,7 +326,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 currentSetId = value;
               },
             ),
+            SizedBox(height: 30),
             Text("Date Time:", style: _headerStyle),
+            SizedBox(height: 5),
             TextFormField(
               controller: dateTimeController,
               autovalidateMode: AutovalidateMode.always,

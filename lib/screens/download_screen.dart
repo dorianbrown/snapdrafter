@@ -210,7 +210,11 @@ class _DownloadScreenState extends State<DownloadScreen> {
         if (val["card_faces"] == null && val["image_uris"] == null) {
           return null;
         }
-        if (newestRelease.compareTo(val["released_at"]) < 0 && val["set_type"] == "expansion") {
+        if (
+          newestRelease.compareTo(val["released_at"]) < 0 &&
+          val["released_at"].compareTo(convertDatetimeToYMD(DateTime.now())) < 0 &&
+          val["set_type"] == "expansion"
+        ) {
           newestRelease = val["released_at"];
           scryfallMetadata["newest_set_name"] = val["set_name"];
         }
