@@ -106,7 +106,7 @@ class DeckViewerState extends State<DeckViewer> {
                   Spacer(),
                   TextButton.icon(
                     label: Text("Edit"),
-                    icon: Icon(Icons.edit_note),
+                    icon: Icon(Icons.edit),
                     onPressed: () => showDeckEditor(deck, allCards),
                   ),
 
@@ -211,7 +211,26 @@ class DeckViewerState extends State<DeckViewer> {
 
   void showRandomHand(Deck deck) {
 
-    List<Card> hand = deck.cards.sample(7);
+    List<Card> hand = [];
+    List<Card> remainingCards = [];
+
+    void drawNewHand() {
+      hand = deck.cards.sample(7);
+      remainingCards = List.from(deck.cards); // Make copy
+      for (var card in hand) {
+        remainingCards.remove(card);
+      }
+    }
+
+    void drawCard() {
+      if (remainingCards.isEmpty) {
+        drawNewHand();
+      } else {
+        hand.add(remainingCards.removeAt(0));
+      }
+    }
+
+    drawNewHand();
 
     showDialog(
       context: context,
@@ -221,26 +240,19 @@ class DeckViewerState extends State<DeckViewer> {
             return AlertDialog(
               title: Text("Sample Starting Hand"),
               titleTextStyle: TextStyle(fontSize: 16),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                spacing: 5,
-                children: [
-                  Row(
-                    spacing: 5,
-                    children: hand.sublist(0,3).map((card) => Flexible(flex: 1, child: createVisualCard(card))).toList(),
-                  ),
-                  Row(
-                    spacing: 5,
-                    children: hand.sublist(3,6).map((card) => Flexible(flex: 1, child: createVisualCard(card))).toList(),
-                  ),
-                  Row(
-                    spacing: 5,
-                    children: [Spacer(flex: 1), Flexible(flex: 1, child: createVisualCard(hand[6])), Spacer(flex: 1)],
-                  )
-                ],
+              insetPadding: EdgeInsets.all(15),
+              content: SizedBox(
+                width: MediaQuery.of(context).size.width * .9,
+                child: GridView.count(
+                  childAspectRatio: 0.72,
+                  crossAxisCount: 3,
+                  shrinkWrap: true,
+                  crossAxisSpacing: 4,
+                  mainAxisSpacing: 4,
+                  children: hand.map((card) => createVisualCard(card)).toList(),
+                ),
               ),
-              actionsAlignment: MainAxisAlignment.center,
+              actionsAlignment: MainAxisAlignment.end,
               actions: [
                 TextButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -248,7 +260,15 @@ class DeckViewerState extends State<DeckViewer> {
                 ),
                 TextButton(
                   onPressed: () {
-                    setState(() {hand = deck.cards.sample(7);});
+                    drawCard();
+                    setState(() {});
+                  },
+                  child: const Text("Draw Card"),
+                ),
+                TextButton(
+                  onPressed: () {
+                    drawNewHand();
+                    setState(() {});
                   },
                   child: const Text("New Hand"),
                 )
