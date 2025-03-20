@@ -84,7 +84,7 @@ class DeckViewerState extends State<DeckViewer> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Text("${deck.cards.length} cards", style: TextStyle(fontSize: 18, height: 1.5))
+                          Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
                         ],
                       )
                   ),
