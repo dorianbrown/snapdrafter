@@ -80,7 +80,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("My Decks")),
+      appBar: AppBar(
+        title: Text("My Decks"),
+      ),
       floatingActionButtonLocation: ExpandableFab.location,
       floatingActionButton: ExpandableFab(
         key: _expandableFabKey,

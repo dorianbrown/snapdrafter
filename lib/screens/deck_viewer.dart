@@ -69,25 +69,22 @@ class DeckViewerState extends State<DeckViewer> {
           final allCards = snapshot.data![1] as List<Card>;
           final deck = decks.where((deck) => deck.id == deckId).first;
           return Scaffold(
-            appBar: AppBar(title: Text("Deck $deckId")),
+            appBar: AppBar(
+              title: Text("Deck $deckId"),
+              actions: generateControls(),
+            ),
             body: Container(
               alignment: Alignment.topCenter,
               child: ListView(
                 padding: const EdgeInsets.all(10),
                 children: [
-                  Row(
-                    spacing: 8,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: generateControls()
-                  ),
-                  Divider(height: 30),
                   if (showManaCurve!) ...generateManaCurve(deck.cards),
                   Container(
-                      padding: EdgeInsets.fromLTRB(0, 0, 10, 0),
+                      padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          Text("# Cards: ${deck.cards.length}", style: TextStyle(fontSize: 16, height: 1.5))
+                          Text("${deck.cards.length} cards", style: TextStyle(fontSize: 18, height: 1.5))
                         ],
                       )
                   ),
@@ -160,53 +157,56 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   List<Widget> generateControls() {
-    return [
-      DropdownMenu(
-        label: const Text("Display"),
-        controller: displayController,
-        inputDecorationTheme: myInputDecorationTheme,
-        textStyle: const TextStyle(fontSize: 12),
-        dropdownMenuEntries: [
-          DropdownMenuEntry(value: "text", label: "Text"),
-          DropdownMenuEntry(value: "image", label: "Images")
-        ],
-        onSelected: (value) {
-          renderValues[0] = value!;
-          setState(() {});
-        },
-      ),
-      DropdownMenu(
-        label: const Text("Group By"),
-        controller: sortingController,
-        inputDecorationTheme: myInputDecorationTheme,
-        textStyle: const TextStyle(fontSize: 12),
-        dropdownMenuEntries: [
-          DropdownMenuEntry(value: "type", label: "Type"),
-          DropdownMenuEntry(value: "color", label: "Color"),
-          // DropdownMenuEntry(value: "mv", label: "Mana Value")
-        ],
-        onSelected: (value) {
-          renderValues[1] = value!;
-          setState(() {});
-        },
-      ),
-      Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        spacing: 2,
-        children: [
-          const Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
-          Checkbox(
-              visualDensity: VisualDensity.compact,
-              value: showManaCurve,
-              onChanged: (bool? value) {
-                setState(() {
-                  showManaCurve = value;
-                });
-              }
-          ),
-        ],
-      )
-    ];
+    return [Row(
+      spacing: 8,
+      children: [
+        DropdownMenu(
+          label: const Text("Display"),
+          controller: displayController,
+          inputDecorationTheme: myInputDecorationTheme,
+          textStyle: const TextStyle(fontSize: 12),
+          dropdownMenuEntries: [
+            DropdownMenuEntry(value: "text", label: "Text"),
+            DropdownMenuEntry(value: "image", label: "Images")
+          ],
+          onSelected: (value) {
+            renderValues[0] = value!;
+            setState(() {});
+          },
+        ),
+        DropdownMenu(
+          label: const Text("Group By"),
+          controller: sortingController,
+          inputDecorationTheme: myInputDecorationTheme,
+          textStyle: const TextStyle(fontSize: 12),
+          dropdownMenuEntries: [
+            DropdownMenuEntry(value: "type", label: "Type"),
+            DropdownMenuEntry(value: "color", label: "Color"),
+            // DropdownMenuEntry(value: "mv", label: "Mana Value")
+          ],
+          onSelected: (value) {
+            renderValues[1] = value!;
+            setState(() {});
+          },
+        ),
+        Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          spacing: 2,
+          children: [
+            const Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
+            Checkbox(
+                visualDensity: VisualDensity.compact,
+                value: showManaCurve,
+                onChanged: (bool? value) {
+                  setState(() {
+                    showManaCurve = value;
+                  });
+                }
+            ),
+          ],
+        )
+      ],
+    )];
   }
 
   void showRandomHand(Deck deck) {
