@@ -306,9 +306,32 @@ class DeckStorage {
     return deckId;
   }
 
-  // Future<List> getAllCubes() async {
-  //   final result = await _database.query("cubes");
-  // }
+  Future<List> getAllCubes() async {
+    final cubeResults = await _database.query("cubes");
+    final cubeListsResults = await _database.query("cubelists");
+
+    List<Cube> outputList = [];
+
+    for (final cubeRow in cubeResults) {
+      final cardIds = cubeListsResults
+        .where((cubeListRow) => cubeListRow["cubecobra_id"] == cubeRow["cubecobra_id"])
+        .map((cubeListRow) => cubeListRow["scryfall_id"])
+        .toList();
+
+      final cards = await getAllCards();
+      final cubeCards = cards.where((card) => cardIds.contains(card.scryfallId)).toList();
+
+      outputList.add(Cube(
+        cubecobraId: cubeRow["cubecobra_id"] as String,
+        name: cubeRow["name"] as String,
+        ymd: cubeRow["ymd"] as String,
+        cards: cubeCards
+      ));
+
+    }
+
+    return outputList;
+  }
 
   Future<void> saveNewCube(String name, String ymd, String cubecobraId, List<Card> cards) async {
     await _database.insert(

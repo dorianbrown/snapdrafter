@@ -71,119 +71,132 @@ class _CubeSettingsState extends State<CubeSettings> {
   initState() {
     super.initState();
     deckStorage = DeckStorage();
+    final cubes = deckStorage.getAllCubes();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: const Text('Cube Settings')),
-        body: Container(
-            padding: EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-            child: ListView(
+      appBar: AppBar(title: const Text('Cube Settings')),
+      body: Container(
+        padding: EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        child: Column(
+          spacing: 10,
+          children: [
+            ListView(
+              shrinkWrap: true,
               children: [
+                ListTile(title: Text("My Cubes")),
                 ListTile(
-                  title: Text("My Cubes", style: TextStyle(decoration: TextDecoration.underline))
+                    title: Text("1. Premodern Plus Cube"),
+                    tileColor: Colors.white12,
+                    dense: true
                 ),
                 ListTile(
-                  title: Text("1. Premodern Plus Cube"),
-                  tileColor: Colors.white12,
-                  dense: true
+                    title: Text("2. Degenerate Micro Cube"),
+                    tileColor: Colors.white12,
+                    dense: true
                 ),
-                ListTile(
-                  title: Text("2. Degenerate Micro Cube"),
-                  tileColor: Colors.white12,
-                  dense: true
-                ),
-                SizedBox(height: 20,),
-                ListTile(
-                  title: Text("Add a Cube"),
-                  leading: Icon(Icons.add),
-                  onTap: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) {
-
-                        List<Card> cubeList = [];
-                        TextEditingController nameController = TextEditingController();
-                        TextEditingController cubeListController = TextEditingController();
-                        TextEditingController cubecobraIdController = TextEditingController();
-
-                        return AlertDialog(
-                            title: Text("Add a Cube"),
-                            content: StatefulBuilder(
-                                builder: (context, setState) {
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      TextFormField(
-                                        controller: nameController,
-                                        decoration: InputDecoration(hintText: "Cube Name")
-                                      ),
-                                      TextFormField(
-                                          controller: cubecobraIdController,
-                                          decoration: InputDecoration(hintText: "Cubecobra ID")
-                                      ),
-                                      SizedBox(
-                                        height: 300,
-                                        child: TextFormField(
-                                          readOnly: true,
-                                          expands: true,
-                                          keyboardType: TextInputType.multiline,
-                                          maxLines: null,
-                                          minLines: null,
-                                          controller: cubeListController,
-                                        ),
-                                      ),
-                                      if (cubeList.isNotEmpty)
-                                        Text("Cube cards found: ${cubeList.length}"),
-                                      Spacer(),
-                                      Row(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          OutlinedButton(
-                                            onPressed: () async {
-                                              String cubecobraId = cubecobraIdController.text;
-                                              cubeList = await fetchCubecobraList(cubecobraId);
-                                              String textList = (cubeList
-                                                  .map((card) => card.name)
-                                                  .toList()..sort())
-                                                  .join("\n");
-                                              setState(() {
-                                                cubeListController.text = textList;
-                                              });
-                                            },
-                                            child: Text("Get List")
-                                          )
-                                        ],
-                                      )
-                                    ],
-                                  );
-                                }
-                            ),
-                            actions: [
-                              TextButton(
-                                  onPressed: () => Navigator.of(context).pop(),
-                                  child: Text("Close")
-                              ),
-                              TextButton(
-                                  onPressed: () {
-                                    String name = nameController.text;
-                                    String ymd = convertDatetimeToYMD(DateTime.now());
-                                    String cubecobraId = cubecobraIdController.text;
-                                    deckStorage.saveNewCube(name, ymd, cubecobraId, cubeList);
-                                    Navigator.of(context).pop();
-                                  },
-                                  child: Text("Save")
-                              )
-                            ]
-                        );
-                      }
-                    );
-                  },
-                )
+              ],
+            ),
+            ListView(
+              shrinkWrap: true,
+              children: [
+                generateAddCubeListTile()
               ],
             )
+          ],
         )
+      )
+    );
+  }
+
+  ListTile generateAddCubeListTile() {
+    return ListTile(
+      title: Text("Add a Cube"),
+      leading: Icon(Icons.add),
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (_) {
+
+            List<Card> cubeList = [];
+            TextEditingController nameController = TextEditingController();
+            TextEditingController cubeListController = TextEditingController();
+            TextEditingController cubecobraIdController = TextEditingController();
+
+            return AlertDialog(
+              title: Text("Add a Cube"),
+              content: StatefulBuilder(
+                builder: (context, setState) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextFormField(
+                          controller: nameController,
+                          decoration: InputDecoration(hintText: "Cube Name")
+                      ),
+                      TextFormField(
+                          controller: cubecobraIdController,
+                          decoration: InputDecoration(hintText: "Cubecobra ID")
+                      ),
+                      SizedBox(
+                        height: 300,
+                        child: TextFormField(
+                          readOnly: true,
+                          expands: true,
+                          keyboardType: TextInputType.multiline,
+                          maxLines: null,
+                          minLines: null,
+                          controller: cubeListController,
+                        ),
+                      ),
+                      if (cubeList.isNotEmpty)
+                        Text("Cube cards found: ${cubeList.length}"),
+                      Spacer(),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlinedButton(
+                            onPressed: () async {
+                              String cubecobraId = cubecobraIdController.text;
+                              cubeList = await fetchCubecobraList(cubecobraId);
+                              String textList = (cubeList
+                                  .map((card) => card.name)
+                                  .toList()..sort())
+                                  .join("\n");
+                              setState(() {
+                                cubeListController.text = textList;
+                              });
+                            },
+                            child: Text("Get List")
+                          )
+                        ],
+                      )
+                    ],
+                  );
+                }
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text("Close")
+                ),
+                TextButton(
+                  onPressed: () {
+                    String name = nameController.text;
+                    String ymd = convertDatetimeToYMD(DateTime.now());
+                    String cubecobraId = cubecobraIdController.text;
+                    deckStorage.saveNewCube(name, ymd, cubecobraId, cubeList);
+                    Navigator.of(context).pop();
+                  },
+                  child: Text("Save")
+                )
+              ]
+            );
+          }
+        );
+      },
     );
   }
 }

@@ -176,14 +176,12 @@ class Deck {
 }
 
 class Cube {
-  final int id;
   final String cubecobraId;
   final String name;
   final String ymd;
   final List<Card> cards;
 
   const Cube({
-    required this.id,
     required this.cubecobraId,
     required this.name,
     required this.ymd,
