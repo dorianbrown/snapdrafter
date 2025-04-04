@@ -127,18 +127,22 @@ class Decklist {
 
 class Deck {
   final int id;
+  final String? name;
   final String? winLoss;
   final String? setId;
+  final int? draftId;
   final int? cubeId;
-  final DateTime dateTime;
+  final String ymd;
   List<Card> cards;
 
   Deck({
     required this.id,
+    this.name,
     this.winLoss,
     this.setId,
+    this.draftId,
     this.cubeId,
-    required this.dateTime,
+    required this.ymd,
     required this.cards
   });
 
@@ -167,9 +171,24 @@ class Deck {
 
   @override
   String toString() {
-    final ymd = dateTime.toIso8601String();
-    return "Deck{id: $id, win/loss: $winLoss, set: $setId, cube: $cubeId, datetime: $ymd, cards: $cards";
+    return "Deck{id: $id, name: $name, win/loss: $winLoss, set: $setId, draftId: $draftId, cube: $cubeId, ymd: $ymd}";
   }
+}
+
+class Cube {
+  final int id;
+  final String cubecobraId;
+  final String name;
+  final String ymd;
+  final List<Card> cards;
+
+  const Cube({
+    required this.id,
+    required this.cubecobraId,
+    required this.name,
+    required this.ymd,
+    required this.cards
+  });
 }
 
 class Set {

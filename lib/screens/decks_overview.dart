@@ -17,6 +17,7 @@ import 'deck_viewer.dart';
 import 'deck_scanner.dart';
 import 'download_screen.dart';
 import 'image_processing_screen.dart';
+import 'settings.dart';
 
 TextStyle _headerStyle = TextStyle(
     fontSize: 20,
@@ -123,7 +124,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           FloatingActionButton(
             heroTag: null,
             shape: CircleBorder(),
-            child: const Icon(Icons.folder),
+            child: const Icon(Icons.image),
             onPressed: () async {
               final state = _expandableFabKey.currentState;
               if (state != null) {
@@ -175,13 +176,13 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             ),
             Spacer(),
             IconButton(
-              tooltip: "Download Scryfall data",
-              icon: Icon(Icons.download),
-              onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (context) => DownloadScreen()
-                  )
-              )
+                tooltip: "Settings Menu",
+                icon: Icon(Icons.settings),
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (context) => Settings()
+                    )
+                )
             ),
           ]
         ),
@@ -195,7 +196,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             // Getting state
             final decks = snapshot.data![0] as List<Deck>;
             final sets = snapshot.data![1] as List<Set>;
-            final setsMap = {for (Set set in sets) set.code: set.name};
 
             if (decks.isEmpty) {
               return Center(
@@ -269,12 +269,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   child: ListTile(
                     leading: deckColorsWidget(decks[index]),
                     title: Text(
-                      decks[index].setId != null ? "Draft: ${setsMap[decks[index].setId]}" : "Draft Deck ${index + 1}",
+                      decks[index].name != null ? "${decks[index].name}" : "Draft Deck ${index + 1}",
                       overflow: TextOverflow.ellipsis,
                     ),
                     trailing: Icon(Icons.keyboard_arrow_right_rounded, size: 25),
                     subtitle: Text(
-                        "W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-' }  |  ${convertDatetimeToYMD(decks[index].dateTime)}",
+                        "W/L: ${decks[index].winLoss ?? '-'}  |  Set: ${decks[index].setId != null ? decks[index].setId!.toUpperCase() :  '-' }  |  ${decks[index].ymd}",
                         overflow: TextOverflow.ellipsis,
                     ),
                     onTap: () => Navigator.of(context).push(
@@ -292,57 +292,125 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   Widget createEditDialog(Deck deck, List<Set> sets) {
 
-    final dateTimeController = TextEditingController(text: convertDatetimeToYMDHM(deck.dateTime));
+    String selectedDate = deck.ymd;
+    final nameController = TextEditingController(text: deck.name);
     final winController = WheelPickerController(itemCount: 4, initialIndex: 4);
     final lossController = WheelPickerController(itemCount: 4, initialIndex: 4);
+    final setCubeController = TextEditingController();
     final _formKey = GlobalKey<FormState>();
     String? currentSetId = deck.setId;
+    String draftType = "set";
+
+    Widget createPaddedText(String text) {
+      return Container(
+        padding: EdgeInsets.fromLTRB(0, 20, 0, 10),
+        child: Text(text, style: TextStyle(fontWeight: FontWeight.bold)),
+      );
+    }
 
     return AlertDialog(
-      insetPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 24),
-      title: Text('Edit'),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text("Win - Loss:", style: _headerStyle),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+      title: Text('Edit Deck'),
+      scrollable: true,
+      contentPadding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+      content: StatefulBuilder(
+        builder: (context, setState) {
+          return Form(
+            key: _formKey,
+            child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                generateWinLossPicker(winController),
-                Text("-", style: TextStyle(fontSize: 24)),
-                generateWinLossPicker(lossController),
+                createPaddedText("Deck Name"),
+                TextFormField(
+                  controller: nameController,
+                  style: TextStyle(fontSize: 14),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: "Enter name here"
+                  ),
+                ),
+                createPaddedText("Win - Loss"),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  // mainAxisSize: MainAxisSize.min,
+                  children: [
+                    generateWinLossPicker(winController),
+                    Text("-", style: TextStyle(fontSize: 24)),
+                    generateWinLossPicker(lossController),
+                  ],
+                ),
+                SegmentedButton(
+                  segments: [
+                    ButtonSegment(
+                        label: Text("Set"),
+                        value: "set"
+                    ),
+                    ButtonSegment(
+                        label: Text("Cube"),
+                        value: "cube"
+                    ),
+                  ],
+                  selected: {draftType},
+                  onSelectionChanged: (newSelection) {
+                    setState(() {
+                      draftType = newSelection.first;
+                      currentSetId = null;
+                      setCubeController.text = "";
+                    });
+                  },
+                  style: ButtonStyle(
+                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
+                      const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(5)),
+                      ),
+                    ),
+                  ),
+                ),
+                DropdownMenu(
+                  hintText: "Select $draftType",
+                  controller: setCubeController,
+                  initialSelection: currentSetId,
+                  dropdownMenuEntries: generateDraftMenuItems(sets, draftType),
+                  onSelected: (value) {
+                    currentSetId = value;
+                  },
+                ),
+                createPaddedText("Draft ID"),
+                DropdownMenu(
+                  hintText: "Used for grouping",
+                  initialSelection: currentSetId,
+                  dropdownMenuEntries: [],
+                  onSelected: (value) {
+                    // currentSetId = value;
+                  },
+                ),
+                createPaddedText("Date"),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton(
+                        onPressed: () async {
+                          DateTime? date = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.tryParse(selectedDate),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100)
+                          );
+                          debugPrint(date.toString());
+                          if (date != null) {
+                            setState(() {
+                              selectedDate = convertDatetimeToYMD(date);
+                            });
+                          }
+                        },
+                        child: Text(selectedDate)
+                    )
+                  ],
+                )
               ],
-            ),
-            SizedBox(height: 10),
-            Text("Set:", style: _headerStyle),
-            SizedBox(height: 5),
-            DropdownMenu(
-              initialSelection: currentSetId,
-              dropdownMenuEntries: (sets
-                ..sort((a, b) => (a.name.toString().compareTo(b.name.toString()))))
-                  .map((set) => DropdownMenuEntry(value: set.code, label: set.name)).toList(),
-              onSelected: (value) {
-                currentSetId = value;
-              },
-            ),
-            SizedBox(height: 30),
-            Text("Date Time:", style: _headerStyle),
-            SizedBox(height: 5),
-            TextFormField(
-              controller: dateTimeController,
-              autovalidateMode: AutovalidateMode.always,
-              decoration: InputDecoration(border: OutlineInputBorder()),
-              validator: (value) {
-                return regexValidator(value!, r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$')
-                    ? "Must be YYYY/MM/DD HH:MM"
-                    : null;
-              },
             )
-          ],
-        )
+          );
+        }
       ),
       actions: [
         TextButton(
@@ -354,13 +422,15 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               if (_formKey.currentState!.validate()) {
                 // Since this is an existing deck_id, it should overwrite
                 // metadata in db.
-                final dt = DateTime.parse(dateTimeController.text);
+                final name = nameController.text;
+                final ymd = selectedDate;
                 final String winLoss = "${3 - winController.selected}/${3 - lossController.selected}";
                 _deckStorage.insertDeck({
                   'id': deck.id,
+                  'name': name.isEmpty ? null : name,
                   'win_loss': winLoss,
                   'set_id': currentSetId,
-                  'datetime': dt.toIso8601String()});
+                  'ymd': ymd});
                 refreshDecks();
                 Navigator.of(context).pop();
               }
@@ -369,6 +439,16 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         )
       ],
     );
+  }
+
+  List<DropdownMenuEntry<String>> generateDraftMenuItems(List<Set> sets, String draftType) {
+    if (draftType == "set") {
+      return (sets
+        ..sort((a, b) => (a.name.toString().compareTo(b.name.toString()))))
+          .map((set) => DropdownMenuEntry(value: set.code, label: set.name)).toList();
+    } else {
+      return [];
+    }
   }
 
   Widget generateWinLossPicker(WheelPickerController controller) {

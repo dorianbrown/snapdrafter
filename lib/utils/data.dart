@@ -13,7 +13,7 @@ class DeckStorage {
   late Database _database;
   late List<Card> _allCards;
   var cardsLoaded = false;
-  final String _databaseName = 'decklistScanner.db';
+  final String _databaseName = 'draftTracker.db';
   final int _databaseVersion = 1;
 
   DeckStorage._privateConstructor();
@@ -45,10 +45,12 @@ class DeckStorage {
           """
           CREATE TABLE decks(
             id INTEGER PRIMARY KEY, 
+            name TEXT,
             win_loss TEXT,
             set_id TEXT,
             cube_id int,
-            datetime TEXT NOT NULL)
+            draft_id int,
+            ymd TEXT NOT NULL)
           """
         );
         db.execute(
@@ -74,6 +76,25 @@ class DeckStorage {
             code TEXT PRIMARY KEY,
             name TEXT NOT NULL,
             released_at TEXT NOT NULL
+          )
+          """
+        );
+        db.execute(
+          """
+          CREATE TABLE cubes(
+            id INTEGER PRIMARY KEY,
+            cubecobra_id TEXT NOT NULL,
+            name TEXT NOT NULL,
+            ymd TEXT NOT NULL
+          )
+          """
+        );
+        db.execute(
+          """
+          CREATE TABLE cubelists(
+            id INTEGER PRIMARY KEY,
+            cubecobra_id INT NOT NULL,
+            scryfall_id TEXT NOT NULL
           )
           """
         );
@@ -153,10 +174,6 @@ class DeckStorage {
     });
   }
 
-  Future<Map<String, Card>> getCardsMap() async {
-    return {};
-  }
-
   Future<List<Card>> getAllCards() async {
     if (!cardsLoaded) {
       final result = await _database.query('cards');
@@ -220,10 +237,12 @@ class DeckStorage {
     final List<Deck> deckList = [];
     for (final deck in decks) {
       final deckId = deck['id'] as int;
+      final name = deck['name'] as String?;
       final winLoss = deck['win_loss'] as String?;
       final setId = deck['set_id'] as String?;
       final cubeId = deck['cube_id'] as int?;
-      final deckDateTime = DateTime.parse(deck['datetime'] as String);
+      final draftId = deck['draft_id'] as int?;
+      final ymd = deck['ymd'] as String;
 
       var currentDecklist = cards
           .where((x) => x['deck_id'] == deckId)
@@ -232,10 +251,12 @@ class DeckStorage {
 
       deckList.add(Deck(
         id: deckId,
+        name: name,
         winLoss: winLoss,
         setId: setId,
         cubeId: cubeId,
-        dateTime: deckDateTime,
+        draftId: draftId,
+        ymd: ymd,
         cards: currentDecklist
       ));
     }
@@ -278,9 +299,41 @@ class DeckStorage {
   }
 
   Future<int> saveNewDeck(DateTime dateTime, List<Card> cards) async {
-    int deckId = await insertDeck({'dateTime': dateTime.toIso8601String()});
+    String ymd = convertDatetimeToYMD(dateTime);
+    int deckId = await insertDeck({'ymd': ymd});
     updateDecklist(deckId, cards);
     debugPrint("Deck insert successfully, deck_id: $deckId");
     return deckId;
+  }
+
+  // Future<List> getAllCubes() async {
+  //   final result = await _database.query("cubes");
+  // }
+
+  Future<void> saveNewCube(String name, String ymd, String cubecobraId, List<Card> cards) async {
+    await _database.insert(
+      'cubes',
+      {
+        'name': name,
+        'cubecobra_id': cubecobraId,
+        'ymd': ymd
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+
+    _database.transaction((txn) async {
+      var batch = txn.batch();
+      for (final card in cards) {
+        batch.insert(
+          'cubelists',
+          {
+            'cubecobra_id': cubecobraId,
+            'scryfall_id': card.scryfallId
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace
+        );
+      }
+      await batch.commit();
+    });
   }
 }

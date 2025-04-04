@@ -1,8 +1,14 @@
+import 'dart:convert';
+
 import 'package:fuzzywuzzy/algorithms/weighted_ratio.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:fuzzywuzzy/ratios/partial_ratio.dart';
 import 'package:fuzzywuzzy/ratios/simple_ratio.dart';
+import 'package:http/http.dart' as http;
+
+import 'models.dart';
+import 'data.dart';
 
 String convertDatetimeToYMDHM(DateTime datetime) {
   String outputString = datetime.year.toString().substring(0,4);
@@ -44,4 +50,36 @@ ExtractedResult<String> runFuzzyMatch(MatchParams params) {
     ratio: SimpleRatio()
   );
   return match;
+}
+
+Future<List<Card>> fetchCubecobraList(String cubecobraId) async {
+  String uri = "https://cubecobra.com/cube/api/cubecardnames/$cubecobraId/mainboard";
+  // FIXME: Sometimes we get weird responses here. We need to figure out what the
+  // return html is.
+  final response = await http.get(Uri.parse(uri));
+  if (response.statusCode == 200) {
+    final body = jsonDecode(response.body);
+    List<String> cubeList = unpackCubeMap(body["cardnames"]);
+    final cards = await DeckStorage().getAllCards();
+    // With double sided cards cubecobra only used front side. This solves the issue,
+    // but might cause some issues in the future.
+    return cards.where((card) => cubeList.contains(card.name) || cubeList.contains(card.title)).toList();
+  } else {
+    throw Exception('Failed to load album');
+  }
+}
+
+List<String> unpackCubeMap(Map<String, dynamic> map) {
+
+  List<String> tailList = [];
+
+  for (String key in map.keys) {
+    if (key == "\$") {
+      tailList += [""];
+    } else {
+      final tails = unpackCubeMap(map[key]);
+      tailList += tails.map((tail) => "$key$tail").toList();
+    }
+  }
+  return tailList;
 }
