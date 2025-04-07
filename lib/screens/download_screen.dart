@@ -212,7 +212,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
         }
         if (
           newestRelease.compareTo(val["released_at"]) < 0 &&
-          val["released_at"].compareTo(convertDatetimeToYMD(DateTime.now())) < 0 &&
+          // We add 8 days here to make set available for prereleases
+          val["released_at"].compareTo(convertDatetimeToYMD(DateTime.now().add(Duration(days: 8)))) < 0 &&
           val["set_type"] == "expansion"
         ) {
           newestRelease = val["released_at"];

@@ -131,7 +131,7 @@ class Deck {
   final String? winLoss;
   final String? setId;
   final int? draftId;
-  final int? cubeId;
+  final String? cubecobraId;
   final String ymd;
   List<Card> cards;
 
@@ -141,7 +141,7 @@ class Deck {
     this.winLoss,
     this.setId,
     this.draftId,
-    this.cubeId,
+    this.cubecobraId,
     required this.ymd,
     required this.cards
   });
@@ -171,7 +171,7 @@ class Deck {
 
   @override
   String toString() {
-    return "Deck{id: $id, name: $name, win/loss: $winLoss, set: $setId, draftId: $draftId, cube: $cubeId, ymd: $ymd}";
+    return "Deck{id: $id, name: $name, win/loss: $winLoss, set: $setId, draftId: $draftId, cube: $cubecobraId, ymd: $ymd}";
   }
 }
 

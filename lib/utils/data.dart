@@ -48,7 +48,7 @@ class DeckStorage {
             name TEXT,
             win_loss TEXT,
             set_id TEXT,
-            cube_id int,
+            cubecobra_id STRING,
             draft_id int,
             ymd TEXT NOT NULL)
           """
@@ -240,7 +240,7 @@ class DeckStorage {
       final name = deck['name'] as String?;
       final winLoss = deck['win_loss'] as String?;
       final setId = deck['set_id'] as String?;
-      final cubeId = deck['cube_id'] as int?;
+      final cubecobraId = deck['cubecobra_id'] as String?;
       final draftId = deck['draft_id'] as int?;
       final ymd = deck['ymd'] as String;
 
@@ -254,7 +254,7 @@ class DeckStorage {
         name: name,
         winLoss: winLoss,
         setId: setId,
-        cubeId: cubeId,
+        cubecobraId: cubecobraId,
         draftId: draftId,
         ymd: ymd,
         cards: currentDecklist
@@ -306,7 +306,7 @@ class DeckStorage {
     return deckId;
   }
 
-  Future<List> getAllCubes() async {
+  Future<List<Cube>> getAllCubes() async {
     final cubeResults = await _database.query("cubes");
     final cubeListsResults = await _database.query("cubelists");
 
@@ -358,5 +358,19 @@ class DeckStorage {
       }
       await batch.commit();
     });
+  }
+
+  Future<void> deleteCube(String cubecobraId) async {
+    // TODO: Remove cubecobra_id from decks (set to null)
+    await _database.delete(
+      'cubelists',
+      where: 'cubecobra_id = ?',
+      whereArgs: [cubecobraId],
+    );
+    await _database.delete(
+      'cubes',
+      where: 'cubecobra_id = ?',
+      whereArgs: [cubecobraId],
+    );
   }
 }

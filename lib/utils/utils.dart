@@ -1,9 +1,7 @@
 import 'dart:convert';
 
-import 'package:fuzzywuzzy/algorithms/weighted_ratio.dart';
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:fuzzywuzzy/model/extracted_result.dart';
-import 'package:fuzzywuzzy/ratios/partial_ratio.dart';
 import 'package:fuzzywuzzy/ratios/simple_ratio.dart';
 import 'package:http/http.dart' as http;
 

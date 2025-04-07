@@ -71,7 +71,6 @@ class _CubeSettingsState extends State<CubeSettings> {
   initState() {
     super.initState();
     deckStorage = DeckStorage();
-    final cubes = deckStorage.getAllCubes();
   }
 
   @override
@@ -81,23 +80,39 @@ class _CubeSettingsState extends State<CubeSettings> {
       body: Container(
         padding: EdgeInsets.symmetric(vertical: 40, horizontal: 20),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           spacing: 10,
           children: [
-            ListView(
-              shrinkWrap: true,
-              children: [
-                ListTile(title: Text("My Cubes")),
-                ListTile(
-                    title: Text("1. Premodern Plus Cube"),
-                    tileColor: Colors.white12,
-                    dense: true
-                ),
-                ListTile(
-                    title: Text("2. Degenerate Micro Cube"),
-                    tileColor: Colors.white12,
-                    dense: true
-                ),
-              ],
+            Text("My Cubes"),
+            FutureBuilder(
+              future: deckStorage.getAllCubes(),
+              builder: (futureContext, snapshot) {
+                // FIXME: Currently crashing when loading
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return CircularProgressIndicator();
+                }
+                else {
+                  final cubes = snapshot.data as List<Cube>;
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: cubes.length,
+                    itemBuilder: (listBuilderContext, index) {
+                      return ListTile(
+                        title: Text(cubes[index].name),
+                        subtitle: Text(cubes[index].ymd),
+                        trailing: IconButton(
+                          onPressed: () async {
+                            await deckStorage.deleteCube(cubes[index].cubecobraId);
+                            setState(() {});
+                          },
+                          icon: Icon(Icons.delete)
+                        ),
+                        tileColor: Colors.white12,
+                      );
+                    },
+                  );
+                }
+              },
             ),
             ListView(
               shrinkWrap: true,
@@ -189,6 +204,7 @@ class _CubeSettingsState extends State<CubeSettings> {
                     String cubecobraId = cubecobraIdController.text;
                     deckStorage.saveNewCube(name, ymd, cubecobraId, cubeList);
                     Navigator.of(context).pop();
+                    setState(() {});
                   },
                   child: Text("Save")
                 )
