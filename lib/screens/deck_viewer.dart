@@ -97,12 +97,21 @@ class DeckViewerState extends State<DeckViewer> {
               child: Row(
                 children: [
                   IconButton(
+                    tooltip: "Sample Starting Hand",
                     icon: Icon(Icons.back_hand),
                     onPressed: () => showRandomHand(deck),
                   ),
+                  // TODO: Figure out how to determine basics distribution
+                  // Check out scryfall field 'produced_mana'
+                  //
+                  // IconButton(
+                  //   tooltip: "Add basics",
+                  //   icon: Icon(Icons.landscape),
+                  //   onPressed: () => {}
+                  // ),
                   Spacer(),
-                  TextButton.icon(
-                    label: Text("Edit"),
+                  IconButton(
+                    tooltip: "Edit",
                     icon: Icon(Icons.edit),
                     onPressed: () => showDeckEditor(deck, allCards),
                   ),
@@ -204,7 +213,8 @@ class DeckViewerState extends State<DeckViewer> {
                 }
             ),
           ],
-        )
+        ),
+        SizedBox(width: 0,)
       ],
     )];
   }

@@ -155,20 +155,16 @@ class _CubeSettingsState extends State<CubeSettings> {
                           controller: cubecobraIdController,
                           decoration: InputDecoration(hintText: "Cubecobra ID")
                       ),
-                      SizedBox(
-                        height: 300,
-                        child: TextFormField(
+                      TextFormField(
                           readOnly: true,
-                          expands: true,
                           keyboardType: TextInputType.multiline,
-                          maxLines: null,
-                          minLines: null,
+                          maxLines: 10,
+                          minLines: 1,
                           controller: cubeListController,
-                        ),
                       ),
                       if (cubeList.isNotEmpty)
                         Text("Cube cards found: ${cubeList.length}"),
-                      Spacer(),
+                      SizedBox(height: 10,),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

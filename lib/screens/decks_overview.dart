@@ -2,13 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Card;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:wheel_picker/wheel_picker.dart';
+import 'package:collection/collection.dart';
 
 import '/utils/utils.dart';
 import '/utils/route_observer.dart';
@@ -159,7 +160,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           FloatingActionButton(
             heroTag: null,
             shape: CircleBorder(),
-            onPressed: null,
+            onPressed: () => showTextDeckCreator(),
             child: const Icon(Icons.text_fields_outlined),
           )
         ],
@@ -169,7 +170,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         child: Row(
           children: [
             IconButton(
-              icon: Icon(Icons.sync_alt),
+              icon: Icon(Icons.filter_alt_off),
               onPressed: null
             ),
             Spacer(),
@@ -212,60 +213,71 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               );
             }
 
-            // the map id is "${set_id/cube_id} $draft_id"
-            Map<String, int> indexMap = {};
-            List<List<Deck>> groupedDecks = [];
-            // FIXME: Weird bug happening
-            for (Deck deck in decks) {
-              if ((deck.setId != null || deck.cubecobraId != null) && deck.draftId != null) {
-                String key = "${deck.setId ?? deck.cubecobraId} ${deck.draftId}";
-                if (indexMap.keys.contains(key)) {
-                  groupedDecks[indexMap[key]!].add(deck);
-                } else {
-                  indexMap[key] = groupedDecks.length;
-                  groupedDecks.add([deck]);
-                }
-              } else {
-                groupedDecks.add([deck]);
-              }
-            }
-
-            String decksYmd(List<Deck> decks) {
-              String retVal = decks[0].ymd;
-              for (Deck deck in decks) {
-                if (retVal.compareTo(deck.ymd) < 0) {
-                  retVal = deck.ymd;
-                }
-              }
-              return retVal;
-            }
-
-            groupedDecks.sort((a, b) => decksYmd(a).compareTo(decksYmd(b)));
+            decks.sort((a, b) => b.ymd.compareTo(a.ymd));
 
             return ListView.separated(
-              itemCount: groupedDecks.length,
+              itemCount: decks.length,
               separatorBuilder: (context, index) => Divider(indent: 20, endIndent: 20, color: Colors.white12),
               itemBuilder: (context, index) {
-                if (groupedDecks[index].length == 1) {
-                  return generateSlidableDeckTile(decks, sets, cubes, decks.indexOf(groupedDecks[index].first));
-                } else {
-                  String identifier = "";
-                  if (groupedDecks[index][0].setId != null) {
-                    identifier = sets.firstWhere((x) => x.code == groupedDecks[index][0].setId).name;
-                  } else {
-                    identifier = cubes.firstWhere((x) => x.cubecobraId == groupedDecks[index][0].cubecobraId).name;
-                  }
-
-                  return ExpansionTile(
-                    title: Text("$identifier Draft #${groupedDecks[index][0].draftId}"),
-                    subtitle: Text("${groupedDecks[index].length} decks\n${decksYmd(groupedDecks[index])}"),
-                    children: groupedDecks[index].map((deck) => generateSlidableDeckTile(decks, sets, cubes, decks.indexOf(deck))).toList(),
-                  );
-                }
+                return generateSlidableDeckTile(decks, sets, cubes, index);
               },
             );
           }
         }
+      )
+    );
+  }
+
+  void showTextDeckCreator() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text("Create Deck"),
+        content: TextFormField(
+          expands: true,
+          keyboardType: TextInputType.multiline,
+          maxLines: null,
+          minLines: null,
+          controller: controller,
+          decoration: InputDecoration(
+            hintText: "1 Mox Jet\n1 Black Lotus\n1 ...",
+            hintStyle: TextStyle(color: Colors.white54)
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Discard")
+          ),
+          TextButton(
+              onPressed: () async {
+                List<Card> allCards = await _deckStorage.getAllCards();
+                List<Card> deckList = [];
+
+                List<String> text = controller.text.split("\n");
+                final regex = RegExp(r'^(\d)\s(.+)$');
+                for (String name in text) {
+                  var regexMatch = regex.allMatches(name);
+                  int count = int.parse(regexMatch.first[1]!);
+                  String cardName = regexMatch.first[2]!;
+                  Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == cardName);
+                  if (matchedCard == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Card not found: '$name'")));
+                    return;
+                  }
+                  for (int i = 0; i < count; i++) {
+                    deckList.add(matchedCard);
+                  }
+                }
+
+                _deckStorage.saveNewDeck(DateTime.now(), deckList).then((_) {
+                  Navigator.of(context).pop();
+                });
+              },
+              child: const Text("Save")
+          )
+        ],
       )
     );
   }
@@ -281,9 +293,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     }
     if (decks[index].cubecobraId != null) {
       subtitle = "${subtitle}Cube: ${cubes.firstWhere((x) => x.cubecobraId == decks[index].cubecobraId).name}\n";
-    }
-    if (decks[index].draftId != null) {
-      subtitle = "${subtitle}Draft ID: #${decks[index].draftId}\n";
     }
     subtitle = "$subtitle${decks[index].ymd}";
 
@@ -357,14 +366,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     Deck deck = decks[index];
     String selectedDate = deck.ymd;
     final nameController = TextEditingController(text: deck.name);
-    final draftIdController = TextEditingController();
     final winController = WheelPickerController(itemCount: 4, initialIndex: 4);
     final lossController = WheelPickerController(itemCount: 4, initialIndex: 4);
     final setCubeController = TextEditingController();
     final _formKey = GlobalKey<FormState>();
     String? currentCubeSetId = deck.cubecobraId ?? deck.setId;
     String draftType = deck.cubecobraId != null ? "cube" : "set";
-    String? currentDraftId = deck.draftId != null ? deck.draftId.toString() : "";
 
     Widget createPaddedText(String text) {
       return Container(
@@ -409,12 +416,10 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     ButtonSegment(
                       label: Text("Set"),
                       value: "set",
-                      enabled: currentDraftId == ""
                     ),
                     ButtonSegment(
                       label: Text("Cube"),
                       value: "cube",
-                      enabled: currentDraftId == ""
                     ),
                   ],
                   selected: {draftType},
@@ -447,20 +452,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   onSelected: (value) {
                     setState(() {
                       currentCubeSetId = value;
-                    });
-                  },
-                  enabled: currentDraftId == "",
-                ),
-                createPaddedText("Draft ID"),
-                DropdownMenu(
-                  hintText: "Used for grouping",
-                  enabled: currentCubeSetId != null,
-                  controller: draftIdController,
-                  initialSelection: decks[index].draftId.toString(),
-                  dropdownMenuEntries: generateDraftIdMenuItems(sets, cubes, decks, index),
-                  onSelected: (value) {
-                    setState(() {
-                      currentDraftId = value;
                     });
                   },
                 ),
@@ -503,29 +494,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 // Since this is an existing deck_id, it should overwrite
                 // metadata in db.
 
-                // Get largest int from corresponding decks in cube/set
-                int? newDraftId;
-
-                if (draftIdController.text == "Add new Draft ID") {
-                  if (draftType == "set") {
-                    List<int> draftIds = decks
-                        .where((deck) => deck.setId == currentCubeSetId)
-                        .where((deck) => deck.draftId != null)
-                        .map((deck) => deck.draftId!)
-                        .toList();
-                    newDraftId = draftIds.isEmpty ? 1 : draftIds.reduce(max) + 1;
-                  } else {
-                    List<int> draftIds = decks
-                        .where((deck) => deck.cubecobraId == currentCubeSetId)
-                        .where((deck) => deck.draftId != null)
-                        .map((deck) => deck.draftId!)
-                        .toList();
-                    newDraftId = draftIds.isEmpty ? 1 : draftIds.reduce(max) + 1;
-                  }
-                } else {
-                  newDraftId = currentDraftId != null && currentDraftId != "" ? int.parse(currentDraftId!) : null;
-                }
-
                 final name = nameController.text;
                 final String winLoss = "${3 - winController.selected}/${3 - lossController.selected}";
                 final setId = draftType == "set" ? currentCubeSetId : null;
@@ -536,7 +504,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   'win_loss': winLoss,
                   'set_id': setId,
                   'cubecobra_id': cubecobraId,
-                  'draft_id': newDraftId,
                   'ymd': selectedDate});
                 refreshDecks();
                 Navigator.of(context).pop();
@@ -556,28 +523,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     } else {
       return cubes.map((cube) => DropdownMenuEntry(value: cube.cubecobraId, label: cube.name)).toList();
     }
-  }
-
-  List<DropdownMenuEntry<String>> generateDraftIdMenuItems(
-    List<Set> sets,
-    List<Cube> cubes,
-    List<Deck> decks,
-    int index
-  ) {
-    List<String> draftIds = decks
-        .where((deck) => deck.draftId != null)
-        // limits draft_ids to ones of the current setId/cubeId. We want to keep draftIds isolated
-        // within a set/cube.
-        .where((deck) => (deck.setId == decks[index].setId && deck.setId != null) || (deck.cubecobraId == decks[index].cubecobraId && deck.cubecobraId != null))
-        .map((deck) => deck.draftId.toString())
-        .toList();
-    draftIds = draftIds.toSet().toList();
-    draftIds.sort((a, b) => int.parse(a).compareTo(int.parse(b)));
-
-    List<DropdownMenuEntry<String>> menuEntries = draftIds.map((id) => DropdownMenuEntry(value: id.toString(), label: "Draft #$id")).toList();
-    menuEntries.add(DropdownMenuEntry(value: "add", label: "Add new Draft ID"));
-    menuEntries.insert(0, DropdownMenuEntry(value: "", label: "None"));
-    return menuEntries;
   }
 
   Widget generateWinLossPicker(WheelPickerController controller) {

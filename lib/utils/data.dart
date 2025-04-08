@@ -49,7 +49,6 @@ class DeckStorage {
             win_loss TEXT,
             set_id TEXT,
             cubecobra_id STRING,
-            draft_id int,
             ymd TEXT NOT NULL)
           """
         );
@@ -241,7 +240,6 @@ class DeckStorage {
       final winLoss = deck['win_loss'] as String?;
       final setId = deck['set_id'] as String?;
       final cubecobraId = deck['cubecobra_id'] as String?;
-      final draftId = deck['draft_id'] as int?;
       final ymd = deck['ymd'] as String;
 
       var currentDecklist = cards
@@ -255,7 +253,6 @@ class DeckStorage {
         winLoss: winLoss,
         setId: setId,
         cubecobraId: cubecobraId,
-        draftId: draftId,
         ymd: ymd,
         cards: currentDecklist
       ));
