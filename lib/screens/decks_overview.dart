@@ -171,15 +171,20 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         child: Row(
           children: [
             IconButton(
-              icon: Icon(Icons.filter_alt),
-              onPressed: () async {
-                final filter = await showDialog<Filter>(
-                  context: context,
-                  builder: (context) => createFilterDialog(),
-                );
-                if (filter != null) {
-                  setState(() {
-                    currentFilter = filter;
+              icon: Icon(currentFilter != null 
+                ? Icons.filter_alt_off 
+                : Icons.filter_alt),
+              onPressed: () {
+                if (currentFilter != null) {
+                  setState(() => currentFilter = null);
+                } else {
+                  showDialog<Filter>(
+                    context: context,
+                    builder: (context) => createFilterDialog(),
+                  ).then((filter) {
+                    if (filter != null) {
+                      setState(() => currentFilter = filter);
+                    }
                   });
                 }
               }
