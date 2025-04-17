@@ -101,14 +101,13 @@ class DeckViewerState extends State<DeckViewer> {
                     icon: Icon(Icons.back_hand),
                     onPressed: () => showRandomHand(deck),
                   ),
-                  // TODO: Figure out how to determine basics distribution
-                  // Check out scryfall field 'produced_mana'
-                  //
-                  // IconButton(
-                  //   tooltip: "Add basics",
-                  //   icon: Icon(Icons.landscape),
-                  //   onPressed: () => {}
-                  // ),
+                  IconButton(
+                    tooltip: "Add basics",
+                    icon: Icon(Icons.landscape),
+                    onPressed: () {
+                        showBasicsEditor(deck);
+                    },
+                  ),
                   Spacer(),
                   IconButton(
                     tooltip: "Edit",
@@ -162,6 +161,118 @@ class DeckViewerState extends State<DeckViewer> {
     });
     _deckStorage.updateDecklist(deck.id, cardsCopy).then((_) {
       Navigator.of(context).pop();
+    });
+  }
+
+  void showBasicsEditor(Deck deck) {
+    // Get current counts of each basic land type
+    Map<String, int> basicCounts = {
+      'Plains': deck.cards.where((c) => c.name == 'Plains').length,
+      'Island': deck.cards.where((c) => c.name == 'Island').length,
+      'Swamp': deck.cards.where((c) => c.name == 'Swamp').length,
+      'Mountain': deck.cards.where((c) => c.name == 'Mountain').length,
+      'Forest': deck.cards.where((c) => c.name == 'Forest').length,
+    };
+
+    // Get all cards to find basic lands
+    allCardsFuture.then((allCards) {
+      final plains = allCards.firstWhere((c) => c.name == 'Plains');
+      final island = allCards.firstWhere((c) => c.name == 'Island');
+      final swamp = allCards.firstWhere((c) => c.name == 'Swamp');
+      final mountain = allCards.firstWhere((c) => c.name == 'Mountain');
+      final forest = allCards.firstWhere((c) => c.name == 'Forest');
+
+      showDialog(
+        context: context,
+        builder: (context) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: Text('Edit Basic Lands'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Deck colors: ${deck.colors}'),
+                    SizedBox(height: 20),
+                    ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((name) {
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(name),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: Icon(Icons.remove),
+                                onPressed: () {
+                                  setState(() {
+                                    if (basicCounts[name]! > 0) {
+                                      basicCounts[name] = basicCounts[name]! - 1;
+                                    }
+                                  });
+                                },
+                              ),
+                              Text('${basicCounts[name]}'),
+                              IconButton(
+                                icon: Icon(Icons.add),
+                                onPressed: () {
+                                  setState(() {
+                                    basicCounts[name] = basicCounts[name]! + 1;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    child: Text('Cancel'),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                  TextButton(
+                    child: Text('Save'),
+                    onPressed: () async {
+                      // Update deck with new basic land counts
+                      List<Card> newCards = deck.cards.where((c) => 
+                        !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].contains(c.name)
+                      ).toList();
+
+                      // Add new basic lands
+                      for (var entry in basicCounts.entries) {
+                        Card basicLand;
+                        switch (entry.key) {
+                          case 'Plains': basicLand = plains; break;
+                          case 'Island': basicLand = island; break;
+                          case 'Swamp': basicLand = swamp; break;
+                          case 'Mountain': basicLand = mountain; break;
+                          case 'Forest': basicLand = forest; break;
+                          default: continue;
+                        }
+                        newCards.addAll(List.filled(entry.value, basicLand));
+                      }
+
+                      // Update both local deck state and database
+                      setState(() {
+                        deck.cards = newCards;
+                        decksFuture = _deckStorage.getAllDecks();
+                      });
+                      await _deckStorage.updateDecklist(deck.id, newCards);
+                      // Force refresh the FutureBuilder by creating a new future
+                      setState(() {
+                        decksFuture = _deckStorage.getAllDecks();
+                      });
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
     });
   }
 
