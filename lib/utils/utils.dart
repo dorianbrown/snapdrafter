@@ -24,6 +24,30 @@ String convertDatetimeToYMD(DateTime datetime, {String sep = "-"}) {
   return outputString;
 }
 
+String formatDateRange(DateTime? start, DateTime? end) {
+  if (start == null && end == null) return "";
+  if (start == null) return formatSingleDate(end!);
+  if (end == null) return formatSingleDate(start);
+  
+  if (start.year == end.year) {
+    if (start.month == end.month) {
+      return "${start.day} - ${end.day} ${_getMonthName(start.month)} ${start.year}";
+    }
+    return "${start.day} ${_getMonthName(start.month)} - ${end.day} ${_getMonthName(end.month)} ${start.year}";
+  }
+  return "${formatSingleDate(start)} - ${formatSingleDate(end)}";
+}
+
+String formatSingleDate(DateTime date) {
+  return "${date.day} ${_getMonthName(date.month)} ${date.year}";
+}
+
+String _getMonthName(int month) {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+                  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return months[month - 1];
+}
+
 bool validateDateTimeString(String datetimeString) {
   final regex = RegExp(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$');
   return datetimeString.isNotEmpty && !regex.hasMatch(datetimeString);

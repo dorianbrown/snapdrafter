@@ -35,6 +35,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late Future buildFuture;
   late DeckStorage _deckStorage;
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
+  Filter? currentFilter;
 
   @override
   void initState() {
@@ -170,8 +171,18 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         child: Row(
           children: [
             IconButton(
-              icon: Icon(Icons.filter_alt_off),
-              onPressed: null
+              icon: Icon(Icons.filter_alt),
+              onPressed: () async {
+                final filter = await showDialog<Filter>(
+                  context: context,
+                  builder: (context) => createFilterDialog(),
+                );
+                if (filter != null) {
+                  setState(() {
+                    currentFilter = filter;
+                  });
+                }
+              }
             ),
             Spacer(),
             IconButton(
@@ -213,14 +224,87 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               );
             }
 
-            decks.sort((a, b) => b.ymd.compareTo(a.ymd));
+            List<Deck> filteredDecks = currentFilter != null
+              ? decks.where((deck) => currentFilter!.matchesDeck(deck)).toList()
+              : decks;
+            filteredDecks.sort((a, b) => b.ymd.compareTo(a.ymd));
 
-            return ListView.separated(
-              itemCount: decks.length,
-              separatorBuilder: (context, index) => Divider(indent: 20, endIndent: 20, color: Colors.white12),
-              itemBuilder: (context, index) {
-                return generateSlidableDeckTile(decks, sets, cubes, index);
-              },
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (currentFilter != null) Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                  child: Wrap(
+                    spacing: 5,
+                    runSpacing: -5,
+                    children: [
+                      if (currentFilter!.setId != null)
+                        Chip(
+                          label: Text("Set: ${sets.firstWhere((set) => set.code == currentFilter!.setId).name}"),
+                          onDeleted: () => setState(() {
+                            currentFilter = currentFilter!.clearSetId();
+                            if (currentFilter!.isEmpty()) {
+                              currentFilter = null;
+                            }
+                          }),
+                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                          padding: EdgeInsets.all(6),
+                        ),
+                      if (currentFilter!.cubecobraId != null)
+                        Chip(
+                          label: Text("Cube: ${cubes.firstWhere((cube) => cube.cubecobraId == currentFilter!.cubecobraId).name}"),
+                          onDeleted: () => setState(() {
+                            currentFilter = currentFilter!.clearCubecobraId();
+                            if (currentFilter!.isEmpty()) {
+                              currentFilter = null;
+                            }
+                          }),
+                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                          padding: EdgeInsets.all(6),
+                        ),
+                      if (currentFilter!.startDate != null || currentFilter!.endDate != null)
+                        Chip(
+                          label: Text(formatDateRange(currentFilter!.startDate, currentFilter!.endDate)),
+                          onDeleted: () => setState(() {
+                            currentFilter = currentFilter!.clearDateRange();
+                            if (currentFilter!.isEmpty()) {
+                              currentFilter = null;
+                            }
+                          }),
+                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                          padding: EdgeInsets.all(6),
+                        ),
+                      if (currentFilter!.minWins != 0 || currentFilter!.maxWins != 3)
+                        Chip(
+                          label: Text("Wins: ${currentFilter!.minWins == currentFilter!.maxWins ? currentFilter!.minWins : '${currentFilter!.minWins}-${currentFilter!.maxWins}'}"),
+                          onDeleted: () => setState(() {
+                            currentFilter = currentFilter!.clearWinRange();
+                            if (currentFilter!.isEmpty()) {
+                              currentFilter = null;
+                            }
+                          }),
+                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                          padding: EdgeInsets.all(6),
+                        ),
+                      Chip(
+                        label: Text("Clear Filters"),
+                        onDeleted: () => setState(() => currentFilter = null),
+                        labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                        padding: EdgeInsets.all(6),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: filteredDecks.length,
+                    separatorBuilder: (context, index) => Divider(indent: 20, endIndent: 20, color: Colors.white12),
+                    itemBuilder: (context, index) {
+                      return generateSlidableDeckTile(filteredDecks, sets, cubes, index);
+                    },
+                  )
+                )
+              ],
             );
           }
         }
@@ -286,7 +370,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
     String subtitle = "";
     if (decks[index].winLoss != null) {
-      subtitle = "${subtitle}W\L: ${decks[index].winLoss}\n";
+      subtitle = "${subtitle}W/L: ${decks[index].winLoss}\n";
     }
     if (decks[index].setId != null) {
       subtitle = "${subtitle}Set: ${sets.firstWhere((x) => x.code == decks[index].setId).name}\n";
@@ -361,6 +445,138 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     );
   }
 
+  Widget createFilterDialog() {
+    DateTimeRange? dateRange;
+    String? selectedSetId;
+    String? selectedCubeId;
+    String draftType = "set";
+    RangeValues _winRange = const RangeValues(0, 3);
+
+    return AlertDialog(
+      title: Text("Filter Decks"),
+      scrollable: true,
+      contentPadding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
+      content: StatefulBuilder(
+        builder: (context, setState) {
+          return FutureBuilder(
+            future: Future.wait([decksFuture, setsFuture, cubesFuture]),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) return CircularProgressIndicator();
+
+              final decksData = snapshot.data![0] as List<Deck>;
+              final setsData = snapshot.data![1] as List<Set>;
+              final cubesData = snapshot.data![2] as List<Cube>;
+
+              final availableSets = setsData
+                  .where((set) => decksData.any((deck) => deck.setId == set.code))
+                  .toList();
+              final availableCubes = cubesData
+                  .where((cube) => decksData.any((deck) => deck.cubecobraId == cube.cubecobraId))
+                  .toList();
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Date Range"),
+                  OutlinedButton(
+                    onPressed: () async {
+                      final range = await showDateRangePicker(
+                        context: context,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(2100),
+                        initialDateRange: dateRange,
+                      );
+                      if (range != null) {
+                        setState(() => dateRange = range);
+                      }
+                    },
+                    child: Text(dateRange != null 
+                      ? "${convertDatetimeToYMD(dateRange!.start)} - ${convertDatetimeToYMD(dateRange!.end)}"
+                      : "Choose Date Range"
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text("Wins Range: ${_winRange.start.round()} - ${_winRange.end.round()}"),
+                  ),
+                  RangeSlider(
+                    values: _winRange,
+                    min: 0,
+                    max: 3,
+                    divisions: 3,
+                    labels: RangeLabels(
+                      _winRange.start.round().toString(),
+                      _winRange.end.round().toString(),
+                    ),
+                    onChanged: (RangeValues values) {
+                      setState(() => _winRange = values);
+                    },
+                  ),
+                  SegmentedButton(
+                    segments: [
+                      ButtonSegment(label: Text("Set"), value: "set"),
+                      ButtonSegment(label: Text("Cube"), value: "cube"),
+                    ],
+                    selected: {draftType},
+                    onSelectionChanged: (newSelection) {
+                      setState(() {
+                        draftType = newSelection.first;
+                        selectedSetId = null;
+                        selectedCubeId = null;
+                      });
+                    },
+                  ),
+                  DropdownMenu(
+                    hintText: "Select $draftType",
+                    dropdownMenuEntries: draftType == "set"
+                      ? availableSets.map((set) => 
+                          DropdownMenuEntry(value: set.code, label: set.name))
+                          .toList()
+                      : availableCubes.map((cube) =>
+                          DropdownMenuEntry(value: cube.cubecobraId, label: cube.name))
+                          .toList(),
+                    onSelected: (value) {
+                      setState(() {
+                        if (draftType == "set") {
+                          selectedSetId = value;
+                          selectedCubeId = null;
+                        } else {
+                          selectedCubeId = value;
+                          selectedSetId = null;
+                        }
+                      });
+                    },
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text("Clear"),
+        ),
+        TextButton(
+          onPressed: () {
+            final filter = Filter(
+              startDate: dateRange?.start,
+              endDate: dateRange?.end,
+              setId: selectedSetId,
+              cubecobraId: selectedCubeId,
+              minWins: _winRange.start.round(),
+              maxWins: _winRange.end.round(),
+            );
+            Navigator.of(context).pop(filter);
+          },
+          child: Text("Apply"),
+        ),
+      ],
+    );
+  }
+
   Widget createEditDialog(int index, List<Deck> decks, List<Set> sets, List<Cube> cubes) {
 
     Deck deck = decks[index];
@@ -402,14 +618,17 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ),
                 ),
                 createPaddedText("Win - Loss"),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  // mainAxisSize: MainAxisSize.min,
-                  children: [
-                    generateWinLossPicker(winController),
-                    Text("-", style: TextStyle(fontSize: 24)),
-                    generateWinLossPicker(lossController),
-                  ],
+                Container(
+                  padding: EdgeInsets.symmetric(vertical: 7, horizontal: 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    // mainAxisSize: MainAxisSize.min,
+                    children: [
+                      generateWinLossPicker(winController),
+                      Text("-", style: TextStyle(fontSize: 24)),
+                      generateWinLossPicker(lossController),
+                    ],
+                  ),
                 ),
                 SegmentedButton(
                   segments: [
