@@ -709,6 +709,21 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     );
   }
 
+  Widget deckColorsWidget (Deck deck) {
+    int numColors = deck.colors.length;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: numColors*15),
+      child: Row(
+        children: [
+          for (String color in deck.colors.split(""))
+            SvgPicture.asset(
+              "assets/svg_icons/$color.svg",
+              height: 14,
+            )
+        ],
+      )
+    );
+  }
 
   Widget createFilterChips(Filter filter, List<Set> sets, List<Cube> cubes) {
     return Wrap(
