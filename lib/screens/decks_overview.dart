@@ -234,66 +234,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               children: [
                 if (currentFilter != null) Padding(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                  child: Wrap(
-                    spacing: 5,
-                    runSpacing: -5,
-                    children: [
-                      if (currentFilter!.setId != null)
-                        Chip(
-                          label: Text("Set: ${sets.firstWhere((set) => set.code == currentFilter!.setId).name}"),
-                          onDeleted: () => setState(() {
-                            currentFilter = currentFilter!.clearSetId();
-                            if (currentFilter!.isEmpty()) {
-                              currentFilter = null;
-                            }
-                          }),
-                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-                          padding: EdgeInsets.all(6),
-                        ),
-                      if (currentFilter!.cubecobraId != null)
-                        Chip(
-                          label: Text("Cube: ${cubes.firstWhere((cube) => cube.cubecobraId == currentFilter!.cubecobraId).name}"),
-                          onDeleted: () => setState(() {
-                            currentFilter = currentFilter!.clearCubecobraId();
-                            if (currentFilter!.isEmpty()) {
-                              currentFilter = null;
-                            }
-                          }),
-                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-                          padding: EdgeInsets.all(6),
-                        ),
-                      if (currentFilter!.startDate != null || currentFilter!.endDate != null)
-                        Chip(
-                          label: Text(formatDateRange(currentFilter!.startDate, currentFilter!.endDate)),
-                          onDeleted: () => setState(() {
-                            currentFilter = currentFilter!.clearDateRange();
-                            if (currentFilter!.isEmpty()) {
-                              currentFilter = null;
-                            }
-                          }),
-                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-                          padding: EdgeInsets.all(6),
-                        ),
-                      if (currentFilter!.minWins != 0 || currentFilter!.maxWins != 3)
-                        Chip(
-                          label: Text("Wins: ${currentFilter!.minWins == currentFilter!.maxWins ? currentFilter!.minWins : '${currentFilter!.minWins}-${currentFilter!.maxWins}'}"),
-                          onDeleted: () => setState(() {
-                            currentFilter = currentFilter!.clearWinRange();
-                            if (currentFilter!.isEmpty()) {
-                              currentFilter = null;
-                            }
-                          }),
-                          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-                          padding: EdgeInsets.all(6),
-                        ),
-                      Chip(
-                        label: Text("Clear Filters"),
-                        onDeleted: () => setState(() => currentFilter = null),
-                        labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-                        padding: EdgeInsets.all(6),
-                      ),
-                    ],
-                  ),
+                  child: createFilterChips(currentFilter!, sets, cubes),
                 ),
                 Expanded(
                   child: ListView.separated(
@@ -776,6 +717,69 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             )
         ],
       )
+    );
+  }
+
+  Widget createFilterChips(Filter filter, List<Set> sets, List<Cube> cubes) {
+    return Wrap(
+      spacing: 5,
+      runSpacing: -5,
+      children: [
+        if (filter.setId != null)
+          Chip(
+            label: Text("Set: ${sets.firstWhere((set) => set.code == filter.setId).name}"),
+            onDeleted: () => setState(() {
+              currentFilter = filter.clearSetId();
+              if (currentFilter!.isEmpty()) {
+                currentFilter = null;
+              }
+            }),
+            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: EdgeInsets.all(6),
+          ),
+        if (filter.cubecobraId != null)
+          Chip(
+            label: Text("Cube: ${cubes.firstWhere((cube) => cube.cubecobraId == filter.cubecobraId).name}"),
+            onDeleted: () => setState(() {
+              currentFilter = filter.clearCubecobraId();
+              if (currentFilter!.isEmpty()) {
+                currentFilter = null;
+              }
+            }),
+            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: EdgeInsets.all(6),
+          ),
+        if (filter.startDate != null || filter.endDate != null)
+          Chip(
+            label: Text(formatDateRange(filter.startDate, filter.endDate)),
+            onDeleted: () => setState(() {
+              currentFilter = filter.clearDateRange();
+              if (currentFilter!.isEmpty()) {
+                currentFilter = null;
+              }
+            }),
+            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: EdgeInsets.all(6),
+          ),
+        if (filter.minWins != 0 || filter.maxWins != 3)
+          Chip(
+            label: Text("Wins: ${filter.minWins == filter.maxWins ? filter.minWins : '${filter.minWins}-${filter.maxWins}'}"),
+            onDeleted: () => setState(() {
+              currentFilter = filter.clearWinRange();
+              if (currentFilter!.isEmpty()) {
+                currentFilter = null;
+              }
+            }),
+            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: EdgeInsets.all(6),
+          ),
+        Chip(
+          label: Text("Clear Filters"),
+          onDeleted: () => setState(() => currentFilter = null),
+          labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+          padding: EdgeInsets.all(6),
+        ),
+      ],
     );
   }
 }
