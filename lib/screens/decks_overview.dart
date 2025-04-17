@@ -15,6 +15,7 @@ import '/utils/utils.dart';
 import '/utils/route_observer.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
+import '/widgets/deck_tile.dart';
 import 'deck_viewer.dart';
 import 'deck_scanner.dart';
 import 'download_screen.dart';
@@ -313,81 +314,43 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   }
 
   Widget generateSlidableDeckTile(List<Deck> decks, List<Set> sets, List<Cube> cubes, int index) {
-
-    String subtitle = "";
-    if (decks[index].winLoss != null) {
-      subtitle = "${subtitle}W/L: ${decks[index].winLoss}\n";
-    }
-    if (decks[index].setId != null) {
-      subtitle = "${subtitle}Set: ${sets.firstWhere((x) => x.code == decks[index].setId).name}\n";
-    }
-    if (decks[index].cubecobraId != null) {
-      subtitle = "${subtitle}Cube: ${cubes.firstWhere((x) => x.cubecobraId == decks[index].cubecobraId).name}\n";
-    }
-    subtitle = "$subtitle${decks[index].ymd}";
-
-    return Slidable(
-      startActionPane: ActionPane(
-        extentRatio: 0.3,
-        motion: BehindMotion(),
-        children: [SlidableAction(
-          label: "Edit",
-          icon: Icons.edit_rounded,
-          backgroundColor: Colors.orange,
-          foregroundColor: Colors.white,
-          onPressed: (_) {
-            showDialog(
-              context: context,
-              builder: (_) => createEditDialog(index, decks, sets, cubes),
-            );
-          },
-        )]
+    return DeckTile(
+      deck: decks[index],
+      sets: sets,
+      cubes: cubes,
+      onEdit: () => showDialog(
+        context: context,
+        builder: (_) => createEditDialog(index, decks, sets, cubes),
       ),
-      endActionPane: ActionPane(
-        extentRatio: 0.3,
-        motion: ScrollMotion(),
-        children: [SlidableAction(
-          label: "Delete",
-          icon: Icons.delete_rounded,
-          backgroundColor: Colors.red,
-          onPressed: (_) {
-            showDialog(
-              context: context,
-              builder: (dialogContext) => AlertDialog(
-                title: Text('Confirmation'),
-                content: Text('Are you sure you want to delete this deck?'),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: Text("Cancel")
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      _deckStorage.deleteDeck(decks[index].id);
-                      Navigator.of(dialogContext).pop();
-                    },
-                    child: Text("Delete")
-                  )
-                ],
-              ),
-            );
-          }
-        )]
+      onDelete: () => _confirmDeleteDeck(decks[index].id),
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => DeckViewer(deckId: decks[index].id),
+        ),
       ),
-      child: ListTile(
-        leading: deckColorsWidget(decks[index]),
-        title: Text(
-          decks[index].name != null ? "${decks[index].name}" : "Draft Deck ${index + 1}",
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Icon(Icons.keyboard_arrow_right_rounded, size: 25),
-        subtitle: Text(
-          subtitle,
-        ),
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(builder: (context) => DeckViewer(deckId: decks[index].id)
-        )),
-      )
+    );
+  }
+
+  void _confirmDeleteDeck(int deckId) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: const Text('Are you sure you want to delete this deck?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              _deckStorage.deleteDeck(deckId);
+              Navigator.of(dialogContext).pop();
+            },
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
     );
   }
 
@@ -709,21 +672,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     );
   }
 
-  Widget deckColorsWidget (Deck deck) {
-    int numColors = deck.colors.length;
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxWidth: numColors*15),
-      child: Row(
-        children: [
-          for (String color in deck.colors.split(""))
-            SvgPicture.asset(
-              "assets/svg_icons/$color.svg",
-              height: 14,
-            )
-        ],
-      )
-    );
-  }
 
   Widget createFilterChips(Filter filter, List<Set> sets, List<Cube> cubes) {
     return Wrap(
