@@ -104,9 +104,7 @@ class DeckViewerState extends State<DeckViewer> {
                   IconButton(
                     tooltip: "Add basics",
                     icon: Icon(Icons.landscape),
-                    onPressed: () {
-                        showBasicsEditor(deck);
-                    },
+                    onPressed: () => showBasicsEditor(deck, allCards)
                   ),
                   Spacer(),
                   IconButton(
@@ -164,7 +162,7 @@ class DeckViewerState extends State<DeckViewer> {
     });
   }
 
-  void showBasicsEditor(Deck deck) {
+  Future showBasicsEditor(Deck deck, List<Card> allCards) async {
     // Get current counts of each basic land type
     Map<String, int> basicCounts = {
       'Plains': deck.cards.where((c) => c.name == 'Plains').length,
@@ -175,105 +173,112 @@ class DeckViewerState extends State<DeckViewer> {
     };
 
     // Get all cards to find basic lands
-    allCardsFuture.then((allCards) {
-      final plains = allCards.firstWhere((c) => c.name == 'Plains');
-      final island = allCards.firstWhere((c) => c.name == 'Island');
-      final swamp = allCards.firstWhere((c) => c.name == 'Swamp');
-      final mountain = allCards.firstWhere((c) => c.name == 'Mountain');
-      final forest = allCards.firstWhere((c) => c.name == 'Forest');
+    final plains = allCards.firstWhere((c) => c.name == 'Plains');
+    final island = allCards.firstWhere((c) => c.name == 'Island');
+    final swamp = allCards.firstWhere((c) => c.name == 'Swamp');
+    final mountain = allCards.firstWhere((c) => c.name == 'Mountain');
+    final forest = allCards.firstWhere((c) => c.name == 'Forest');
 
-      showDialog(
-        context: context,
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setState) {
-              return AlertDialog(
-                title: Text('Edit Basic Lands'),
-                content: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Deck colors: ${deck.colors}'),
-                    SizedBox(height: 20),
-                    ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((name) {
-                      return Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(name),
-                          Row(
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.remove),
-                                onPressed: () {
-                                  setState(() {
-                                    if (basicCounts[name]! > 0) {
-                                      basicCounts[name] = basicCounts[name]! - 1;
-                                    }
-                                  });
-                                },
-                              ),
-                              Text('${basicCounts[name]}'),
-                              IconButton(
-                                icon: Icon(Icons.add),
-                                onPressed: () {
-                                  setState(() {
-                                    basicCounts[name] = basicCounts[name]! + 1;
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        ],
-                      );
-                    }).toList(),
-                  ],
-                ),
-                actions: [
-                  TextButton(
-                    child: Text('Cancel'),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                  TextButton(
-                    child: Text('Save'),
-                    onPressed: () async {
-                      // Update deck with new basic land counts
-                      List<Card> newCards = deck.cards.where((c) => 
-                        !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].contains(c.name)
-                      ).toList();
-
-                      // Add new basic lands
-                      for (var entry in basicCounts.entries) {
-                        Card basicLand;
-                        switch (entry.key) {
-                          case 'Plains': basicLand = plains; break;
-                          case 'Island': basicLand = island; break;
-                          case 'Swamp': basicLand = swamp; break;
-                          case 'Mountain': basicLand = mountain; break;
-                          case 'Forest': basicLand = forest; break;
-                          default: continue;
-                        }
-                        newCards.addAll(List.filled(entry.value, basicLand));
-                      }
-
-                      // Update both local deck state and database
-                      setState(() {
-                        deck.cards = newCards;
-                        decksFuture = _deckStorage.getAllDecks();
-                      });
-                      await _deckStorage.updateDecklist(deck.id, newCards);
-                      // Force refresh the FutureBuilder by creating a new future
-                      setState(() {
-                        decksFuture = _deckStorage.getAllDecks();
-                      });
-                      Navigator.of(context).pop();
-                    },
-                  ),
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (builderContext, setDialogState) {
+            return AlertDialog(
+              title: Text('Edit Basic Lands'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Deck colors: ${deck.colors}'),
+                  SizedBox(height: 20),
+                  ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((name) {
+                    return Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(name),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.remove),
+                              onPressed: () {
+                                setDialogState(() {
+                                  if (basicCounts[name]! > 0) {
+                                    basicCounts[name] = basicCounts[name]! - 1;
+                                  }
+                                });
+                              },
+                            ),
+                            Text('${basicCounts[name]}'),
+                            IconButton(
+                              icon: Icon(Icons.add),
+                              onPressed: () {
+                                setDialogState(() {
+                                  basicCounts[name] = basicCounts[name]! + 1;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }),
                 ],
-              );
-            },
-          );
-        },
-      );
-    });
+              ),
+              actions: [
+                TextButton(
+                  child: Text('Calculate'),
+                  onPressed: () {
+                    // Implement this AI!
+                    // First we need to calculate the mana requirements of the deck
+                    // using the cards mana values (including colored symbols)
+                    // Next we determine the mana production of non-basic lands
+                    // Then, assuming we want 17 lands, take the number of basics
+                    // as 17 - non-basic count, and then make the basic split equal
+                    // to the colors requirements determined in the first step.
+                  },
+                ),
+                TextButton(
+                  child: Text('Cancel'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+                TextButton(
+                  child: Text('Save'),
+                  onPressed: () async {
+                    // Update deck with new basic land counts
+                    List<Card> newCards = deck.cards.where((c) =>
+                      !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].contains(c.name)
+                    ).toList();
+
+                    // Add new basic lands
+                    for (var entry in basicCounts.entries) {
+                      Card basicLand;
+                      switch (entry.key) {
+                        case 'Plains': basicLand = plains; break;
+                        case 'Island': basicLand = island; break;
+                        case 'Swamp': basicLand = swamp; break;
+                        case 'Mountain': basicLand = mountain; break;
+                        case 'Forest': basicLand = forest; break;
+                        default: continue;
+                      }
+                      newCards.addAll(List.filled(entry.value, basicLand));
+                    }
+
+                    // Update both local deck state and database
+                    setState(() {
+                      deck.cards = newCards;
+                    });
+                    // Force refresh the FutureBuilder by creating a new future
+                    _deckStorage.updateDecklist(deck.id, newCards).then((_) {
+                      Navigator.of(context).pop();
+                    });
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   List<Widget> generateControls() {
