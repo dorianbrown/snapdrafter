@@ -726,11 +726,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
             padding: EdgeInsets.all(6),
           ),
-        Chip(
+        ActionChip(
           label: Text("Clear Filters"),
-          onDeleted: () => setState(() => currentFilter = null),
+          onPressed: () => setState(() => currentFilter = null),
           labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
           padding: EdgeInsets.all(6),
+          avatar: Icon(Icons.filter_alt),
         ),
       ],
     );

@@ -140,7 +140,7 @@ class DeckViewerState extends State<DeckViewer> {
           // TODO: Figure out how to show snackbar inside AlertDialog
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Card not found: '${update.data}'")));
           debugPrint("Card not found: $update.data");
-          return;
+        return;
         }
         for (int i = 0; i < count; i++) {
           cardsCopy.add(matchedCard);
@@ -254,35 +254,20 @@ class DeckViewerState extends State<DeckViewer> {
                     ).length;
                     
                     // Calculate total basics needed (17 - non-basic lands)
-                    int totalBasics = (17 - nonBasicLands).clamp(0, 17);
-                    
-                    if (totalBasics <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Already have $nonBasicLands non-basic lands'))
-                      );
-                      return;
-                    }
+                    int totalBasics = 17 - nonBasicLands;
                     
                     // Calculate total colored symbols
                     int totalSymbols = colorCounts.values.reduce((a, b) => a + b);
-                    
-                    // Calculate basic land distribution based on color requirements
+
+                    // TODO: Take into account the mana production of non-basic lands
+
                     setDialogState(() {
-                      if (totalSymbols > 0) {
-                        basicCounts['Plains'] = (colorCounts['W']! / totalSymbols * totalBasics).round();
-                        basicCounts['Island'] = (colorCounts['U']! / totalSymbols * totalBasics).round();
-                        basicCounts['Swamp'] = (colorCounts['B']! / totalSymbols * totalBasics).round();
-                        basicCounts['Mountain'] = (colorCounts['R']! / totalSymbols * totalBasics).round();
-                        basicCounts['Forest'] = (colorCounts['G']! / totalSymbols * totalBasics).round();
-                      } else {
-                        // If no colored symbols, distribute evenly
-                        int each = (totalBasics / 5).round();
-                        basicCounts['Plains'] = each;
-                        basicCounts['Island'] = each;
-                        basicCounts['Swamp'] = each;
-                        basicCounts['Mountain'] = each;
-                        basicCounts['Forest'] = each;
-                      }
+                      // Calculate basic land distribution based on color requirements
+                      basicCounts['Plains'] = (colorCounts['W']! / totalSymbols * totalBasics).round();
+                      basicCounts['Island'] = (colorCounts['U']! / totalSymbols * totalBasics).round();
+                      basicCounts['Swamp'] = (colorCounts['B']! / totalSymbols * totalBasics).round();
+                      basicCounts['Mountain'] = (colorCounts['R']! / totalSymbols * totalBasics).round();
+                      basicCounts['Forest'] = (colorCounts['G']! / totalSymbols * totalBasics).round();
                       
                       // Ensure we don't exceed total basics
                       int currentTotal = basicCounts.values.reduce((a, b) => a + b);
