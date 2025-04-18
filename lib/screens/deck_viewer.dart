@@ -228,13 +228,70 @@ class DeckViewerState extends State<DeckViewer> {
                 TextButton(
                   child: Text('Calculate'),
                   onPressed: () {
-                    // Implement this AI!
-                    // First we need to calculate the mana requirements of the deck
-                    // using the cards mana values (including colored symbols)
-                    // Next we determine the mana production of non-basic lands
-                    // Then, assuming we want 17 lands, take the number of basics
-                    // as 17 - non-basic count, and then make the basic split equal
-                    // to the colors requirements determined in the first step.
+                    // Calculate total colored mana symbols in deck
+                    Map<String, int> colorCounts = {
+                      'W': 0,
+                      'U': 0,
+                      'B': 0,
+                      'R': 0,
+                      'G': 0
+                    };
+                    
+                    // Count colored symbols in each card's mana cost
+                    for (var card in deck.cards) {
+                      if (card.manaCost != null) {
+                        for (var symbol in ['W', 'U', 'B', 'R', 'G']) {
+                          colorCounts[symbol] = colorCounts[symbol]! + 
+                            RegExp(symbol).allMatches(card.manaCost!).length;
+                        }
+                      }
+                    }
+                    
+                    // Count non-basic lands
+                    int nonBasicLands = deck.cards.where((card) => 
+                      card.type == 'Land' && 
+                      !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].contains(card.name)
+                    ).length;
+                    
+                    // Calculate total basics needed (17 - non-basic lands)
+                    int totalBasics = (17 - nonBasicLands).clamp(0, 17);
+                    
+                    if (totalBasics <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Already have $nonBasicLands non-basic lands'))
+                      );
+                      return;
+                    }
+                    
+                    // Calculate total colored symbols
+                    int totalSymbols = colorCounts.values.reduce((a, b) => a + b);
+                    
+                    // Calculate basic land distribution based on color requirements
+                    setDialogState(() {
+                      if (totalSymbols > 0) {
+                        basicCounts['Plains'] = (colorCounts['W']! / totalSymbols * totalBasics).round();
+                        basicCounts['Island'] = (colorCounts['U']! / totalSymbols * totalBasics).round();
+                        basicCounts['Swamp'] = (colorCounts['B']! / totalSymbols * totalBasics).round();
+                        basicCounts['Mountain'] = (colorCounts['R']! / totalSymbols * totalBasics).round();
+                        basicCounts['Forest'] = (colorCounts['G']! / totalSymbols * totalBasics).round();
+                      } else {
+                        // If no colored symbols, distribute evenly
+                        int each = (totalBasics / 5).round();
+                        basicCounts['Plains'] = each;
+                        basicCounts['Island'] = each;
+                        basicCounts['Swamp'] = each;
+                        basicCounts['Mountain'] = each;
+                        basicCounts['Forest'] = each;
+                      }
+                      
+                      // Ensure we don't exceed total basics
+                      int currentTotal = basicCounts.values.reduce((a, b) => a + b);
+                      if (currentTotal > totalBasics) {
+                        // Reduce largest count to match
+                        var maxEntry = basicCounts.entries.reduce((a, b) => a.value > b.value ? a : b);
+                        basicCounts[maxEntry.key] = maxEntry.value - (currentTotal - totalBasics);
+                      }
+                    });
                   },
                 ),
                 TextButton(
