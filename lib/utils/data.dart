@@ -370,4 +370,44 @@ class DeckStorage {
       whereArgs: [cubecobraId],
     );
   }
+
+  Future<Map<String, dynamic>> createBackupData() async {
+    return {
+      'cubes': await _database.query('cubes'),
+      'cubelists': await _database.query('cubelists'),
+      'decks': await _database.query('decks'),
+      'decklists': await _database.query('decklists'),
+    };
+  }
+
+  Future<void> restoreBackup(Map<String, dynamic> backupData) async {
+    await _database.transaction((txn) async {
+      // Clear existing data
+      await txn.delete('cubes');
+      await txn.delete('cubelists');
+      await txn.delete('decks');
+      await txn.delete('decklists');
+
+      // Restore data
+      var batch = txn.batch();
+      
+      for (final cube in backupData['cubes']) {
+        batch.insert('cubes', cube);
+      }
+      
+      for (final cubelist in backupData['cubelists']) {
+        batch.insert('cubelists', cubelist);
+      }
+      
+      for (final deck in backupData['decks']) {
+        batch.insert('decks', deck);
+      }
+      
+      for (final decklist in backupData['decklists']) {
+        batch.insert('decklists', decklist);
+      }
+      
+      await batch.commit();
+    });
+  }
 }
