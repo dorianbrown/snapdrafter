@@ -18,7 +18,7 @@ import '/utils/models.dart';
 import '/widgets/deck_tile.dart';
 import 'deck_viewer.dart';
 import 'deck_scanner.dart';
-import 'download_screen.dart';
+import 'settings/download_screen.dart';
 import 'image_processing_screen.dart';
 import 'settings.dart';
 

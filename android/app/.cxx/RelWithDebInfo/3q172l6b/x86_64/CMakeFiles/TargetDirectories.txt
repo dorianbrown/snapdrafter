@@ -1,2 +1,0 @@
-/home/dorian/StudioProjects/hello_world/android/app/.cxx/RelWithDebInfo/3q172l6b/x86_64/CMakeFiles/edit_cache.dir
-/home/dorian/StudioProjects/hello_world/android/app/.cxx/RelWithDebInfo/3q172l6b/x86_64/CMakeFiles/rebuild_cache.dir
