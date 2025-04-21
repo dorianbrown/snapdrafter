@@ -18,6 +18,7 @@ class _BackupSettingsState extends State<BackupSettings> {
   bool isRestoring = false;
   String? backupStatus;
   int? deckCount;
+  int? cubeCount;
 
   @override
   void initState() {
@@ -28,8 +29,10 @@ class _BackupSettingsState extends State<BackupSettings> {
 
   Future<void> _loadDeckCount() async {
     final decks = await deckStorage.getAllDecks();
+    final cubes = await deckStorage.getAllCubes();
     setState(() {
       deckCount = decks.length;
+      cubeCount = cubes.length;
     });
   }
 
@@ -42,11 +45,11 @@ class _BackupSettingsState extends State<BackupSettings> {
     try {
       final backup = await deckStorage.createBackupData();
       final jsonString = jsonEncode(backup);
-      final directory = await getDownloadsDirectory();
-      if (directory == null) {
-        throw Exception('Could not access Downloads directory');
-      }
-      final file = File('${directory.path}/mtg_backup_${DateTime.now().millisecondsSinceEpoch}.json');
+      // Currently hardcoded for android. Hopefully works for all API targets.
+      final directory = '/storage/emulated/0/Download';
+      DateTime timestamp = DateTime.now();
+      String datetimeString = "${timestamp.year}${timestamp.month}${timestamp.day}_${timestamp.hour}${timestamp.minute}${timestamp.second}";
+      final file = File('$directory/snapdrafter_backup_$datetimeString.json');
       await file.writeAsString(jsonString);
 
       setState(() {
@@ -63,8 +66,6 @@ class _BackupSettingsState extends State<BackupSettings> {
 
   Future<void> _restoreBackup() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['json'],
     );
 
     if (result == null) return;
@@ -102,38 +103,27 @@ class _BackupSettingsState extends State<BackupSettings> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            if (deckCount != null)
-              Text('Current decks: $deckCount', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 20),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: isBackingUp 
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.backup),
-                label: const Text('Create Backup'),
-                onPressed: isBackingUp ? null : _createBackup,
-              ),
-            ),
-            const SizedBox(height: 10),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: isRestoring
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.restore),
-                label: const Text('Restore Backup'),
-                onPressed: isRestoring ? null : _restoreBackup,
-              ),
+            if (deckCount != null)
+              Text('Current decks: $deckCount\nCurrent cubes: $cubeCount', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 15,
+              children: [
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.backup),
+                  label: const Text('Create Backup'),
+                  onPressed: isBackingUp ? null : _createBackup,
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.restore),
+                  label: const Text('Restore Backup'),
+                  onPressed: isRestoring ? null : _restoreBackup,
+                )
+              ]
             ),
             const SizedBox(height: 20),
             if (backupStatus != null)
