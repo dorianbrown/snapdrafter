@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path_provider/path_provider.dart';
+import 'package:path_provider/path_provider.dart' show getDownloadsDirectory;
 import '/utils/data.dart';
 
 class BackupSettings extends StatefulWidget {
@@ -42,7 +42,10 @@ class _BackupSettingsState extends State<BackupSettings> {
     try {
       final backup = await deckStorage.createBackupData();
       final jsonString = jsonEncode(backup);
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = await getDownloadsDirectory();
+      if (directory == null) {
+        throw Exception('Could not access Downloads directory');
+      }
       final file = File('${directory.path}/mtg_backup_${DateTime.now().millisecondsSinceEpoch}.json');
       await file.writeAsString(jsonString);
 
