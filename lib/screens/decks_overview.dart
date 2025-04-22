@@ -646,7 +646,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   List<DropdownMenuEntry<String>> generateDraftMenuItems(List<Set> sets, List<Cube> cubes, String draftType) {
     if (draftType == "set") {
       return (sets
-        ..sort((a, b) => (a.name.toString().compareTo(b.name.toString()))))
+        ..sort((a, b) => (b.releasedAt.compareTo(a.releasedAt))))
           .map((set) => DropdownMenuEntry(value: set.code, label: set.name)).toList();
     } else {
       return cubes.map((cube) => DropdownMenuEntry(value: cube.cubecobraId, label: cube.name)).toList();

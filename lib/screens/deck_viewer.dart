@@ -10,12 +10,10 @@ import 'package:http/http.dart' as http;
 import '/utils/data.dart';
 import '/utils/models.dart';
 
-DeckStorage _deckStorage = DeckStorage();
-
-TextStyle _headerStyle = TextStyle(
-  fontSize: 20,
-  fontWeight: FontWeight.bold,
-  decoration: TextDecoration.underline
+const _headerStyle = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.bold,
+    decoration: TextDecoration.underline
 );
 
 class DeckViewer extends StatefulWidget {
@@ -31,6 +29,7 @@ class DeckViewerState extends State<DeckViewer> {
   DeckViewerState(this.deck);
 
   List<Card>? allCards;
+  late DeckStorage _deckStorage;
   List<String> renderValues = ["text", "type"];
   bool? showManaCurve = false;
   // These are used for dropdown menus controlling how decklist is displayed
@@ -54,6 +53,7 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Future<void> _loadCards() async {
+    _deckStorage = DeckStorage();
     final cards = await _deckStorage.getAllCards();
     setState(() {
       allCards = cards;
@@ -378,6 +378,7 @@ class DeckViewerState extends State<DeckViewer> {
       for (var card in hand) {
         remainingCards.remove(card);
       }
+      remainingCards.shuffle();
     }
 
     void drawCard() {
