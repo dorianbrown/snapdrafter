@@ -154,7 +154,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
 
     List<String> validLayouts = [
       "normal", "class", "saga", "meld", "prototype", "transform", "modal_dfc",
-      "split", "adventure", "augment", "flip", "mutate", "case"
+      "split", "adventure", "augment", "flip", "mutate", "case", "leveler"
     ];
     List<String> validTypes = [
       "Creature", "Artifact", "Enchantment", "Land", "Instant", "Sorcery",
