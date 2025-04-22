@@ -19,19 +19,18 @@ TextStyle _headerStyle = TextStyle(
 );
 
 class DeckViewer extends StatefulWidget {
-  final int deckId;
-  const DeckViewer({super.key, required this.deckId});
+  final Deck deck;
+  const DeckViewer({super.key, required this.deck});
 
   @override
-  DeckViewerState createState() => DeckViewerState(deckId);
+  DeckViewerState createState() => DeckViewerState(deck);
 }
 
 class DeckViewerState extends State<DeckViewer> {
-  final int deckId;
-  DeckViewerState(this.deckId);
+  final Deck deck;
+  DeckViewerState(this.deck);
 
-  late Future<List<Deck>> decksFuture;
-  late Future<List<Card>> allCardsFuture;
+  List<Card>? allCards;
   List<String> renderValues = ["text", "type"];
   bool? showManaCurve = false;
   // These are used for dropdown menus controlling how decklist is displayed
@@ -51,74 +50,65 @@ class DeckViewerState extends State<DeckViewer> {
   @override
   void initState() {
     super.initState();
-    decksFuture = _deckStorage.getAllDecks();
-    allCardsFuture = _deckStorage.getAllCards();
+    _loadCards();
+  }
+
+  Future<void> _loadCards() async {
+    final cards = await _deckStorage.getAllCards();
+    setState(() {
+      allCards = cards;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder(
-      future: Future.wait([decksFuture, allCardsFuture]),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done || snapshot.data == null) {
-          return Center(
-            child: CircularProgressIndicator(),
-          );
-        } else {
-          final decks = snapshot.data![0] as List<Deck> ;
-          final allCards = snapshot.data![1] as List<Card>;
-          final deck = decks.where((deck) => deck.id == deckId).first;
-          return Scaffold(
-            appBar: AppBar(
-              title: Text("Deck $deckId"),
-              actions: generateControls(),
+    return Scaffold(
+      appBar: AppBar(
+        actions: generateControls(),
+      ),
+      body: Container(
+        alignment: Alignment.topCenter,
+        child: ListView(
+          padding: const EdgeInsets.all(10),
+          children: [
+            if (showManaCurve!) ...generateManaCurve(deck.cards),
+            Container(
+                padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
+                  ],
+                )
             ),
-            body: Container(
-              alignment: Alignment.topCenter,
-              child: ListView(
-                padding: const EdgeInsets.all(10),
-                children: [
-                  if (showManaCurve!) ...generateManaCurve(deck.cards),
-                  Container(
-                      padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
-                        ],
-                      )
-                  ),
-                  ...generateDeckView(deck, renderValues)
-                ],
-              ),
+            ...generateDeckView(deck, renderValues)
+          ],
+        ),
+      ),
+      bottomNavigationBar: BottomAppBar(
+        height: 65,
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: "Sample Starting Hand",
+              icon: Icon(Icons.back_hand),
+              onPressed: () => showRandomHand(deck),
             ),
-            bottomNavigationBar: BottomAppBar(
-              height: 65,
-              child: Row(
-                children: [
-                  IconButton(
-                    tooltip: "Sample Starting Hand",
-                    icon: Icon(Icons.back_hand),
-                    onPressed: () => showRandomHand(deck),
-                  ),
-                  IconButton(
-                    tooltip: "Add basics",
-                    icon: Icon(Icons.landscape),
-                    onPressed: () => showBasicsEditor(deck, allCards)
-                  ),
-                  Spacer(),
-                  IconButton(
-                    tooltip: "Edit",
-                    icon: Icon(Icons.edit),
-                    onPressed: () => showDeckEditor(deck, allCards),
-                  ),
+            IconButton(
+              tooltip: "Add basics",
+              icon: Icon(Icons.landscape),
+              onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
+            ),
+            Spacer(),
+            IconButton(
+              tooltip: "Edit",
+              icon: Icon(Icons.edit),
+              onPressed: () => allCards != null ? showDeckEditor(deck, allCards!) : null,
+            ),
 
-                ],
-              ),
-            ),
-          );
-        }
-      }
+          ],
+        ),
+      ),
     );
   }
 

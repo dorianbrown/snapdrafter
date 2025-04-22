@@ -325,7 +325,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       onDelete: () => _confirmDeleteDeck(decks[index].id),
       onTap: () => Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (context) => DeckViewer(deckId: decks[index].id),
+          builder: (context) => DeckViewer(deck: decks[index]),
         ),
       ),
     );

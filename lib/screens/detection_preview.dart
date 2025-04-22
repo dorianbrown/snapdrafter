@@ -109,9 +109,11 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           );
           final deckId = await createDeckAndSave(detections.map((x) => x.card).toList());
           debugPrint("Deck saved with id: $deckId");
+          final allDecks = await _deckStorage.getAllDecks();
+          final newDeck = allDecks.where((x) => x.id == deckId).first;
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
-              builder: (context) => DeckViewer(deckId: deckId),
+              builder: (context) => DeckViewer(deck: newDeck),
             ),
             ModalRoute.withName('/')
           );
