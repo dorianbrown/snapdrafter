@@ -8,6 +8,8 @@ class DeckTile extends StatelessWidget {
   final Deck deck;
   final List<Set> sets;
   final List<Cube> cubes;
+  final bool showFirstDeckHint;
+  final VoidCallback onFirstDeckViewed;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final VoidCallback onTap;
@@ -17,6 +19,8 @@ class DeckTile extends StatelessWidget {
     required this.deck,
     required this.sets,
     required this.cubes,
+    required this.showFirstDeckHint,
+    required this.onFirstDeckViewed,
     required this.onEdit,
     required this.onDelete,
     required this.onTap,
@@ -24,9 +28,18 @@ class DeckTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (showFirstDeckHint) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showFirstDeckTooltip(context);
+        onFirstDeckViewed();
+      });
+    }
+
     String subtitle = _buildSubtitle();
 
-    return Slidable(
+    return Stack(
+      children: [
+        Slidable(
       startActionPane: ActionPane(
         extentRatio: 0.3,
         motion: const BehindMotion(),
@@ -52,7 +65,7 @@ class DeckTile extends StatelessWidget {
           ),
         ],
       ),
-      child: ListTile(
+          child: ListTile(
         leading: _buildColorIcons(),
         title: Text(
           deck.name != null ? deck.name! : "Draft Deck",
@@ -62,7 +75,37 @@ class DeckTile extends StatelessWidget {
         subtitle: Text(subtitle),
         onTap: onTap,
       ),
+        ),
+        if (showFirstDeckHint)
+          Positioned(
+            right: 8,
+            top: 8,
+            child: Container(
+              padding: EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.blue,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.star, size: 16, color: Colors.white),
+            ),
+          ),
+      ],
     );
+  }
+
+  void _showFirstDeckTooltip(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('This is your first deck! Tap any deck to view its contents'),
+        duration: Duration(seconds: 4),
+        behavior: SnackBarBehavior.floating,
+        margin: EdgeInsets.all(20),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+    onFirstDeckViewed(); // Mark as seen after showing toast
   }
 
   String _buildSubtitle() {

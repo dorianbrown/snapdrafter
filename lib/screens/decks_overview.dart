@@ -1,15 +1,13 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/material.dart' hide Card;
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:wheel_picker/wheel_picker.dart';
 import 'package:collection/collection.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '/utils/utils.dart';
 import '/utils/route_observer.dart';
@@ -37,6 +35,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late DeckStorage _deckStorage;
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
+  static const String _firstDeckKey = 'first_deck_seen';
+  bool _hasSeenFirstDeck = false;
 
   @override
   void initState() {
@@ -57,6 +57,19 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         );
       }
     });
+    _loadFirstDeckStatus();
+  }
+
+  Future<void> _loadFirstDeckStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    _hasSeenFirstDeck = prefs.getBool(_firstDeckKey) ?? false;
+    setState(() {});
+  }
+
+  Future<void> _markFirstDeckSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_firstDeckKey, true);
+    setState(() => _hasSeenFirstDeck = true);
   }
 
   @override
@@ -69,7 +82,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   // Make sure decks are up-to-date when we return to page
   @override
   void didPopNext() {
-    debugPrint("didPopNext() was fired");
     refreshDecks();
   }
 
@@ -318,6 +330,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       deck: decks[index],
       sets: sets,
       cubes: cubes,
+      showFirstDeckHint: !_hasSeenFirstDeck && index == 0,
+      onFirstDeckViewed: _markFirstDeckSeen,
       onEdit: () => showDialog(
         context: context,
         builder: (_) => createEditDialog(index, decks, sets, cubes),
@@ -359,7 +373,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     String? selectedSetId;
     String? selectedCubeId;
     String draftType = "set";
-    RangeValues _winRange = const RangeValues(0, 3);
+    RangeValues winRange = const RangeValues(0, 3);
 
     return AlertDialog(
       title: Text("Filter Decks"),
@@ -407,19 +421,19 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ),
                   Padding(
                     padding: EdgeInsets.only(top: 16),
-                    child: Text("Wins Range: ${_winRange.start.round()} - ${_winRange.end.round()}"),
+                    child: Text("Wins Range: ${winRange.start.round()} - ${winRange.end.round()}"),
                   ),
                   RangeSlider(
-                    values: _winRange,
+                    values: winRange,
                     min: 0,
                     max: 3,
                     divisions: 3,
                     labels: RangeLabels(
-                      _winRange.start.round().toString(),
-                      _winRange.end.round().toString(),
+                      winRange.start.round().toString(),
+                      winRange.end.round().toString(),
                     ),
                     onChanged: (RangeValues values) {
-                      setState(() => _winRange = values);
+                      setState(() => winRange = values);
                     },
                   ),
                   SegmentedButton(
@@ -475,8 +489,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               endDate: dateRange?.end,
               setId: selectedSetId,
               cubecobraId: selectedCubeId,
-              minWins: _winRange.start.round(),
-              maxWins: _winRange.end.round(),
+              minWins: winRange.start.round(),
+              maxWins: winRange.end.round(),
             );
             Navigator.of(context).pop(filter);
           },
