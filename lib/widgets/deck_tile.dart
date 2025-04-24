@@ -71,7 +71,7 @@ class _DeckTileState extends State<DeckTile> {
           child: ListTile(
         leading: _buildColorIcons(),
         title: Text(
-          deck.name != null ? deck.name! : "Draft Deck",
+          widget.deck.name != null ? widget.deck.name! : "Draft Deck",
           overflow: TextOverflow.ellipsis,
         ),
         trailing: const Icon(Icons.keyboard_arrow_right_rounded, size: 25),
