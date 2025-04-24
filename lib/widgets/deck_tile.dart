@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../utils/models.dart';
 
-class DeckTile extends StatelessWidget {
+class DeckTile extends StatelessWidget  {
   final Deck deck;
   final List<Set> sets;
   final List<Cube> cubes;
@@ -30,16 +30,14 @@ class DeckTile extends StatelessWidget {
   Widget build(BuildContext context) {
     if (showFirstDeckHint) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showFirstDeckTooltip(context);
+        _showFirstDeckTutorial(context);
         onFirstDeckViewed();
       });
     }
 
     String subtitle = _buildSubtitle();
 
-    return Stack(
-      children: [
-        Slidable(
+    return Slidable(
       startActionPane: ActionPane(
         extentRatio: 0.3,
         motion: const BehindMotion(),
@@ -74,26 +72,11 @@ class DeckTile extends StatelessWidget {
         trailing: const Icon(Icons.keyboard_arrow_right_rounded, size: 25),
         subtitle: Text(subtitle),
         onTap: onTap,
-      ),
-        ),
-        if (showFirstDeckHint)
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              padding: EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.blue,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.star, size: 16, color: Colors.white),
-            ),
-          ),
-      ],
+      )
     );
   }
 
-  void _showFirstDeckTooltip(BuildContext context) {
+  void _showFirstDeckTutorial(BuildContext context) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('This is your first deck! Tap any deck to view its contents'),
