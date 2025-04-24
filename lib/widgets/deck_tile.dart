@@ -4,7 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../utils/models.dart';
 
-class DeckTile extends StatelessWidget  {
+class DeckTile extends StatefulWidget {
   final Deck deck;
   final List<Set> sets;
   final List<Cube> cubes;
@@ -27,11 +27,16 @@ class DeckTile extends StatelessWidget  {
   });
 
   @override
+  State<DeckTile> createState() => _DeckTileState();
+}
+
+class _DeckTileState extends State<DeckTile> {
+  @override
   Widget build(BuildContext context) {
-    if (showFirstDeckHint) {
+    if (widget.showFirstDeckHint) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _showFirstDeckTutorial(context);
-        onFirstDeckViewed();
+        widget.onFirstDeckViewed();
       });
     }
 
@@ -47,7 +52,7 @@ class DeckTile extends StatelessWidget  {
             icon: Icons.edit_rounded,
             backgroundColor: Colors.orange,
             foregroundColor: Colors.white,
-            onPressed: (_) => onEdit(),
+            onPressed: (_) => widget.onEdit(),
           ),
         ],
       ),
@@ -59,7 +64,7 @@ class DeckTile extends StatelessWidget  {
             label: "Delete",
             icon: Icons.delete_rounded,
             backgroundColor: Colors.red,
-            onPressed: (_) => onDelete(),
+            onPressed: (_) => widget.onDelete(),
           ),
         ],
       ),
@@ -71,7 +76,7 @@ class DeckTile extends StatelessWidget  {
         ),
         trailing: const Icon(Icons.keyboard_arrow_right_rounded, size: 25),
         subtitle: Text(subtitle),
-        onTap: onTap,
+        onTap: widget.onTap,
       )
     );
   }
@@ -88,25 +93,25 @@ class DeckTile extends StatelessWidget  {
         ),
       ),
     );
-    onFirstDeckViewed(); // Mark as seen after showing toast
+    widget.onFirstDeckViewed(); // Mark as seen after showing toast
   }
 
   String _buildSubtitle() {
     String subtitle = "";
-    if (deck.winLoss != null) {
-      subtitle = "${subtitle}W/L: ${deck.winLoss}\n";
+    if (widget.deck.winLoss != null) {
+      subtitle = "${subtitle}W/L: ${widget.deck.winLoss}\n";
     }
-    if (deck.setId != null) {
-      subtitle = "${subtitle}Set: ${sets.firstWhere((x) => x.code == deck.setId).name}\n";
+    if (widget.deck.setId != null) {
+      subtitle = "${subtitle}Set: ${widget.sets.firstWhere((x) => x.code == widget.deck.setId).name}\n";
     }
-    if (deck.cubecobraId != null) {
-      subtitle = "${subtitle}Cube: ${cubes.firstWhere((x) => x.cubecobraId == deck.cubecobraId).name}\n";
+    if (widget.deck.cubecobraId != null) {
+      subtitle = "${subtitle}Cube: ${widget.cubes.firstWhere((x) => x.cubecobraId == widget.deck.cubecobraId).name}\n";
     }
-    return "$subtitle${deck.ymd}";
+    return "$subtitle${widget.deck.ymd}";
   }
 
   Widget _buildColorIcons() {
-    int numColors = deck.colors.length;
+    int numColors = widget.deck.colors.length;
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: numColors * 15),
       child: Row(
