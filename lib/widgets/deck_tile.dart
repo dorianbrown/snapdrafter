@@ -30,12 +30,28 @@ class DeckTile extends StatefulWidget {
   State<DeckTile> createState() => _DeckTileState();
 }
 
-class _DeckTileState extends State<DeckTile> {
+class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin {
+
+  late SlidableController slidableController;
+
+  @override
+  void dispose() {
+    slidableController.dispose();
+    super.dispose();
+  }
+
+  void initState() {
+    slidableController = SlidableController(this);
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
+
+    // If the tutorial hasn't been shown yet, show it and mark in preferences.
     if (widget.showFirstDeckHint) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showFirstDeckTutorial(context);
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await _showFirstDeckTutorial();
         widget.onFirstDeckViewed();
       });
     }
@@ -43,6 +59,7 @@ class _DeckTileState extends State<DeckTile> {
     String subtitle = _buildSubtitle();
 
     return Slidable(
+      controller: slidableController,
       startActionPane: ActionPane(
         extentRatio: 0.3,
         motion: const BehindMotion(),
@@ -81,18 +98,17 @@ class _DeckTileState extends State<DeckTile> {
     );
   }
 
-  void _showFirstDeckTutorial(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('This is your first deck! Tap any deck to view its contents'),
-        duration: Duration(seconds: 4),
-        behavior: SnackBarBehavior.floating,
-        margin: EdgeInsets.all(20),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
-      ),
-    );
+  // In order to explain slidability, we programmatically show both sides on first deck
+  Future<void> _showFirstDeckTutorial() async {
+    Curve _curve = Easing.emphasizedDecelerate;
+    Future.delayed(Duration(milliseconds: 500)).then((_) async {
+      await slidableController.openEndActionPane(duration: Duration(seconds: 1), curve: _curve);
+    }).then((_) async {
+      await slidableController.close(duration: Duration(seconds: 1), curve: _curve);
+    }).then((_) async {
+      await slidableController.openStartActionPane(duration: Duration(seconds: 1), curve: _curve);
+    });
+    debugPrint("Open Start Action Pane was called");
     widget.onFirstDeckViewed(); // Mark as seen after showing toast
   }
 
@@ -116,7 +132,7 @@ class _DeckTileState extends State<DeckTile> {
       constraints: BoxConstraints(maxWidth: numColors * 15),
       child: Row(
         children: [
-          for (String color in deck.colors.split(""))
+          for (String color in widget.deck.colors.split(""))
             SvgPicture.asset(
               "assets/svg_icons/$color.svg",
               height: 14,

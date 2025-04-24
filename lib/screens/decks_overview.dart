@@ -35,7 +35,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late DeckStorage _deckStorage;
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
-  static const String _firstDeckKey = 'first_deck_seen';
   bool _hasSeenFirstDeck = false;
 
   @override
@@ -62,14 +61,14 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   Future<void> _loadFirstDeckStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    _hasSeenFirstDeck = prefs.getBool(_firstDeckKey) ?? false;
-    setState(() {});
+    // await prefs.setBool("seen_tutorial", false);
+    _hasSeenFirstDeck = prefs.getBool("seen_tutorial") ?? false;
   }
 
   Future<void> _markFirstDeckSeen() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_firstDeckKey, true);
-    setState(() => _hasSeenFirstDeck = true);
+    await prefs.setBool("seen_tutorial", true);
+    _hasSeenFirstDeck = true;
   }
 
   @override
@@ -380,7 +379,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       scrollable: true,
       contentPadding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
       content: StatefulBuilder(
-        builder: (context, setState) {
+        builder: (context, setDialogState) {
           return FutureBuilder(
             future: Future.wait([decksFuture, setsFuture, cubesFuture]),
             builder: (context, snapshot) {
@@ -411,7 +410,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                         initialDateRange: dateRange,
                       );
                       if (range != null) {
-                        setState(() => dateRange = range);
+                        setDialogState(() => dateRange = range);
                       }
                     },
                     child: Text(dateRange != null 
@@ -433,7 +432,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       winRange.end.round().toString(),
                     ),
                     onChanged: (RangeValues values) {
-                      setState(() => winRange = values);
+                      setDialogState(() => winRange = values);
                     },
                   ),
                   SegmentedButton(
@@ -443,7 +442,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     ],
                     selected: {draftType},
                     onSelectionChanged: (newSelection) {
-                      setState(() {
+                      setDialogState(() {
                         draftType = newSelection.first;
                         selectedSetId = null;
                         selectedCubeId = null;
@@ -460,7 +459,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                           DropdownMenuEntry(value: cube.cubecobraId, label: cube.name))
                           .toList(),
                     onSelected: (value) {
-                      setState(() {
+                      setDialogState(() {
                         if (draftType == "set") {
                           selectedSetId = value;
                           selectedCubeId = null;
@@ -524,7 +523,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       scrollable: true,
       contentPadding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
       content: StatefulBuilder(
-        builder: (context, setState) {
+        builder: (context, setDialogState) {
           return Form(
             key: _formKey,
             child: Column(
@@ -566,7 +565,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ],
                   selected: {draftType},
                   onSelectionChanged: (newSelection) {
-                    setState(() {
+                    setDialogState(() {
                       draftType = newSelection.first;
                       currentCubeSetId = switch (draftType) {
                         "set" => deck.setId,
@@ -592,7 +591,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   initialSelection: draftType == "set" ? decks[index].setId : decks[index].cubecobraId,
                   dropdownMenuEntries: generateDraftMenuItems(sets, cubes, draftType),
                   onSelected: (value) {
-                    setState(() {
+                    setDialogState(() {
                       currentCubeSetId = value;
                     });
                   },
@@ -611,7 +610,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                         );
                         debugPrint(date.toString());
                         if (date != null) {
-                          setState(() {
+                          setDialogState(() {
                             selectedDate = convertDatetimeToYMD(date);
                           });
                         }
