@@ -62,10 +62,11 @@ class DeckViewerState extends State<DeckViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: true,
+    return PopScope(  // We use this PopScope to ensure the `changesMade` variable is always returned
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
-        debugPrint("Deckviewer sent: $changesMade");
+        if (didPop) return;
+        Navigator.pop(context, changesMade);
       },
       child: Scaffold(
         appBar: AppBar(
@@ -152,6 +153,7 @@ class DeckViewerState extends State<DeckViewer> {
     }
     setState(() {
       deck.cards = cardsCopy;
+      changesMade = true;
     });
     _deckStorage.updateDecklist(deck.id, cardsCopy).then((_) {
       Navigator.of(context).pop();
@@ -304,6 +306,7 @@ class DeckViewerState extends State<DeckViewer> {
                     // Update both local deck state and database
                     setState(() {
                       deck.cards = newCards;
+                      changesMade = true;
                     });
                     // Force refresh the FutureBuilder by creating a new future
                     _deckStorage.updateDecklist(deck.id, newCards).then((_) {

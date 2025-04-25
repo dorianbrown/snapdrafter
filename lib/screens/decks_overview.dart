@@ -71,19 +71,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     _hasSeenFirstDeck = true;
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Subscribe to route changes
-    routeObserver.subscribe(this, ModalRoute.of(context)!);
-  }
-
-  // Make sure decks are up-to-date when we return to page
-  @override
-  void didPopNext() {
-    refreshDecks();
-  }
-
   void refreshDecks() async {
     setState(() {
       _deckStorage.getAllDecks();
