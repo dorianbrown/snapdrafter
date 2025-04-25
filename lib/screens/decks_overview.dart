@@ -84,9 +84,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     refreshDecks();
   }
 
-  void refreshDecks() {
+  void refreshDecks() async {
     setState(() {
-      decksFuture = _deckStorage.getAllDecks();
+      _deckStorage.getAllDecks();
     });
   }
 
@@ -217,8 +217,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       body: FutureBuilder(
         future: Future.wait([decksFuture, setsFuture, cubesFuture]),
         builder: (context, snapshot) {
+          Widget widget;
           if (snapshot.connectionState != ConnectionState.done || snapshot.data == null) {
-            return Center(child: CircularProgressIndicator());
+            widget = Center(child: CircularProgressIndicator());
           } else {
             // Getting state
             final decks = snapshot.data![0] as List<Deck>;
@@ -246,7 +247,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               : decks;
             filteredDecks.sort((a, b) => b.ymd.compareTo(a.ymd));
 
-            return Column(
+            widget = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (currentFilter != null) Padding(
@@ -265,6 +266,11 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               ],
             );
           }
+          // return widget;
+          return AnimatedSwitcher(
+            duration: Duration(milliseconds: 500),
+            child: widget
+          );
         }
       )
     );
@@ -336,11 +342,17 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         builder: (_) => createEditDialog(index, decks, sets, cubes),
       ),
       onDelete: () => _confirmDeleteDeck(decks[index].id),
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (context) => DeckViewer(deck: decks[index]),
-        ),
-      ),
+      onTap: () async {
+        bool? rebuild = await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => DeckViewer(deck: decks[index]),
+          ),
+        );
+        debugPrint("Deckviewer returned: $rebuild");
+        if (rebuild ?? false) {
+          setState(() {});
+        }
+      },
     );
   }
 

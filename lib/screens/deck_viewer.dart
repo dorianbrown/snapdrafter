@@ -6,6 +6,7 @@ import 'package:community_charts_flutter/community_charts_flutter.dart' as chart
 import 'package:diffutil_dart/diffutil.dart';
 import 'package:collection/collection.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
 
 import '/utils/data.dart';
 import '/utils/models.dart';
@@ -29,6 +30,7 @@ class DeckViewerState extends State<DeckViewer> {
   DeckViewerState(this.deck);
 
   List<Card>? allCards;
+  bool changesMade = false;
   late DeckStorage _deckStorage;
   List<String> renderValues = ["text", "type"];
   bool? showManaCurve = false;
@@ -55,60 +57,64 @@ class DeckViewerState extends State<DeckViewer> {
   Future<void> _loadCards() async {
     _deckStorage = DeckStorage();
     final cards = await _deckStorage.getAllCards();
-    setState(() {
-      allCards = cards;
-    });
+    allCards = cards;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        actions: generateControls(),
-      ),
-      body: Container(
-        alignment: Alignment.topCenter,
-        child: ListView(
-          padding: const EdgeInsets.all(10),
-          children: [
-            if (showManaCurve!) ...generateManaCurve(deck.cards),
-            Container(
-                padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
-                  ],
-                )
-            ),
-            ...generateDeckView(deck, renderValues)
-          ],
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, result) {
+        debugPrint("Deckviewer sent: $changesMade");
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          actions: generateControls(),
         ),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        height: 65,
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: "Sample Starting Hand",
-              icon: Icon(Icons.back_hand),
-              onPressed: () => showRandomHand(deck),
-            ),
-            IconButton(
-              tooltip: "Add basics",
-              icon: Icon(Icons.landscape),
-              onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
-            ),
-            Spacer(),
-            IconButton(
-              tooltip: "Edit",
-              icon: Icon(Icons.edit),
-              onPressed: () => allCards != null ? showDeckEditor(deck, allCards!) : null,
-            ),
+        body: Container(
+          alignment: Alignment.topCenter,
+          child: ListView(
+            padding: const EdgeInsets.all(10),
+            children: [
+              if (showManaCurve!) ...generateManaCurve(deck.cards),
+              Container(
+                  padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
+                    ],
+                  )
+              ),
+              ...generateDeckView(deck, renderValues)
+            ],
+          ),
+        ),
+        bottomNavigationBar: BottomAppBar(
+          height: 65,
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: "Sample Starting Hand",
+                icon: Icon(Icons.back_hand),
+                onPressed: () => showRandomHand(deck),
+              ),
+              IconButton(
+                tooltip: "Add basics",
+                icon: Icon(Icons.landscape),
+                onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
+              ),
+              Spacer(),
+              IconButton(
+                tooltip: "Edit",
+                icon: Icon(Icons.edit),
+                onPressed: () => allCards != null ? showDeckEditor(deck, allCards!) : null,
+              ),
 
-          ],
+            ],
+          ),
         ),
-      ),
+      )
     );
   }
 
@@ -130,7 +136,7 @@ class DeckViewerState extends State<DeckViewer> {
           // TODO: Figure out how to show snackbar inside AlertDialog
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Card not found: '${update.data}'")));
           debugPrint("Card not found: $update.data");
-        return;
+          return;
         }
         for (int i = 0; i < count; i++) {
           cardsCopy.add(matchedCard);
@@ -452,6 +458,12 @@ class DeckViewerState extends State<DeckViewer> {
             controller: controller,
           ),
           actions: [
+            TextButton(
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: controller.text));
+                },
+                child: const Text("Copy All")
+            ),
             TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text("Discard")
