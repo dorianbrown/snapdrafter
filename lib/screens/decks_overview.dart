@@ -73,7 +73,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   void refreshDecks() async {
     setState(() {
-      _deckStorage.getAllDecks();
+      decksFuture = _deckStorage.getAllDecks();
     });
   }
 
@@ -133,11 +133,13 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               final XFile? image = await picker.pickImage(source: ImageSource.gallery);
               if (image != null) {
                 img.Image inputImage = img.decodeImage(File(image.path).readAsBytesSync())!;
-                Navigator.of(context).push(
+                await Navigator.of(context).push(
                     MaterialPageRoute(
                         builder: (context) => deckImageProcessing(inputImage: inputImage)
                     )
                 );
+                debugPrint("Deckviewer returned");
+                refreshDecks();
               }
             },
           ),
@@ -145,22 +147,25 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             heroTag: null,
             shape: CircleBorder(),
             child: const Icon(Icons.camera),
-            onPressed: () {
+            onPressed: () async {
               final state = _expandableFabKey.currentState;
               if (state != null) {
                 state.toggle();
               }
-              Navigator.of(context).push(
+              await Navigator.of(context).push(
                   MaterialPageRoute(
                       builder: (context) => DeckScanner()
                   )
               );
+              refreshDecks();
             },
           ),
           FloatingActionButton(
             heroTag: null,
             shape: CircleBorder(),
-            onPressed: () => showTextDeckCreator(),
+            onPressed: () async {
+              showTextDeckCreator();
+            },
             child: const Icon(Icons.text_fields_outlined),
           )
         ],
@@ -307,6 +312,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 }
 
                 _deckStorage.saveNewDeck(DateTime.now(), deckList).then((_) {
+                  refreshDecks();
                   Navigator.of(context).pop();
                 });
               },
@@ -358,6 +364,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             onPressed: () {
               _deckStorage.deleteDeck(deckId);
               Navigator.of(dialogContext).pop();
+              refreshDecks();
             },
             child: const Text("Delete"),
           ),
