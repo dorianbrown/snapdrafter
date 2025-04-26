@@ -54,6 +54,6 @@ jobs:
           packageName: com.dbrown.mtg_draft_tracker
           releaseFiles: ${{ steps.sign_app.outputs.signedReleaseFile }}
           mappingFile: ./build/app/outputs/mapping/release/mapping.txt
-          debugSymbols: ./build/app/intermediates/flutter/release
+          debugSymbols: ./build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib
           track: internal
           status: draft
