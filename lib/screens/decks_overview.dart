@@ -28,6 +28,7 @@ class MyDecksOverview extends StatefulWidget {
 }
 
 class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
+  final DeckChangeNotifier _deckNotifier = DeckChangeNotifier();
   late Future<List<Deck>> decksFuture;
   late Future<List<Set>> setsFuture;
   late Future<List<Cube>> cubesFuture;
@@ -42,6 +43,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     super.initState();
     _deckStorage = DeckStorage();
     decksFuture = _deckStorage.getAllDecks();
+    _deckNotifier.addListener(_refreshIfNeeded);
     setsFuture = _deckStorage.getAllSets();
     cubesFuture = _deckStorage.getAllCubes();
     decksFuture.then((_) {
@@ -71,10 +73,23 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     _hasSeenFirstDeck = true;
   }
 
+  void _refreshIfNeeded() {
+    if (_deckNotifier.needsRefresh) {
+      refreshDecks();
+      _deckNotifier.clearRefresh();
+    }
+  }
+
   void refreshDecks() async {
     setState(() {
       decksFuture = _deckStorage.getAllDecks();
     });
+  }
+
+  @override
+  void dispose() {
+    _deckNotifier.removeListener(_refreshIfNeeded);
+    super.dispose();
   }
 
   @override
@@ -336,15 +351,11 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       ),
       onDelete: () => _confirmDeleteDeck(decks[index].id),
       onTap: () async {
-        bool? rebuild = await Navigator.of(context).push(
+        await Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => DeckViewer(deck: decks[index]),
           ),
         );
-        debugPrint("Deckviewer returned: $rebuild");
-        if (rebuild ?? false) {
-          setState(() {});
-        }
       },
     );
   }

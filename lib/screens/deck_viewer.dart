@@ -22,15 +22,12 @@ class DeckViewer extends StatefulWidget {
   const DeckViewer({super.key, required this.deck});
 
   @override
-  DeckViewerState createState() => DeckViewerState(deck);
+  DeckViewerState createState() => DeckViewerState();
 }
 
 class DeckViewerState extends State<DeckViewer> {
-  final Deck deck;
-  DeckViewerState(this.deck);
-
+  final DeckChangeNotifier _notifier = DeckChangeNotifier();
   List<Card>? allCards;
-  bool changesMade = false;
   late DeckStorage _deckStorage;
   List<String> renderValues = ["text", "type"];
   bool? showManaCurve = false;
@@ -62,13 +59,7 @@ class DeckViewerState extends State<DeckViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(  // We use this PopScope to ensure the `changesMade` variable is always returned
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        Navigator.pop(context, changesMade);
-      },
-      child: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           actions: generateControls(),
         ),
@@ -115,7 +106,6 @@ class DeckViewerState extends State<DeckViewer> {
             ],
           ),
         ),
-      )
     );
   }
 
@@ -306,7 +296,7 @@ class DeckViewerState extends State<DeckViewer> {
                     // Update both local deck state and database
                     setState(() {
                       deck.cards = newCards;
-                      changesMade = true;
+                      _notifier.markNeedsRefresh();
                     });
                     // Force refresh the FutureBuilder by creating a new future
                     _deckStorage.updateDecklist(deck.id, newCards).then((_) {
