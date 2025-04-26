@@ -22,10 +22,13 @@ class DeckViewer extends StatefulWidget {
   const DeckViewer({super.key, required this.deck});
 
   @override
-  DeckViewerState createState() => DeckViewerState();
+  DeckViewerState createState() => DeckViewerState(deck);
 }
 
 class DeckViewerState extends State<DeckViewer> {
+  final Deck deck;
+  DeckViewerState(this.deck);
+
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
   List<Card>? allCards;
   late DeckStorage _deckStorage;
@@ -143,7 +146,7 @@ class DeckViewerState extends State<DeckViewer> {
     }
     setState(() {
       deck.cards = cardsCopy;
-      changesMade = true;
+      _notifier.markNeedsRefresh();
     });
     _deckStorage.updateDecklist(deck.id, cardsCopy).then((_) {
       Navigator.of(context).pop();

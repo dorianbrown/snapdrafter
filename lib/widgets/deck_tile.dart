@@ -85,7 +85,7 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
           ),
         ],
       ),
-          child: ListTile(
+      child: ListTile(
         leading: _buildColorIcons(),
         title: Text(
           widget.deck.name != null ? widget.deck.name! : "Draft Deck",

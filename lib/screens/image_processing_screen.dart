@@ -34,7 +34,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
   int ocrProgress = 0;
   int matchingProgress = 0;
-  bool _titleDetected = false;
   int _numDetections = -1;
   String? errorMessage;
 
@@ -136,10 +135,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     // Yolo title detection
     List<List<int>> detections = _titleDetection(inputImage);
-    setState(() {
-      _titleDetected = true;
-    });
-
 
     // Using MLKit OCR to turn BBox info into strings.
     List<Future<String>> detectionTextFutures = detections
@@ -226,7 +221,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       color: overlayColor
     );
 
-    await Navigator.of(context).pushReplacement(
+    await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => DetectionPreviewScreen(
             image: outputImage, detections: detectionOutput),

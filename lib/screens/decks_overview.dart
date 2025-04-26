@@ -10,7 +10,6 @@ import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '/utils/utils.dart';
-import '/utils/route_observer.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/widgets/deck_tile.dart';
@@ -28,7 +27,7 @@ class MyDecksOverview extends StatefulWidget {
 }
 
 class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
-  final DeckChangeNotifier _deckNotifier = DeckChangeNotifier();
+  final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
   late Future<List<Deck>> decksFuture;
   late Future<List<Set>> setsFuture;
   late Future<List<Cube>> cubesFuture;
@@ -43,7 +42,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     super.initState();
     _deckStorage = DeckStorage();
     decksFuture = _deckStorage.getAllDecks();
-    _deckNotifier.addListener(_refreshIfNeeded);
+    _changeNotifier.addListener(_refreshIfNeeded);
     setsFuture = _deckStorage.getAllSets();
     cubesFuture = _deckStorage.getAllCubes();
     decksFuture.then((_) {
@@ -74,9 +73,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   }
 
   void _refreshIfNeeded() {
-    if (_deckNotifier.needsRefresh) {
+    if (_changeNotifier.needsRefresh) {
       refreshDecks();
-      _deckNotifier.clearRefresh();
+      _changeNotifier.clearRefresh();
     }
   }
 
@@ -88,7 +87,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   @override
   void dispose() {
-    _deckNotifier.removeListener(_refreshIfNeeded);
+    _changeNotifier.removeListener(_refreshIfNeeded);
     super.dispose();
   }
 
@@ -153,8 +152,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                         builder: (context) => deckImageProcessing(inputImage: inputImage)
                     )
                 );
-                debugPrint("Deckviewer returned");
-                refreshDecks();
               }
             },
           ),
@@ -172,7 +169,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       builder: (context) => DeckScanner()
                   )
               );
-              refreshDecks();
             },
           ),
           FloatingActionButton(

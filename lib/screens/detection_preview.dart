@@ -29,6 +29,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   late Uint8List imagePng;
   List<Card> allCards = [];
   final ScrollController _scrollController = ScrollController();
+  final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
 
   @override
   void initState() {
@@ -111,6 +112,9 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           debugPrint("Deck saved with id: $deckId");
           final allDecks = await _deckStorage.getAllDecks();
           final newDeck = allDecks.where((x) => x.id == deckId).first;
+
+          _changeNotifier.markNeedsRefresh();
+
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(
               builder: (context) => DeckViewer(deck: newDeck),
