@@ -159,7 +159,8 @@ class Deck {
   }
 
   String generateTextExport() {
-    return cards
+    return (cards
+        .toList()..sort((a,b) => a.name.compareTo(b.name)))
         .map((card) => card.name)
         .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
         .entries.map((entry) => "${entry.value} ${entry.key}")
