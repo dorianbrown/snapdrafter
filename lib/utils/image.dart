@@ -1,85 +1,78 @@
-import 'package:image/image.dart' as imglib;
-import 'package:camera/camera.dart';
+import 'package:image/image.dart' as img;
+import 'dart:typed_data';
 
-class ImageUtils {
-  ///
-  /// Converts a [CameraImage] in YUV420 format to [image_lib.Image] in RGB format
-  ///
-  static imglib.Image convertCameraImage(CameraImage cameraImage) {
-    if (cameraImage.format.group == ImageFormatGroup.yuv420) {
-      return convertYUV420ToImage(cameraImage);
-    } else if (cameraImage.format.group == ImageFormatGroup.bgra8888) {
-      return convertBGRA8888ToImage(cameraImage);
-    } else {
-      throw Exception('Undefined image type.');
-    }
-  }
+img.Image convertYuvToRgb(List<Uint8List> yuvPlanes, int width, int height, List<int> bytesPerRow) {
 
-  ///
-  /// Converts a [CameraImage] in BGRA888 format to [image_lib.Image] in RGB format
-  ///
-  static imglib.Image convertBGRA8888ToImage(CameraImage cameraImage) {
-    return imglib.Image.fromBytes(
-      width: cameraImage.planes[0].width!,
-      height: cameraImage.planes[0].height!,
-      bytes: cameraImage.planes[0].bytes.buffer,
-      order: imglib.ChannelOrder.bgra,
-    );
-  }
+  final Uint8List yBytes = yuvPlanes[0];
+  final Uint8List uBytes = yuvPlanes[1];
+  final Uint8List vBytes = yuvPlanes[2];
 
-  ///
-  /// Converts a [CameraImage] in YUV420 format to [image_lib.Image] in RGB format
-  ///
-  static imglib.Image convertYUV420ToImage(CameraImage cameraImage) {
-    final imageWidth = cameraImage.width;
-    final imageHeight = cameraImage.height;
+  // Row strides determine the number of bytes in each row of the plane's data.
+  // This might be wider than the actual image width due to padding.
+  final int yRowStride = bytesPerRow[0];
+  final int uvRowStride = bytesPerRow[1]; // Assume U/V planes have same stride
+  // Pixel strides determine the distance between consecutive pixel values in a row.
+  // For YUV420p, Y pixel stride is 1. U/V pixel stride is usually 1 for separate planes.
+  // If it were 2, it might indicate interleaved U/V or padding between pixels.
+  final int uvPixelStride = 1;
 
-    final yBuffer = cameraImage.planes[0].bytes;
-    final uBuffer = cameraImage.planes[1].bytes;
-    final vBuffer = cameraImage.planes[2].bytes;
+  // Create the img.Image object to store the RGB result
+  img.Image image = img.Image(width: width, height: height); // Defaults to RGB format
 
-    final int yRowStride = cameraImage.planes[0].bytesPerRow;
-    final int yPixelStride = cameraImage.planes[0].bytesPerPixel!;
+  // --- Pixel-by-pixel conversion ---
+  int yIndex = 0; // Current index in the Y plane byte buffer
 
-    final int uvRowStride = cameraImage.planes[1].bytesPerRow;
-    final int uvPixelStride = cameraImage.planes[1].bytesPerPixel!;
+  for (int y = 0; y < height; y++) {
+    int uIndex = (y ~/ 2) * uvRowStride; // Start index for U row
+    int vIndex = (y ~/ 2) * uvRowStride; // Start index for V row
+    int yRowStartIndex = y * yRowStride; // Start index for Y row
 
-    final image = imglib.Image(width: imageWidth, height: imageHeight);
+    for (int x = 0; x < width; x++) {
+      yIndex = yRowStartIndex + x;
 
-    for (int h = 0; h < imageHeight; h++) {
-      int uvh = (h / 2).floor();
+      // Calculate the corresponding indices in the U and V planes.
+      // U/V planes are subsampled (height/2, width/2).
+      // Correct for pixel stride if it's not 1 (though usually 1 for planar).
+      int uvIndex = uIndex + (x ~/ 2) * uvPixelStride;
 
-      for (int w = 0; w < imageWidth; w++) {
-        int uvw = (w / 2).floor();
-
-        final yIndex = (h * yRowStride) + (w * yPixelStride);
-
-        // Y plane should have positive values belonging to [0...255]
-        final int y = yBuffer[yIndex];
-
-        // U/V Values are subsampled i.e. each pixel in U/V chanel in a
-        // YUV_420 image act as chroma value for 4 neighbouring pixels
-        final int uvIndex = (uvh * uvRowStride) + (uvw * uvPixelStride);
-
-        // U/V values ideally fall under [-0.5, 0.5] range. To fit them into
-        // [0, 255] range they are scaled up and centered to 128.
-        // Operation below brings U/V values to [-128, 127].
-        final int u = uBuffer[uvIndex];
-        final int v = vBuffer[uvIndex];
-
-        // Compute RGB values per formula above.
-        int r = (y + v * 1436 / 1024 - 179).round();
-        int g = (y - u * 46549 / 131072 + 44 - v * 93604 / 131072 + 91).round();
-        int b = (y + u * 1814 / 1024 - 227).round();
-
-        r = r.clamp(0, 255);
-        g = g.clamp(0, 255);
-        b = b.clamp(0, 255);
-
-        image.setPixelRgb(w, h, r, g, b);
+      // Ensure indices are within bounds (robustness check)
+      if (yIndex >= yBytes.length || uvIndex >= uBytes.length || uvIndex >= vBytes.length) {
+        // Handle potential out-of-bounds access, perhaps due to stride issues
+        // Setting to black or skipping might be options. Let's set to black.
+        image.setPixelRgb(x, y, 0, 0, 0);
+        continue;
       }
-    }
 
-    return image;
+      // Get the Y, U, V values for the current pixel (x, y)
+      final int yValue = yBytes[yIndex];
+      // Use the same uvIndex for both U and V because they correspond to the same 2x2 block
+      // in the Y plane for YUV420p.
+      final int uValue = uBytes[uvIndex];
+      final int vValue = vBytes[uvIndex];
+
+      // --- YUV to RGB calculation ---
+      // Standard conversion formulas (adjust coefficients slightly if needed based on range/standard)
+      // Using integer arithmetic for potential speedup, can use double as well.
+      // Values are typically in the range [0, 255] for Y, U, V (video range).
+      final int y_ = yValue;
+      final int u_ = uValue - 128; // Center U around 0
+      final int v_ = vValue - 128; // Center V around 0
+
+      // Calculate R, G, B values
+      // Using common coefficients (derived from ITU-R BT.601 standard)
+      int r = (y_ + 1.402 * v_).round();
+      int g = (y_ - 0.344136 * u_ - 0.714136 * v_).round();
+      int b = (y_ + 1.772 * u_).round();
+
+      // Clamp the values to the valid RGB range [0, 255]
+      r = r.clamp(0, 255);
+      g = g.clamp(0, 255);
+      b = b.clamp(0, 255);
+
+      // Set the pixel in the img.Image object
+      image.setPixelRgb(x, y, r, g, b);
+    }
   }
+
+  return image;
 }

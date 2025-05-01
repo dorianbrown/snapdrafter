@@ -166,7 +166,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               }
               await Navigator.of(context).push(
                   MaterialPageRoute(
-                      builder: (context) => DeckScanner()
+                      builder: (context) => RealtimeObjectDetection()
                   )
               );
             },
