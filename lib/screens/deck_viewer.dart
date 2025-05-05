@@ -7,9 +7,11 @@ import 'package:diffutil_dart/diffutil.dart';
 import 'package:collection/collection.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
+import 'package:image/image.dart' as img;
 
 import '/utils/data.dart';
 import '/utils/models.dart';
+import '/utils/deck_image_generator.dart';
 
 const _headerStyle = TextStyle(
     fontSize: 20,
@@ -105,10 +107,37 @@ class DeckViewerState extends State<DeckViewer> {
                 icon: Icon(Icons.edit),
                 onPressed: () => allCards != null ? showDeckEditor(deck, allCards!) : null,
               ),
-
+              IconButton(
+                tooltip: "Share",
+                icon: Icon(Icons.share),
+                onPressed: () => shareDeck(deck),
+              ),
             ],
           ),
         ),
+    );
+  }
+
+  void shareDeck(Deck deck) async {
+
+    // 0. Assert that deck is valid
+    // 1. Generate img to be shared
+    // 2.
+
+    img.Image? image = await generateDeckImage(deck);
+
+    // Convert to memory bytes
+    Uint8List bytes = Uint8List.fromList(img.encodePng(image));
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+            title: Text('Share Deck Image'),
+            insetPadding: EdgeInsets.all(0),
+            content: Image.memory(bytes)
+        );
+      },
     );
   }
 
