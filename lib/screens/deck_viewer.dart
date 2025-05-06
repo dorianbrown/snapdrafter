@@ -135,7 +135,9 @@ class DeckViewerState extends State<DeckViewer> {
         return AlertDialog(
             title: Text('Share Deck Image'),
             insetPadding: EdgeInsets.all(0),
-            content: Image.memory(bytes)
+            content: InteractiveViewer(
+              child: Image.memory(bytes),
+            )
         );
       },
     );

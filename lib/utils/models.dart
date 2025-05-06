@@ -51,6 +51,36 @@ class Card {
     return map;
   }
 
+  bool isCreature() {
+    if (type == "Creature") {
+      return true;
+    }
+    return false;
+  }
+
+  bool isNoncreatureSpell() {
+    if (type != "Creature" && type != "Land") {
+      return true;
+    }
+    return false;
+  }
+
+  bool isNonBasicLand() {
+
+    List<String> basics = [
+      "Plains",
+      "Island",
+      "Swamp",
+      "Mountain",
+      "Forest"
+    ];
+
+    if (type == "Land" && !basics.contains(name)) {
+      return true;
+    }
+    return false;
+  }
+
   static Card fromMap(Map<String, dynamic> map) {
     return Card(
       scryfallId: map["scryfall_id"],
