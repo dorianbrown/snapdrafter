@@ -120,9 +120,7 @@ class DeckViewerState extends State<DeckViewer> {
 
   void shareDeck(Deck deck) async {
 
-    // 0. Assert that deck is valid
-    // 1. Generate img to be shared
-    // 2.
+    debugPrint("Generating deck iamge");
 
     img.Image? image = await generateDeckImage(deck);
 

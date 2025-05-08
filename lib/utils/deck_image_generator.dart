@@ -1,34 +1,47 @@
 import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' hide Image;
 import 'package:image/image.dart';
+import "package:collection/collection.dart";
 
 import 'models.dart';
+import 'data.dart';
+
+DeckStorage deckStorage = DeckStorage();
 
 // Layout of Page
-const imageWidth = 2000;
-const imageHeight = 4000;
-int pageHeaderMargin = (imageHeight / 5).floor();
+const imageWidth = 4000;
+const imageHeight = 6000;
+const int pageHeaderMargin = 714;
 const int pageMargin = 50;
 const int cardMargin = 15;
-const int cardStackOffset = 75;
 const int stackSize = 4;
-const int nCol = 4;
+const int nCol = 6;
 
 // Card Measurements
-const double cardAspectRatio = 2.5/3.5;
-int cardWidth = ((imageWidth - 2*pageMargin - (nCol - 1) * cardMargin) / nCol).floor();
-int cardHeight = (cardWidth / cardAspectRatio).floor();
+const double cardAspectRatio = 2.5 / 3.5;
+const int cardWidth =
+    (imageWidth - 2 * pageMargin - (nCol - 1) * cardMargin) ~/ nCol;
+const int cardHeight = cardWidth ~/ cardAspectRatio;
+const int cardStackOffset = cardHeight ~/ 8.5;
 
 Future<Image> generateDeckImage(Deck deck) async {
 
   // Split into Creatures, Noncreature spells, and non-basic lands, sorted by
   // mana value
-  final sortedCardImages = await getSortedCardImages(deck.cards);
-  List<Image> creatures = sortedCardImages[0];
-  List<Image> nonCreatures = sortedCardImages[1];
-  List<Image> nonBasicLands = sortedCardImages[2];
+  final sortedCardImages = await getManaCurveImages(deck.cards);
+  final creatures = sortedCardImages[0] as Map<String, List<Image>>;
+  final nonCreatures = sortedCardImages[1] as Map<String, List<Image>>;
+  final nonBasicLands = sortedCardImages[2] as List<Image>;
+
+  List<String> basicNames = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
+  List<Card> basics = deck.cards
+      .where((card) => basicNames.contains(card.name))
+      .toList();
+
+  basics.sort((a,b) => basicNames.indexOf(a.name).compareTo(basicNames.indexOf(b.name)));
 
   // Colors
   Color white = ColorFloat32.rgba(255, 255, 255, 255);
@@ -36,92 +49,303 @@ Future<Image> generateDeckImage(Deck deck) async {
 
   // Note that this assets can't be resized on the fly, required regenerating
   // zip file. So this should be done after all other measurements are final.
-  final fontAsset = await rootBundle.load("assets/fonts/OpenSans-Regular.zip");
-  final font = BitmapFont.fromZip(fontAsset.buffer.asUint8List());
+  final titleFontAsset = await rootBundle.load("assets/fonts/OpenSans-bold180.zip");
+  final titleFont = BitmapFont.fromZip(titleFontAsset.buffer.asUint8List());
+  final regularFontAsset = await rootBundle.load("assets/fonts/OpenSans-reg80-spaced.zip");
+  final regularFont = BitmapFont.fromZip(regularFontAsset.buffer.asUint8List());
 
-
-  Image deckImage = Image(width: imageWidth, height: imageHeight);
-  deckImage = fill(deckImage, color: white);
+  Image deckImage = await decodeAsset("assets/decklist_sharing/background_gradient.png");
 
   // UI Elements (framing)
   deckImage = fillRect(deckImage,
-      x1: 100,
-      y1: pageHeaderMargin,
-      x2: imageWidth - 100,
-      y2: pageHeaderMargin + 5,
-      color: black
+      x1: 0,
+      y1: 0,
+      x2: imageWidth,
+      y2: pageHeaderMargin,
+      color: ColorRgb8(255, 255, 255)
   );
 
+  // Art Crop dimensions 571x460
+  List<Card> cardCandidates = deck.cards
+      .where((card) => card.isCreature() || card.isNoncreatureSpell())
+      .toList();
+  String displayUri = cardCandidates[Random().nextInt(cardCandidates.length)].imageUri!;
+  Image displayImage = await getImageFromUri(displayUri.replaceAll("normal", "art_crop"));
+
+  displayImage = copyResize(displayImage,
+      height: pageHeaderMargin,
+      width: pageHeaderMargin * 571 ~/ 460
+  );
+
+  deckImage = compositeImage(deckImage, displayImage,
+    dstX: 0,
+    dstY: 0,
+  );
+
+  String deckNameString = deck.name ?? "Draft Deck";
+  // if (deckNameString.length > 18) {
+  //   deckNameString = "${deckNameString.substring(0, 18)}...";
+  // }
+
   // Text Elements
-  deckImage = drawString(deckImage, "Test String",
-    font: font,
-    x: 100,
-    y: 100,
+  deckImage = drawString(
+    deckImage,
+    deckNameString,
+    font: titleFont,
+    x: 950,
+    y: 30,
     color: black,
   );
 
-  int n = 0;
-  int i = 0;
+  // Decklist Metadata information
+  List<Set> allSets = await deckStorage.getAllSets();
+  List<Cube> allCubes = await deckStorage.getAllCubes();
+
+
+  Set? set = allSets.firstWhereOrNull((set) => set.code == deck.setId);
+  Cube? cube = allCubes.firstWhereOrNull((cube) => cube.cubecobraId == deck.cubecobraId);
+
+  String setCubeString = "";
+  if (set != null) {
+    setCubeString = "Set: ${set.name}";
+  } else if (cube != null) {
+    setCubeString = "Cube: ${cube.name}";
+  }
+
+  String metaString = "Drafter: BallzofFury";
+  metaString += "\nRecord: ${deck.winLoss}";
+  metaString += "\n$setCubeString";
+
+  deckImage = drawString(
+    deckImage,
+    metaString,
+    font: regularFont,
+    x: 950 +30,
+    y: 325,
+    color: black,
+  );
+
+  // deckImage = drawString(
+  //   deckImage,
+  //   "Record: ${deck.winLoss} $setCubeString ${deck.ymd}",
+  //   font: regularFont,
+  //   x: 950 + 30,
+  //   y: pageHeaderMargin - 150,
+  //   color: black,
+  // );
+
+  // Draw QR Code for Cube here (if it's a cube)
+  int edgePadding = 100;
+  int qrHeight = (pageHeaderMargin - 2 * edgePadding);
+
+  Image madebyImage = await decodeAsset("assets/decklist_sharing/madeby_2.png");
+
+  deckImage = compositeImage(deckImage, madebyImage,
+    dstX: imageWidth - 2 * qrHeight - edgePadding + 70,
+    dstY: edgePadding + 150,
+    dstW: 2 * qrHeight,
+    dstH: qrHeight,
+  );
+
+  final int maxStackCreatures = creatures.values
+      .map((val) => val.length)
+      .reduce((a, b) => max(a,b));
+  final int maxStackNonCreatures = nonCreatures.values
+      .map((val) => val.length)
+      .reduce((a, b) => max(a,b));
+
+  // Creature Curve
+  int row = 0;
   int j = 0;
-  int k = 0;
-  for (Image img in creatures + nonCreatures + nonBasicLands) {
-    deckImage = drawCard(deckImage, img, i, j, k);
-    n++;
-    k++;
-    if (k == stackSize) {
-      k=0;
-      i++;
-    }
-    if (i == nCol) {
-      i = 0;
+  for (final val in creatures.values) {
+    j = 0;
+    for (final card in val) {
+      deckImage = drawCard(deckImage, card, row, j, yOffset: 0);
       j++;
     }
+    row++;
   }
+
+  // NonCreature Curve
+  row = 0;
+  j = 0;
+  for (final val in nonCreatures.values) {
+    j = 0;
+    for (final card in val) {
+      deckImage = drawCard(deckImage, card, row, j, yOffset: cardHeight + maxStackCreatures * cardStackOffset);
+      j++;
+    }
+    row++;
+  }
+
+  // NonBasic Lands
+  j = 0;
+  int landsOffsetY = 2 * cardHeight + (maxStackCreatures + maxStackNonCreatures) * cardStackOffset;
+  for (final card in nonBasicLands) {
+    deckImage = drawCard(deckImage, card, 0, 0, yOffset: landsOffsetY, xOffset: j * (cardStackOffset * 1.5).floor());
+    j++;
+  }
+
+  // Basic Lands
+  final basicCounts = basics.groupFoldBy((el) => el, (int? previous, element) => (previous ?? 0) + 1);
+  List<Image> diceList = await loadDice();
+
+  j = 0;
+  int numBasics = basicCounts.length;
+  int initialOffsetX = imageWidth - edgePadding - cardWidth - (numBasics - 1) * (cardWidth ~/ 2);
+  for (Card card in basicCounts.keys) {
+    int count = basicCounts[card]!;
+    debugPrint(count.toString());
+    // Calculate dice needed for land count
+    List<int> dice = [];
+    int remainder = count;
+    while (dice.sum < count) {
+      if (remainder > 6) {
+        dice.add(6);
+        remainder -= 6;
+      } else {
+        dice.add(remainder);
+      }
+    }
+    debugPrint(dice.toString());
+    Image image = await getCardImage(card);
+    drawCard(deckImage, image, 0, 0, yOffset: landsOffsetY, xOffset: initialOffsetX + (cardWidth ~/ 2) * j);
+    // Drawing Dice
+    for (int i = 0; i < dice.length; i++) {
+
+      int diceOffsetX = initialOffsetX + (cardWidth ~/ 2) * j + cardWidth ~/ 5;
+      if (j == basicCounts.length - 1) {
+        diceOffsetX = initialOffsetX + (cardWidth ~/ 2) * j + cardWidth ~/ 2.4;
+      }
+
+      deckImage = compositeImage(deckImage, diceList[dice[i] - 1],
+        dstX: diceOffsetX,
+        dstY: pageHeaderMargin + landsOffsetY + cardHeight ~/ 3 + i * cardWidth ~/ 2.5,
+        dstH: cardWidth ~/ 3,
+        dstW: cardWidth ~/ 3,
+      );
+    }
+    j++;
+  }
+
+  deckImage = copyCrop(deckImage, x: 0, y: 0, width: deckImage.width,
+      height: pageHeaderMargin + landsOffsetY + cardHeight + 150
+  );
 
   return deckImage;
 }
 
-Image drawCard(Image src, Image card, int i, int j, int k) {
-  return compositeImage(src, card,
-      dstX: pageMargin + (cardWidth + cardMargin) * i,
-      dstY: pageHeaderMargin + 50 + (cardHeight + cardMargin + stackSize * cardStackOffset) * j + cardStackOffset * k,
-      dstH: cardHeight,
-      dstW: cardWidth,
+Image drawCard(Image src, Image card, int row, int k, {int yOffset = 0, int xOffset = 0}) {
+  Image croppedCard = copyCrop(card,
+      x: 0,
+      y: 0,
+      width: card.width,
+      height: card.height,
+      radius: card.height / 27);
+
+  return compositeImage(
+    src,
+    croppedCard,
+    dstX: pageMargin + (cardWidth + cardMargin) * row + xOffset,
+    dstY: pageHeaderMargin + 100 + cardStackOffset * k + yOffset,
+    dstH: cardHeight,
+    dstW: cardWidth,
   );
 }
 
-Future<List<Image>> getCardImages(List<Card> cards) async {
-  return Future.wait(cards.map((card) async {
-    Uint8List imageBytes = (await NetworkAssetBundle(Uri.parse(card.imageUri!))
-        .load(card.imageUri!))
-        .buffer
-        .asUint8List();
-
-    return decodeImage(imageBytes)!;
-  }));
+Future<Image> getCardImage(Card card) async {
+    return getImageFromUri(card.imageUri!);
 }
 
-Future<List<List<Image>>> getSortedCardImages(List<Card> cards) async {
-  List<Card> creatures = [];
-  List<Card> noncreatureSpells = [];
-  List<Card> nonBasicLands = [];
+Future<Image> getImageFromUri(String uri) async {
+  Uint8List imageBytes = (await NetworkAssetBundle(Uri.parse(uri))
+      .load(uri))
+      .buffer
+      .asUint8List();
 
+  Image img = decodeJpg(imageBytes)!;
+
+  return img.convert(format: img.format, numChannels: 4);
+}
+
+Future<List<Object>> getManaCurveImages(List<Card> cards) async {
+
+  // Initiate empty mana curves
+  Map<String, List<Image>> creatures = {
+    "0-1": [],
+    "2": [],
+    "3": [],
+    "4": [],
+    "5": [],
+    "6+": []
+  };
+  Map<String, List<Image>> noncreatureSpells = {
+    "0-1": [],
+    "2": [],
+    "3": [],
+    "4": [],
+    "5": [],
+    "6+": []
+  };
+  List<Image> nonBasicLands = [];
+
+  String? key;
   for (Card card in cards) {
     if (card.isCreature()) {
-      creatures.add(card);
+      if (card.manaValue > 5) {
+        key = "6+";
+      } else if (card.manaValue < 2) {
+        key = "0-1";
+      } else {
+        key = card.manaValue.toString();
+      }
+      creatures[key]!.add(await getCardImage(card));
     } else if (card.isNoncreatureSpell()) {
-      noncreatureSpells.add(card);
+      if (card.manaValue > 5) {
+        key = "6+";
+      } else if (card.manaValue < 2) {
+        key = "0-1";
+      } else {
+        key = card.manaValue.toString();
+      }
+      noncreatureSpells[key]!.add(await getCardImage(card));
     } else if (card.isNonBasicLand()) {
-      nonBasicLands.add(card);
+      nonBasicLands.add(await getCardImage(card));
     }
   }
 
-  creatures.sort((a, b) => a.manaValue - b.manaValue);
-  noncreatureSpells.sort((a, b) => a.manaValue - b.manaValue);
-  nonBasicLands.sort((a, b) => a.title.compareTo(b.title));
-
   return [
-    await getCardImages(creatures),
-    await getCardImages(noncreatureSpells),
-    await getCardImages(nonBasicLands)];
+    creatures,
+    noncreatureSpells,
+    nonBasicLands
+  ];
+}
+
+Future<List<Image>> loadDice() async {
+  return await Future.wait([1, 2, 3, 4, 5, 6]
+      .map((el) => decodeAsset("assets/app_icons/dice/dice$el.png")));
+}
+
+Future<Image> decodeAsset(String path) async {
+  final data = await rootBundle.load(path);
+
+  // Utilize flutter's built-in decoder to decode asset images as it will be
+  // faster than the dart decoder.
+  final buffer = await ui.ImmutableBuffer.fromUint8List(
+      data.buffer.asUint8List());
+
+  final id = await ui.ImageDescriptor.encoded(buffer);
+  final codec = await id.instantiateCodec(
+      targetHeight: id.height,
+      targetWidth: id.width);
+
+  final fi = await codec.getNextFrame();
+
+  final uiImage = fi.image;
+  final uiBytes = await uiImage.toByteData();
+
+  final image = Image.fromBytes(width: id.width, height: id.height,
+      bytes: uiBytes!.buffer, numChannels: 4);
+
+  return image;
 }

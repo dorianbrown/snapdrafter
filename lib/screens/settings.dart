@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart' hide Card;
+import 'package:package_info_plus/package_info_plus.dart';
 
 import 'settings/download_screen.dart';
 import 'settings/cube.dart';
@@ -12,6 +13,18 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> {
+
+  late PackageInfo _packageInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPackageInfo();
+  }
+
+  Future<void> _initPackageInfo() async {
+    _packageInfo = await PackageInfo.fromPlatform();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,6 +66,20 @@ class _SettingsState extends State<Settings> {
                   MaterialPageRoute(builder: (context) => BackupSettings()),
                 );
               },
+            ),
+            ListTile(
+              title: Text("About"),
+              leading: Icon(Icons.info),
+              subtitle: Text("Information about the app", style: TextStyle(color: Colors.white38)),
+              onTap: () {
+                showAboutDialog(
+                  context: context,
+                  applicationIcon: Icon(Icons.info),
+                  applicationName: "SnapDrafter",
+                  applicationVersion: _packageInfo.version,
+                  applicationLegalese: "© Copyright Dorian Brown 2025",
+                );
+              }
             ),
             ListTile(
               title: Text("Future options"),
