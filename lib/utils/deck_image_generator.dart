@@ -203,7 +203,6 @@ Future<Image> generateDeckImage(Deck deck) async {
   int initialOffsetX = imageWidth - edgePadding - cardWidth - (numBasics - 1) * (cardWidth ~/ 2);
   for (Card card in basicCounts.keys) {
     int count = basicCounts[card]!;
-    debugPrint(count.toString());
     // Calculate dice needed for land count
     List<int> dice = [];
     int remainder = count;
@@ -215,7 +214,6 @@ Future<Image> generateDeckImage(Deck deck) async {
         dice.add(remainder);
       }
     }
-    debugPrint(dice.toString());
     Image image = await getCardImage(card);
     drawCard(deckImage, image, 0, 0, yOffset: landsOffsetY, xOffset: initialOffsetX + (cardWidth ~/ 2) * j);
     // Drawing Dice
