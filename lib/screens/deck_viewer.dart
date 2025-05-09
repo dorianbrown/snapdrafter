@@ -8,6 +8,8 @@ import 'package:collection/collection.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
+import 'package:loader_overlay/loader_overlay.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '/utils/data.dart';
 import '/utils/models.dart';
@@ -64,81 +66,93 @@ class DeckViewerState extends State<DeckViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          actions: generateControls(),
-        ),
-        body: Container(
-          alignment: Alignment.topCenter,
-          child: ListView(
-            padding: const EdgeInsets.all(10),
-            children: [
-              if (showManaCurve!) ...generateManaCurve(deck.cards),
-              Container(
-                  padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
-                    ],
-                  )
-              ),
-              ...generateDeckView(deck, renderValues)
-            ],
+    return LoaderOverlay(
+        overlayWidgetBuilder: (_) { //ignored progress for the moment
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(
+                  color: Colors.deepPurpleAccent,
+                ),
+                SizedBox(height: 50,),
+                Text("Creating Decklist Image...", style: TextStyle(fontSize: 16, color: Colors.white)),
+              ],
+            )
+          );
+        },
+        overlayColor: Colors.black38.withAlpha(200),
+        child: Scaffold(
+          appBar: AppBar(
+            actions: generateControls(),
           ),
-        ),
-        bottomNavigationBar: BottomAppBar(
-          height: 65,
-          child: Row(
-            children: [
-              IconButton(
-                tooltip: "Sample Starting Hand",
-                icon: Icon(Icons.back_hand),
-                onPressed: () => showRandomHand(deck),
-              ),
-              IconButton(
-                tooltip: "Add basics",
-                icon: Icon(Icons.landscape),
-                onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
-              ),
-              Spacer(),
-              IconButton(
-                tooltip: "Edit",
-                icon: Icon(Icons.edit),
-                onPressed: () => allCards != null ? showDeckEditor(deck, allCards!) : null,
-              ),
-              IconButton(
-                tooltip: "Share",
-                icon: Icon(Icons.share),
-                onPressed: () => shareDeck(deck),
-              ),
-            ],
+          body: Container(
+            alignment: Alignment.topCenter,
+            child: ListView(
+              padding: const EdgeInsets.all(10),
+              children: [
+                if (showManaCurve!) ...generateManaCurve(deck.cards),
+                Container(
+                    padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
+                      ],
+                    )
+                ),
+                ...generateDeckView(deck, renderValues)
+              ],
+            ),
           ),
-        ),
+          bottomNavigationBar: BottomAppBar(
+            height: 65,
+            child: Row(
+              children: [
+                IconButton(
+                  tooltip: "Sample Starting Hand",
+                  icon: Icon(Icons.back_hand),
+                  onPressed: () => showRandomHand(deck),
+                ),
+                IconButton(
+                  tooltip: "Add basics",
+                  icon: Icon(Icons.landscape),
+                  onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
+                ),
+                Spacer(),
+                IconButton(
+                  tooltip: "Edit",
+                  icon: Icon(Icons.edit),
+                  onPressed: () => allCards != null ? showDeckEditor(deck, allCards!) : null,
+                ),
+                IconButton(
+                  tooltip: "Share",
+                  icon: Icon(Icons.share),
+                  onPressed: () async {
+                    context.loaderOverlay.show();
+                    await shareDeck(deck);
+                    context.loaderOverlay.hide();
+                  },
+                ),
+              ],
+            ),
+          ),
+      )
     );
   }
 
-  void shareDeck(Deck deck) async {
-
-    debugPrint("Generating deck iamge");
+  Future shareDeck(Deck deck) async {
 
     img.Image? image = await generateDeckImage(deck);
 
     // Convert to memory bytes
     Uint8List bytes = Uint8List.fromList(img.encodePng(image));
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-            title: Text('Share Deck Image'),
-            insetPadding: EdgeInsets.all(0),
-            content: InteractiveViewer(
-              child: Image.memory(bytes),
-            )
-        );
-      },
+    final params = ShareParams(
+      files: [XFile.fromData(bytes, mimeType: 'image/png')]
     );
+
+    SharePlus.instance.share(params);
   }
 
   findChangesAndUpdate(String newText, String originalText, List<Card> allCards, Deck deck) {

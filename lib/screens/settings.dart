@@ -4,6 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'settings/download_screen.dart';
 import 'settings/cube.dart';
 import 'settings/backup.dart';
+import 'settings/user.dart';
 
 class Settings extends StatefulWidget {
   const Settings({Key? key}) : super(key: key);
@@ -64,6 +65,17 @@ class _SettingsState extends State<Settings> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => BackupSettings()),
+                );
+              },
+            ),
+            ListTile(
+              title: Text("User"),
+              leading: Icon(Icons.person),
+              subtitle: Text("Details for sharing decklists", style: TextStyle(color: Colors.white38)),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => UserSettings()),
                 );
               },
             ),

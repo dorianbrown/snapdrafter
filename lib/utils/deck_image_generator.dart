@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' hide Image;
 import 'package:image/image.dart';
 import "package:collection/collection.dart";
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'models.dart';
 import 'data.dart';
@@ -43,15 +44,11 @@ Future<Image> generateDeckImage(Deck deck) async {
 
   basics.sort((a,b) => basicNames.indexOf(a.name).compareTo(basicNames.indexOf(b.name)));
 
-  // Colors
-  Color white = ColorFloat32.rgba(255, 255, 255, 255);
-  Color black = ColorFloat32.rgba(0, 0, 0, 255);
-
   // Note that this assets can't be resized on the fly, required regenerating
   // zip file. So this should be done after all other measurements are final.
   final titleFontAsset = await rootBundle.load("assets/fonts/OpenSans-bold180.zip");
   final titleFont = BitmapFont.fromZip(titleFontAsset.buffer.asUint8List());
-  final regularFontAsset = await rootBundle.load("assets/fonts/OpenSans-reg80-spaced.zip");
+  final regularFontAsset = await rootBundle.load("assets/fonts/roboto-reg72.zip");
   final regularFont = BitmapFont.fromZip(regularFontAsset.buffer.asUint8List());
 
   Image deckImage = await decodeAsset("assets/decklist_sharing/background_gradient.png");
@@ -72,36 +69,55 @@ Future<Image> generateDeckImage(Deck deck) async {
   String displayUri = cardCandidates[Random().nextInt(cardCandidates.length)].imageUri!;
   Image displayImage = await getImageFromUri(displayUri.replaceAll("normal", "art_crop"));
 
+  // Some images have a different aspect ratio than standard cards
+  displayImage = copyCrop(displayImage,
+      x: 0,
+      y: (displayImage.height - displayImage.width * 460 ~/ 571) ~/ 2,
+      width: displayImage.width,
+      height: displayImage.width * 460 ~/ 571
+  );
+
   displayImage = copyResize(displayImage,
       height: pageHeaderMargin,
       width: pageHeaderMargin * 571 ~/ 460
   );
+
+  displayImage = vignette(displayImage, start: 0.3, end: 0.9, amount: 0.8);
 
   deckImage = compositeImage(deckImage, displayImage,
     dstX: 0,
     dstY: 0,
   );
 
-  String deckNameString = deck.name ?? "Draft Deck";
-  // if (deckNameString.length > 18) {
-  //   deckNameString = "${deckNameString.substring(0, 18)}...";
-  // }
+  // Diagonal line
+  List<Point> vertices = [
+    Point(displayImage.width, 0),
+    Point(displayImage.width, pageHeaderMargin),
+    Point(displayImage.width - 100, pageHeaderMargin),
+  ];
+  deckImage = fillPolygon(deckImage, vertices: vertices, color: ColorRgb8(255, 255, 255));
 
-  // Text Elements
+  // Title of Deck
+  String deckNameString = deck.name ?? "Draft Deck";
   deckImage = drawString(
     deckImage,
     deckNameString,
     font: titleFont,
     x: 950,
     y: 30,
-    color: black,
+    color: ColorRgb8(0, 0, 0),
   );
 
   // Decklist Metadata information
+
+  // Getting Drafter username
+  final SharedPreferences prefs = await SharedPreferences.getInstance();
+  String? username = prefs.getString("username");
+  String usernameString = username != null ? "Drafter: $username" : "";
+
+  // Fetching the deck's cube or set name
   List<Set> allSets = await deckStorage.getAllSets();
   List<Cube> allCubes = await deckStorage.getAllCubes();
-
-
   Set? set = allSets.firstWhereOrNull((set) => set.code == deck.setId);
   Cube? cube = allCubes.firstWhereOrNull((cube) => cube.cubecobraId == deck.cubecobraId);
 
@@ -112,8 +128,9 @@ Future<Image> generateDeckImage(Deck deck) async {
     setCubeString = "Cube: ${cube.name}";
   }
 
-  String metaString = "Drafter: BallzofFury";
-  metaString += "\nRecord: ${deck.winLoss}";
+  // Combining all the metadata and adding it to image
+  String metaString = usernameString;
+  metaString += deck.winLoss != null ? "\nRecord: ${deck.winLoss}" : "";
   metaString += "\n$setCubeString";
 
   deckImage = drawString(
@@ -121,28 +138,19 @@ Future<Image> generateDeckImage(Deck deck) async {
     metaString,
     font: regularFont,
     x: 950 +30,
-    y: 325,
-    color: black,
+    y: 350,
+    color: ColorRgb8(0, 0, 0),
   );
-
-  // deckImage = drawString(
-  //   deckImage,
-  //   "Record: ${deck.winLoss} $setCubeString ${deck.ymd}",
-  //   font: regularFont,
-  //   x: 950 + 30,
-  //   y: pageHeaderMargin - 150,
-  //   color: black,
-  // );
 
   // Draw QR Code for Cube here (if it's a cube)
   int edgePadding = 100;
   int qrHeight = (pageHeaderMargin - 2 * edgePadding);
 
-  Image madebyImage = await decodeAsset("assets/decklist_sharing/madeby_2.png");
+  Image madeByImage = await decodeAsset("assets/decklist_sharing/madeby_2.png");
 
-  deckImage = compositeImage(deckImage, madebyImage,
+  deckImage = compositeImage(deckImage, madeByImage,
     dstX: imageWidth - 2 * qrHeight - edgePadding + 70,
-    dstY: edgePadding + 150,
+    dstY: edgePadding + 130,
     dstW: 2 * qrHeight,
     dstH: qrHeight,
   );
@@ -322,8 +330,11 @@ Future<List<Object>> getManaCurveImages(List<Card> cards) async {
 }
 
 Future<List<Image>> loadDice() async {
-  return await Future.wait([1, 2, 3, 4, 5, 6]
+
+  List<Image> diceImages = await Future.wait([1, 2, 3, 4, 5, 6]
       .map((el) => decodeAsset("assets/app_icons/dice/dice$el.png")));
+
+  return diceImages;
 }
 
 Future<Image> decodeAsset(String path) async {
