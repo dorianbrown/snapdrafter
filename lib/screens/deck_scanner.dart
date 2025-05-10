@@ -32,7 +32,7 @@ class DeckScannerState extends State<DeckScanner> {
   Future<void> _createCameraController() async {
     final cameras = await availableCameras();
     _controller = CameraController(cameras.first,
-        ResolutionPreset.max,
+        ResolutionPreset.high,
         enableAudio: false
     );
     _initializeControllerFuture = _controller.initialize();
@@ -89,8 +89,10 @@ class DeckScannerState extends State<DeckScanner> {
   }
 
   Future<img.Image> _getInputImage() async {
+    await _controller!.setFocusMode(FocusMode.locked);
+    await _controller!.setExposureMode(ExposureMode.locked);
     final picture = await _controller.takePicture();
-    final bytes = await File(picture.path).readAsBytes();
+    final bytes = await picture.readAsBytes();
     img.Image inputImage = img.decodeImage(bytes)!;
     inputImage = img.copyRotate(inputImage, angle: _pictureRotation);
     return inputImage;
