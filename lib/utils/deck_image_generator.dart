@@ -13,11 +13,10 @@ import 'data.dart';
 DeckStorage deckStorage = DeckStorage();
 
 // Layout of Page
-const imageWidth = 4000;
-const imageHeight = 6000;
-const int pageHeaderMargin = 714;
-const int pageMargin = 50;
-const int cardMargin = 15;
+const imageWidth = 2000;
+const int pageHeaderMargin = 357;
+const int pageMargin = 25;
+const int cardMargin = 8;
 const int stackSize = 4;
 const int nCol = 6;
 
@@ -46,9 +45,9 @@ Future<Image> generateDeckImage(Deck deck) async {
 
   // Note that this assets can't be resized on the fly, required regenerating
   // zip file. So this should be done after all other measurements are final.
-  final titleFontAsset = await rootBundle.load("assets/fonts/OpenSans-bold180.zip");
+  final titleFontAsset = await rootBundle.load("assets/fonts/roboto-bold90.zip");
   final titleFont = BitmapFont.fromZip(titleFontAsset.buffer.asUint8List());
-  final regularFontAsset = await rootBundle.load("assets/fonts/roboto-reg72.zip");
+  final regularFontAsset = await rootBundle.load("assets/fonts/roboto-reg36.zip");
   final regularFont = BitmapFont.fromZip(regularFontAsset.buffer.asUint8List());
 
   Image deckImage = await decodeAsset("assets/decklist_sharing/background_gradient.png");
@@ -93,7 +92,7 @@ Future<Image> generateDeckImage(Deck deck) async {
   List<Point> vertices = [
     Point(displayImage.width, 0),
     Point(displayImage.width, pageHeaderMargin),
-    Point(displayImage.width - 100, pageHeaderMargin),
+    Point(displayImage.width - 50, pageHeaderMargin),
   ];
   deckImage = fillPolygon(deckImage, vertices: vertices, color: ColorRgb8(255, 255, 255));
 
@@ -103,7 +102,7 @@ Future<Image> generateDeckImage(Deck deck) async {
     deckImage,
     deckNameString,
     font: titleFont,
-    x: 950,
+    x: 475,
     y: 30,
     color: ColorRgb8(0, 0, 0),
   );
@@ -137,20 +136,20 @@ Future<Image> generateDeckImage(Deck deck) async {
     deckImage,
     metaString,
     font: regularFont,
-    x: 950 +30,
-    y: 350,
+    x: 475 + 15,
+    y: 175,
     color: ColorRgb8(0, 0, 0),
   );
 
   // Draw QR Code for Cube here (if it's a cube)
-  int edgePadding = 100;
+  int edgePadding = 50;
   int qrHeight = (pageHeaderMargin - 2 * edgePadding);
 
   Image madeByImage = await decodeAsset("assets/decklist_sharing/madeby_2.png");
 
   deckImage = compositeImage(deckImage, madeByImage,
-    dstX: imageWidth - 2 * qrHeight - edgePadding + 70,
-    dstY: edgePadding + 130,
+    dstX: imageWidth - 2 * qrHeight - edgePadding + 35,
+    dstY: edgePadding + 65,
     dstW: 2 * qrHeight,
     dstH: qrHeight,
   );
@@ -235,7 +234,7 @@ Future<Image> generateDeckImage(Deck deck) async {
   }
 
   deckImage = copyCrop(deckImage, x: 0, y: 0, width: deckImage.width,
-      height: pageHeaderMargin + landsOffsetY + cardHeight + 150
+      height: pageHeaderMargin + landsOffsetY + cardHeight + 75
   );
 
   return deckImage;
@@ -249,11 +248,13 @@ Image drawCard(Image src, Image card, int row, int k, {int yOffset = 0, int xOff
       height: card.height,
       radius: card.height / 27);
 
+  croppedCard = copyResize(croppedCard, height: cardHeight, maintainAspect: true, interpolation: Interpolation.cubic);
+
   return compositeImage(
     src,
     croppedCard,
     dstX: pageMargin + (cardWidth + cardMargin) * row + xOffset,
-    dstY: pageHeaderMargin + 100 + cardStackOffset * k + yOffset,
+    dstY: pageHeaderMargin + 50 + cardStackOffset * k + yOffset,
     dstH: cardHeight,
     dstW: cardWidth,
   );

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import '../../utils/models.dart';
 import '/utils/data.dart';
 
 class BackupSettings extends StatefulWidget {
@@ -18,6 +19,8 @@ class _BackupSettingsState extends State<BackupSettings> {
   String? backupStatus;
   int? deckCount;
   int? cubeCount;
+
+  final DeckChangeNotifier _notifier = DeckChangeNotifier();
 
   @override
   void initState() {
@@ -90,6 +93,7 @@ class _BackupSettingsState extends State<BackupSettings> {
         backupStatus = 'Restore failed: ${e.toString()}';
       });
     } finally {
+      _notifier.markNeedsRefresh();
       setState(() => isRestoring = false);
     }
   }

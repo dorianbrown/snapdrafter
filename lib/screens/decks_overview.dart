@@ -62,7 +62,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   Future<void> _loadFirstDeckStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    // await prefs.setBool("seen_tutorial", false);
     _hasSeenFirstDeck = prefs.getBool("seen_tutorial") ?? false;
   }
 
@@ -81,6 +80,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   void refreshDecks() async {
     setState(() {
+      setsFuture = _deckStorage.getAllSets();
+      cubesFuture = _deckStorage.getAllCubes();
       decksFuture = _deckStorage.getAllDecks();
     });
   }
