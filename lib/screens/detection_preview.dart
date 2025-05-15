@@ -43,7 +43,30 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Detection Preview')),
-      body: ListView.separated(
+      body: detections.isEmpty ?
+        Container(
+          padding: EdgeInsets.all(50),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Spacer(flex: 7),
+              Text("No card titles detected", style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
+              Spacer(flex: 1),
+              Text("Make sure the card titles are visible and at least 32 pixels height. \nYou can use the button with the picture icon to preview the picture taken",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.white38,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              Spacer(flex: 5)
+            ],
+          )
+        )
+      :
+      ListView.separated(
         controller: _scrollController,
         separatorBuilder: (context, index) => Divider(indent: 10, endIndent: 10,),
         padding: EdgeInsets.all(5),
@@ -101,27 +124,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) =>
-                  Center(child: CircularProgressIndicator()),
-            ),
-          );
-          final deckId = await createDeckAndSave(detections.map((x) => x.card).toList());
-          debugPrint("Deck saved with id: $deckId");
-          final allDecks = await _deckStorage.getAllDecks();
-          final newDeck = allDecks.where((x) => x.id == deckId).first;
-
-          _changeNotifier.markNeedsRefresh();
-
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => DeckViewer(deck: newDeck),
-            ),
-            ModalRoute.withName('/')
-          );
-        },
+        onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
         label: Text("Save Deck"),
         icon: Icon(Icons.save)
       ),
@@ -161,6 +164,28 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  void saveDetectionsToDeck() async {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) =>
+            Center(child: CircularProgressIndicator()),
+      ),
+    );
+    final deckId = await createDeckAndSave(detections.map((x) => x.card).toList());
+    debugPrint("Deck saved with id: $deckId");
+    final allDecks = await _deckStorage.getAllDecks();
+    final newDeck = allDecks.where((x) => x.id == deckId).first;
+
+    _changeNotifier.markNeedsRefresh();
+
+    Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => DeckViewer(deck: newDeck),
+        ),
+        ModalRoute.withName('/')
     );
   }
 

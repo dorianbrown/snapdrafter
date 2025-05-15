@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -16,22 +17,26 @@ import '/utils/models.dart';
 DeckStorage _deckStorage = DeckStorage();
 
 class deckImageProcessing extends StatefulWidget {
-  final img.Image inputImage;
-  const deckImageProcessing({super.key, required this.inputImage});
+  final img.Image? inputImage;
+  final String? filePath;
+  const deckImageProcessing({super.key, this.inputImage, this.filePath});
 
   @override
-  _deckImageProcessingState createState() => _deckImageProcessingState(inputImage);
+  _deckImageProcessingState createState() => _deckImageProcessingState(inputImage, filePath);
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
   // Class inputs
-  final img.Image inputImage;
-  _deckImageProcessingState(this.inputImage);
+  final img.Image? inputImage;
+  final String? filePath;
+  _deckImageProcessingState(this.inputImage, this.filePath);
 
   late Interpreter _detector;
   late TextRecognizer _textRecognizer;
   late Future<void> _loadModelsFuture;
+  late img.Image decodedImage;
 
+  bool detectionStarted = false;
   int ocrProgress = 0;
   int matchingProgress = 0;
   int _numDetections = -1;
@@ -41,15 +46,30 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   void initState() {
     super.initState();
     _loadModelsFuture = _loadModels();
-    _loadModelsFuture.then((_) {
-      _runCardDetection(inputImage).catchError((e) {
-        // Save error message and display on screen
-        setState(() {
-          errorMessage = e.toString();
-        });
+    final processInputFuture = processInputImage();
+    Future.wait([_loadModelsFuture, processInputFuture]).then((_) {
+      _runCardDetection(decodedImage);
+      setState(() {
+        detectionStarted = true;
       });
     });
+  }
 
+  Future processInputImage() async {
+    if (inputImage != null) {
+      decodedImage = inputImage!;
+    } else {
+      // Try reading file until it exists
+      int i=0;
+      while (!File(filePath!).existsSync()) {
+        i++;
+        debugPrint("Attempt to read image file $i");
+        await Future.delayed(Duration(milliseconds: 100));
+      }
+      Uint8List fileBytes = await File(filePath!).readAsBytes();
+      decodedImage = img.decodeJpg(fileBytes)!;
+      debugPrint("Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
+    }
   }
 
   Future<void> _loadModels() async {
@@ -58,7 +78,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       if (Platform.isAndroid) {
         // options.addDelegate(GpuDelegateV2());
       }
-
       final modelPath = 'assets/run22_fp16.tflite';
       _detector = await Interpreter.fromAsset(modelPath, options: options);
       _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
@@ -86,10 +105,15 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.done) {
                   return Column(
-                      spacing: 25,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
+                    spacing: 25,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (!detectionStarted) ...[
+                        Text("Loading image..."),
+                        SizedBox(height: 100),
+                        CircularProgressIndicator()
+                      ] else ...[
                         Spacer(flex: 4,),
                         Text("Recognizing text in titles..."),
                         LinearProgressIndicator(
@@ -108,13 +132,14 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                         Text("Progress: $matchingProgress / $_numDetections"),
                         if (errorMessage != null)
                           Text("Error:", style: TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold
+                              color: Colors.redAccent,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold
                           )),
-                          Text(errorMessage ?? ""),
+                        Text(errorMessage ?? ""),
                         Spacer(flex: 3,)
                       ]
+                    ]
                   );
                 }
                 return const CircularProgressIndicator();
@@ -221,11 +246,12 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       color: overlayColor
     );
 
-    await Navigator.of(context).push(
+    await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (context) => DetectionPreviewScreen(
             image: outputImage, detections: detectionOutput),
       ),
+      ModalRoute.withName('/')
     );
   }
 

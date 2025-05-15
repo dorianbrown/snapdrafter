@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter/services.dart';
+import 'package:camerawesome/camerawesome_plugin.dart';
+import 'package:camerawesome/pigeon.dart';
 
 import 'image_processing_screen.dart';
 
@@ -16,39 +17,11 @@ class DeckScanner extends StatefulWidget {
 }
 
 class DeckScannerState extends State<DeckScanner> {
-  late CameraController _controller;
-  late Future<void> _initializeControllerFuture;
   final double _pictureRotation = -90.0;
 
   @override
   void initState() {
     super.initState();
-    _initializeControllerFuture = _createCameraController();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.landscapeLeft,
-    ]);
-  }
-
-  Future<void> _createCameraController() async {
-    final cameras = await availableCameras();
-    _controller = CameraController(cameras.first,
-        ResolutionPreset.high,
-        enableAudio: false
-    );
-    _initializeControllerFuture = _controller.initialize();
-    _initializeControllerFuture.then((_) {
-      _controller.setFlashMode(FlashMode.off);
-    });
-    return _initializeControllerFuture;
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    SystemChrome.setPreferredOrientations([
-      DeviceOrientation.portraitUp,
-    ]);
-    super.dispose();
   }
 
   @override
@@ -56,46 +29,32 @@ class DeckScannerState extends State<DeckScanner> {
     return Scaffold(
         appBar: AppBar(title: const Text('Scan Deck'), backgroundColor: Color.fromARGB(150, 0, 0, 0)),
         extendBodyBehindAppBar: true,
-        body: FutureBuilder<void>(
-          future: _initializeControllerFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.done) {
-              return Center(child: RotatedBox(quarterTurns: -1, child: CameraPreview(_controller)));
-            } else {
-              return const Center(child: CircularProgressIndicator());
-            }
-          },
-        ),
-        floatingActionButton: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            spacing: 20,
-            children: [
-              FloatingActionButton.extended(
-                heroTag: "Btn3",
-                label: const Text("Capture"),
-                onPressed: () async {
-                  img.Image inputImage = await _getInputImage();
-                  Navigator.of(context).pushReplacement(
+        body: CameraAwesomeBuilder.awesome(
+          saveConfig: SaveConfig.photo(
+          ),
+          sensorConfig: SensorConfig.single(
+            zoom: 0.0,
+          ),
+          previewFit: CameraPreviewFit.contain,
+          availableFilters: [],
+          defaultFilter: AwesomeFilter.None,
+          onMediaCaptureEvent: (mediaCapture) {
+            mediaCapture.captureRequest.when(
+              single: (SingleCaptureRequest singeCaptureRequest) async {
+                if (mediaCapture.status == MediaCaptureStatus.capturing) {
+                  String filePath = singeCaptureRequest.path!;
+                  Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (context) => deckImageProcessing(inputImage: inputImage)
+                          builder: (context) => deckImageProcessing(filePath: filePath)
                       )
                   );
-                },
-                icon: const Icon(Icons.camera),
-              )
-            ]
+                } else if (mediaCapture.status == MediaCaptureStatus.success) {
+                  debugPrint("Finished writing image file");
+                }
+              },
+            );
+          },
         )
     );
   }
-
-  Future<img.Image> _getInputImage() async {
-    await _controller!.setFocusMode(FocusMode.locked);
-    await _controller!.setExposureMode(ExposureMode.locked);
-    final picture = await _controller.takePicture();
-    final bytes = await picture.readAsBytes();
-    img.Image inputImage = img.decodeImage(bytes)!;
-    inputImage = img.copyRotate(inputImage, angle: _pictureRotation);
-    return inputImage;
-  }
-
 }
