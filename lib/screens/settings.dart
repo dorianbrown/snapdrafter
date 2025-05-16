@@ -6,6 +6,7 @@ import 'settings/cube.dart';
 import 'settings/backup.dart';
 import 'settings/user.dart';
 import 'settings/help.dart';
+import 'settings/donations.dart';
 
 class Settings extends StatefulWidget {
   const Settings({Key? key}) : super(key: key);
@@ -88,6 +89,17 @@ class _SettingsState extends State<Settings> {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => HelpScreen()),
+                );
+              },
+            ),
+            ListTile(
+              title: Text("Donations"),
+              leading: Icon(Icons.monetization_on, color: Colors.lightGreen),
+              subtitle: Text("Donate and support the development of this app", style: TextStyle(color: Colors.white38)),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => DonationScreen()),
                 );
               },
             ),
