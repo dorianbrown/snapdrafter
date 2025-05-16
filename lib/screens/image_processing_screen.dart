@@ -48,9 +48,14 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     _loadModelsFuture = _loadModels();
     final processInputFuture = processInputImage();
     Future.wait([_loadModelsFuture, processInputFuture]).then((_) {
-      _runCardDetection(decodedImage);
       setState(() {
         detectionStarted = true;
+      });
+      _runCardDetection(decodedImage).catchError((e) {
+        debugPrint("Error: $e");
+        setState(() {
+          errorMessage = e.toString();
+        });
       });
     });
   }
@@ -130,13 +135,14 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                                 : 0
                         ),
                         Text("Progress: $matchingProgress / $_numDetections"),
-                        if (errorMessage != null)
+                        if (errorMessage != null) ...[
                           Text("Error:", style: TextStyle(
                               color: Colors.redAccent,
                               fontSize: 18,
                               fontWeight: FontWeight.bold
                           )),
-                        Text(errorMessage ?? ""),
+                          Text(errorMessage ?? ""),
+                        ],
                         Spacer(flex: 3,)
                       ]
                     ]

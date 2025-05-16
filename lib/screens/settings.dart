@@ -5,6 +5,7 @@ import 'settings/download_screen.dart';
 import 'settings/cube.dart';
 import 'settings/backup.dart';
 import 'settings/user.dart';
+import 'settings/help.dart';
 
 class Settings extends StatefulWidget {
   const Settings({Key? key}) : super(key: key);
@@ -69,13 +70,24 @@ class _SettingsState extends State<Settings> {
               },
             ),
             ListTile(
-              title: Text("User"),
+              title: Text("User Name"),
               leading: Icon(Icons.person),
               subtitle: Text("Details for sharing decklists", style: TextStyle(color: Colors.white38)),
               onTap: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => UserSettings()),
+                );
+              },
+            ),
+            ListTile(
+              title: Text("Help"),
+              leading: Icon(Icons.question_mark),
+              subtitle: Text("Useful information about using this app", style: TextStyle(color: Colors.white38)),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => HelpScreen()),
                 );
               },
             ),
@@ -92,12 +104,6 @@ class _SettingsState extends State<Settings> {
                   applicationLegalese: "© Copyright Dorian Brown 2025",
                 );
               }
-            ),
-            ListTile(
-              title: Text("Future options"),
-              leading: Icon(Icons.build),
-              subtitle: Text("Coming soon", style: TextStyle(color: Colors.white38)),
-              enabled: false,
             ),
           ],
         )

@@ -14,6 +14,8 @@ class CubeSettings extends StatefulWidget {
 class _CubeSettingsState extends State<CubeSettings> {
   late DeckStorage deckStorage;
 
+  final DeckChangeNotifier _notifier = DeckChangeNotifier();
+
   @override
   initState() {
     super.initState();
@@ -34,7 +36,6 @@ class _CubeSettingsState extends State<CubeSettings> {
                 FutureBuilder(
                   future: deckStorage.getAllCubes(),
                   builder: (futureContext, snapshot) {
-                    // FIXME: Currently crashing when loading
                     if (snapshot.connectionState != ConnectionState.done) {
                       return CircularProgressIndicator();
                     }
@@ -146,6 +147,7 @@ class _CubeSettingsState extends State<CubeSettings> {
                           String ymd = convertDatetimeToYMD(DateTime.now());
                           String cubecobraId = cubecobraIdController.text;
                           deckStorage.saveNewCube(name, ymd, cubecobraId, cubeList);
+                          _notifier.markNeedsRefresh();
                           Navigator.of(context).pop();
                           setState(() {});
                         },
