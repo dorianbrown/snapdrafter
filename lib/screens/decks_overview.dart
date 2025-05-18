@@ -518,8 +518,15 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     Deck deck = decks[index];
     String selectedDate = deck.ymd;
     final nameController = TextEditingController(text: deck.name);
-    final winController = WheelPickerController(itemCount: 4, initialIndex: 4);
-    final lossController = WheelPickerController(itemCount: 4, initialIndex: 4);
+    // Determining Win/Loss for initial wheel picker values
+    int initialWins = 0;
+    int initialLosses = 0;
+    if (deck.winLoss != null) {
+      initialWins = int.parse(deck.winLoss!.split("/")[0]);
+      initialLosses = int.parse(deck.winLoss!.split("/")[1]);
+    }
+    final winController = WheelPickerController(itemCount: 4, initialIndex: 3 - initialWins);
+    final lossController = WheelPickerController(itemCount: 4, initialIndex: 3 - initialLosses);
     final setCubeController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     String? currentCubeSetId = deck.cubecobraId ?? deck.setId;
