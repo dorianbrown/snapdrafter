@@ -777,7 +777,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   Future launchWelcomeDialog() async {
 
     final prefs = await SharedPreferences.getInstance();
-    prefs.setBool("welcome_popup_seen", false);
     bool hasSeenWelcomePopup = prefs.getBool("welcome_popup_seen") ?? false;
 
     if (!hasSeenWelcomePopup) {
@@ -812,8 +811,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   " are still being polished. "),
               SizedBox(height: paragraphBreak,),
               Text("Feedback", style: titleStyle,),
-              Text("In case you find a bug, or have ideas for how things could "
-                "be improved or features that are missing, I'd love to hear "
+              Text("In case you find a bug, have ideas for how things could "
+                "be improved, or features that are missing, I'd love to hear "
                   "your feedback."),
               Text("Look for the 'Private feedback to developer' section in the "
                   "app's Play Store page."),
