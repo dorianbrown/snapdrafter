@@ -35,7 +35,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late DeckStorage _deckStorage;
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
-  bool _hasSeenFirstDeck = false;
+  bool _hasSeenOverviewTutorial = false;
 
   @override
   void initState() {
@@ -58,17 +58,20 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       }
     });
     _loadFirstDeckStatus();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
+
   }
 
   Future<void> _loadFirstDeckStatus() async {
     final prefs = await SharedPreferences.getInstance();
-    _hasSeenFirstDeck = prefs.getBool("seen_tutorial") ?? false;
+    _hasSeenOverviewTutorial = prefs.getBool("overview_tutorial_seen") ?? false;
   }
 
   Future<void> _markFirstDeckSeen() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool("seen_tutorial", true);
-    _hasSeenFirstDeck = true;
+    await prefs.setBool("overview_tutorial_seen", true);
+    _hasSeenOverviewTutorial = true;
   }
 
   void _refreshIfNeeded() {
@@ -340,7 +343,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       deck: decks[index],
       sets: sets,
       cubes: cubes,
-      showFirstDeckHint: !_hasSeenFirstDeck && index == 0,
+      showFirstDeckHint: !_hasSeenOverviewTutorial && index == 0,
       onFirstDeckViewed: _markFirstDeckSeen,
       onEdit: () => showDialog(
         context: context,
@@ -770,4 +773,72 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       ],
     );
   }
+
+  Future launchWelcomeDialog() async {
+
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setBool("welcome_popup_seen", false);
+    bool hasSeenWelcomePopup = prefs.getBool("welcome_popup_seen") ?? false;
+
+    if (!hasSeenWelcomePopup) {
+
+      prefs.setBool("welcome_popup_seen", true);
+
+      TextStyle titleStyle = TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold
+      );
+      double paragraphBreak = 4;
+
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          content: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            spacing: 10,
+            children: [
+              SizedBox(height: paragraphBreak,),
+              Text("Welcome to the Open Beta!", style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold
+              )),
+              SizedBox(height: paragraphBreak,),
+              Text("Thanks for being "
+                  "one of the first to try out our app and help make it great."
+                  " As a beta tester, you're getting an early preview. This"
+                  " means you might encounter some bugs or see features that"
+                  " are still being polished. "),
+              SizedBox(height: paragraphBreak,),
+              Text("Feedback", style: titleStyle,),
+              Text("In case you find a bug, or have ideas for how things could "
+                "be improved or features that are missing, I'd love to hear "
+                  "your feedback."),
+              Text("Look for the 'Private feedback to developer' section in the "
+                  "app's Play Store page."),
+              SizedBox(height: paragraphBreak,),
+              Text("Getting Started", style: titleStyle,),
+              Text("I try to make the interface as intuitive as possible, but "
+                  "if can't figure something out, you can find some additional "
+                  "information in 'Settings > Help'."),
+              SizedBox(height: paragraphBreak,),
+              Text("Support", style: titleStyle,),
+              Text("My aim is to keep SnapDrafter free, ad-free, and available"
+                  " to as many cube-lovers as possible. Donations make that "
+                  "possible."),
+              Text("You can find links in 'Settings > Donations'.")
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: Text("Close")
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
 }
