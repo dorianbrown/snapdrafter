@@ -1,11 +1,6 @@
-import 'dart:async';
-import 'dart:io';
-
-import 'package:flutter/material.dart';
-import 'package:image/image.dart' as img;
-import 'package:flutter/services.dart';
-import 'package:camerawesome/camerawesome_plugin.dart';
 import 'package:camerawesome/pigeon.dart';
+import 'package:flutter/material.dart';
+import 'package:camerawesome/camerawesome_plugin.dart';
 
 import 'image_processing_screen.dart';
 
@@ -17,7 +12,6 @@ class DeckScanner extends StatefulWidget {
 }
 
 class DeckScannerState extends State<DeckScanner> {
-  final double _pictureRotation = -90.0;
 
   @override
   void initState() {
@@ -30,8 +24,7 @@ class DeckScannerState extends State<DeckScanner> {
         appBar: AppBar(title: const Text('Scan Deck'), backgroundColor: Color.fromARGB(150, 0, 0, 0)),
         extendBodyBehindAppBar: true,
         body: CameraAwesomeBuilder.awesome(
-          saveConfig: SaveConfig.photo(
-          ),
+          saveConfig: SaveConfig.photo(),
           sensorConfig: SensorConfig.single(
             zoom: 0.0,
           ),

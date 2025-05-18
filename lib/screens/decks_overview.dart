@@ -521,7 +521,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     final winController = WheelPickerController(itemCount: 4, initialIndex: 4);
     final lossController = WheelPickerController(itemCount: 4, initialIndex: 4);
     final setCubeController = TextEditingController();
-    final _formKey = GlobalKey<FormState>();
+    final formKey = GlobalKey<FormState>();
     String? currentCubeSetId = deck.cubecobraId ?? deck.setId;
     String draftType = deck.cubecobraId != null ? "cube" : "set";
 
@@ -539,7 +539,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       content: StatefulBuilder(
         builder: (context, setDialogState) {
           return Form(
-            key: _formKey,
+            key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -645,7 +645,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         ),
         TextButton(
             onPressed: () {
-              if (_formKey.currentState!.validate()) {
+              if (formKey.currentState!.validate()) {
                 // Since this is an existing deck_id, it should overwrite
                 // metadata in db.
 

@@ -12,8 +12,8 @@ class DonationScreen extends StatelessWidget {
     String donationText = "If you are enjoying this app and want to support "
       "it's continued maintenance and development, consider donating."
       "\n\n"
-      "I plan on keeping SnapDrafter ad-free and available to as many cube-lovers"
-        " as possible. \n\nDonations like yours help make that happen. ";
+      "My aim is to keep SnapDrafter ad-free and available to as many cube-lovers"
+        " as possible. \n\nDonations like yours help make that happen.";
 
     return Scaffold(
       appBar: AppBar(title: const Text("Donation")),

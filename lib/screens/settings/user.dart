@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '/utils/data.dart';
-
 class UserSettings extends StatefulWidget {
   const UserSettings({Key? key}) : super(key: key);
 

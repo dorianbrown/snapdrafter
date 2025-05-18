@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart' hide Image;
 import 'package:image/image.dart';
 import "package:collection/collection.dart";
 import 'package:shared_preferences/shared_preferences.dart';

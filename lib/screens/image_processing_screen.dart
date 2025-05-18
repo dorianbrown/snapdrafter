@@ -72,7 +72,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         await Future.delayed(Duration(milliseconds: 100));
       }
       Uint8List fileBytes = await File(filePath!).readAsBytes();
-      decodedImage = img.decodeJpg(fileBytes)!;
+      decodedImage = img.decodeImage(fileBytes)!;
       debugPrint("Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
     }
   }
