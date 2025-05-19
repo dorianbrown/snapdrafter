@@ -155,7 +155,7 @@ class DeckViewerState extends State<DeckViewer> {
     SharePlus.instance.share(params);
   }
 
-  findChangesAndUpdate(String newText, String originalText, List<Card> allCards, Deck deck) {
+  findChangesAndUpdate(String newText, String originalText, List<Card> allCards, Deck deck, BuildContext buildContext) {
     // We want an exact match on card names. Notify user with snackbar if match not exact.
     final textDiff = calculateListDiff(originalText.split("\n"), newText.split("\n"), detectMoves: false);
     List<Card> cardsCopy = List.from(deck.cards);
@@ -170,8 +170,7 @@ class DeckViewerState extends State<DeckViewer> {
         String cardName = regexMatch.first[2]!;
         Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == cardName);
         if (matchedCard == null) {
-          // TODO: Figure out how to show snackbar inside AlertDialog
-          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Card not found: '${update.data}'")));
+          ScaffoldMessenger.of(buildContext).showSnackBar(SnackBar(content: Text("Card not found: '${update.data}'")));
           debugPrint("Card not found: $update.data");
           return;
         }
@@ -487,32 +486,43 @@ class DeckViewerState extends State<DeckViewer> {
   void showDeckEditor(Deck deck, List<Card> allCards) {
     final controller = TextEditingController(text: deck.generateTextExport());
     showDialog(
-        context: context,
-        builder: (dialogContext) => AlertDialog(
-          content: TextFormField(
-            expands: true,
-            keyboardType: TextInputType.multiline,
-            maxLines: null,
-            minLines: null,
-            controller: controller,
-          ),
-          actions: [
-            TextButton(
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: controller.text));
-                },
-                child: const Text("Copy All")
-            ),
-            TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Discard")
-            ),
-            TextButton(
-                onPressed: () => findChangesAndUpdate(controller.text, deck.generateTextExport(), allCards, deck),
-                child: const Text("Save")
+      context: context,
+      builder: (dialogContext) => ScaffoldMessenger(
+        child: Builder(
+          builder: (builderContext) => Scaffold(
+            backgroundColor: Colors.transparent,
+            body: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).pop(),
+              child: AlertDialog(
+                content: TextFormField(
+                  expands: true,
+                  keyboardType: TextInputType.multiline,
+                  maxLines: null,
+                  minLines: null,
+                  controller: controller,
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () async {
+                        await Clipboard.setData(ClipboardData(text: controller.text));
+                      },
+                      child: const Text("Copy All")
+                  ),
+                  TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text("Discard")
+                  ),
+                  TextButton(
+                      onPressed: () => findChangesAndUpdate(controller.text, deck.generateTextExport(), allCards, deck, builderContext),
+                      child: const Text("Save")
+                  )
+                ],
+              )
             )
-          ],
+          )
         )
+      )
     );
   }
 

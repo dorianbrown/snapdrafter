@@ -287,53 +287,69 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     final controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text("Create Deck"),
-        content: TextFormField(
-          expands: true,
-          keyboardType: TextInputType.multiline,
-          maxLines: null,
-          minLines: null,
-          controller: controller,
-          decoration: InputDecoration(
-            hintText: "1 Mox Jet\n1 Black Lotus\n1 ...",
-            hintStyle: TextStyle(color: Colors.white54)
-          ),
-        ),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Discard")
-          ),
-          TextButton(
-              onPressed: () async {
-                List<Card> allCards = await _deckStorage.getAllCards();
-                List<Card> deckList = [];
+      builder: (dialogContext) => ScaffoldMessenger(
+        child: Builder(
+          builder: (builderContext) => Scaffold(
+            backgroundColor: Colors.transparent,
+            body: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () => Navigator.of(context).pop(),
+              child: AlertDialog(
+                title: Text("Create Deck"),
+                content: TextFormField(
+                  expands: true,
+                  keyboardType: TextInputType.multiline,
+                  maxLines: null,
+                  minLines: null,
+                  controller: controller,
+                  decoration: InputDecoration(
+                      hintText: "1 Mox Jet\n1 Black Lotus\n1 ...",
+                      hintStyle: TextStyle(color: Colors.white54)
+                  ),
+                ),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text("Discard")
+                  ),
+                  TextButton(
+                      onPressed: () async {
+                        List<Card> allCards = await _deckStorage.getAllCards();
+                        List<Card> deckList = [];
 
-                List<String> text = controller.text.split("\n");
-                final regex = RegExp(r'^(\d)\s(.+)$');
-                for (String name in text) {
-                  var regexMatch = regex.allMatches(name);
-                  int count = int.parse(regexMatch.first[1]!);
-                  String cardName = regexMatch.first[2]!;
-                  Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == cardName);
-                  if (matchedCard == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Card not found: '$name'")));
-                    return;
-                  }
-                  for (int i = 0; i < count; i++) {
-                    deckList.add(matchedCard);
-                  }
-                }
+                        List<String> text = controller.text.split("\n");
+                        final regex = RegExp(r'^(\d)\s(.+)$');
+                        for (String name in text) {
+                          var regexMatch = regex.allMatches(name);
+                          try {
+                            int count = int.parse(regexMatch.first[1]!);
+                            String cardName = regexMatch.first[2]!;
+                            Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == cardName);
+                            if (matchedCard == null) {
+                              ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text("Card not found: '$cardName'")));
+                              return;
+                            }
+                            for (int i = 0; i < count; i++) {
+                              deckList.add(matchedCard);
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text("Incorrect format for '$name'")));
+                            return;
+                          }
+                        }
 
-                _deckStorage.saveNewDeck(DateTime.now(), deckList).then((_) {
-                  refreshDecks();
-                  Navigator.of(context).pop();
-                });
-              },
-              child: const Text("Save")
+                        _deckStorage.saveNewDeck(DateTime.now(), deckList).then((_) {
+                          refreshDecks();
+                          Navigator.of(context).pop();
+                        });
+                      },
+                      child: const Text("Save")
+                  )
+                ],
+              ),
+            )
           )
-        ],
+        )
       )
     );
   }
