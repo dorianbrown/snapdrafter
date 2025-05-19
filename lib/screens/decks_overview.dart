@@ -713,7 +713,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       width: 50,
       child: WheelPicker(
         controller: controller,
-        selectedIndexColor: Colors.white,
+        selectedIndexColor: Theme.of(context).hintColor,
         looping: false,
         builder: (context, index) => Text((3 - index).toString(), style: TextStyle(fontSize: 24),),
         style: WheelPickerStyle(

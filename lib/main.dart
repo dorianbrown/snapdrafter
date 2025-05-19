@@ -23,9 +23,25 @@ Future<void> main() async {
   // TODO: Remove after polishing animations
   timeDilation = 1.0;
 
+  final ThemeData lightTheme = ThemeData(
+    brightness: Brightness.light,
+    primaryColor: Colors.deepPurpleAccent,
+    focusColor: Colors.deepPurpleAccent,
+    highlightColor: Colors.green
+  );
+
+  final ThemeData darkTheme = ThemeData(
+    brightness: Brightness.dark,
+    primaryColor: Colors.deepPurple,
+    focusColor: Colors.blueAccent,
+    highlightColor: Colors.lightGreen
+  );
+
   runApp(
     MaterialApp(
-      theme: ThemeData.dark(),
+      theme: lightTheme,
+      darkTheme: darkTheme,
+      themeMode: ThemeMode.system,
       home: MyDecksOverview(),
       navigatorObservers: [routeObserver],
     ),

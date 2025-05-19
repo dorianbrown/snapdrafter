@@ -26,6 +26,7 @@ class DeckScannerState extends State<DeckScanner> {
         body: CameraAwesomeBuilder.awesome(
           saveConfig: SaveConfig.photo(),
           sensorConfig: SensorConfig.single(
+            sensor: Sensor.position(SensorPosition.back),
             zoom: 0.0,
           ),
           previewFit: CameraPreviewFit.contain,

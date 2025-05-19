@@ -31,6 +31,11 @@ class _SettingsState extends State<Settings> {
 
   @override
   Widget build(BuildContext context) {
+
+    final TextStyle subtitleColor = TextStyle(
+        color: Theme.of(context).hintColor
+    );
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: Container(
@@ -40,7 +45,7 @@ class _SettingsState extends State<Settings> {
             ListTile(
               title: Text("Cubes"),
               leading: Icon(Icons.view_in_ar),
-              subtitle: Text("Manage your cubes", style: TextStyle(color: Colors.white38),),
+              subtitle: Text("Manage your cubes", style: subtitleColor),
               onTap: () {
                 Navigator.push(
                   context,
@@ -51,7 +56,7 @@ class _SettingsState extends State<Settings> {
             ListTile(
               title: Text("Scryfall"),
               leading: Icon(Icons.download),
-              subtitle: Text("Manage your local scryfall database", style: TextStyle(color: Colors.white38),),
+              subtitle: Text("Manage your local scryfall database", style: subtitleColor),
               onTap: () {
                 Navigator.push(
                   context,
@@ -59,10 +64,21 @@ class _SettingsState extends State<Settings> {
                 );
               },
             ),
+            // ListTile(
+            //   title: Text("Themes"),
+            //   leading: Icon(Icons.settings_display),
+            //   subtitle: Text("Choose from Light, Dark or Auto", style: subtitleColor),
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(builder: (context) => DownloadScreen()),
+            //     );
+            //   },
+            // ),
             ListTile(
               title: Text("Backup / Restore"),
               leading: Icon(Icons.sd_card),
-              subtitle: Text("Save decks to local storage", style: TextStyle(color: Colors.white38)),
+              subtitle: Text("Save decks to local storage", style: subtitleColor),
               onTap: () {
                 Navigator.push(
                   context,
@@ -73,7 +89,7 @@ class _SettingsState extends State<Settings> {
             ListTile(
               title: Text("User Name"),
               leading: Icon(Icons.person),
-              subtitle: Text("Details for sharing decklists", style: TextStyle(color: Colors.white38)),
+              subtitle: Text("Details for sharing decklists", style: subtitleColor),
               onTap: () {
                 Navigator.push(
                   context,
@@ -84,7 +100,7 @@ class _SettingsState extends State<Settings> {
             ListTile(
               title: Text("Help"),
               leading: Icon(Icons.question_mark),
-              subtitle: Text("Useful information about using this app", style: TextStyle(color: Colors.white38)),
+              subtitle: Text("Useful information about using this app", style: subtitleColor),
               onTap: () {
                 Navigator.push(
                   context,
@@ -94,8 +110,11 @@ class _SettingsState extends State<Settings> {
             ),
             ListTile(
               title: Text("Donations"),
-              leading: Icon(Icons.monetization_on, color: Colors.lightGreen),
-              subtitle: Text("Donate and support the development of this app", style: TextStyle(color: Colors.white38)),
+              leading: Icon(
+                  Icons.monetization_on,
+                  color: Theme.of(context).highlightColor
+              ),
+              subtitle: Text("Donate and support the development of this app", style: subtitleColor),
               onTap: () {
                 Navigator.push(
                   context,
@@ -106,7 +125,7 @@ class _SettingsState extends State<Settings> {
             ListTile(
               title: Text("About"),
               leading: Icon(Icons.info),
-              subtitle: Text("Information about the app", style: TextStyle(color: Colors.white38)),
+              subtitle: Text("Information about the app", style: subtitleColor),
               onTap: () {
                 showAboutDialog(
                   context: context,

@@ -40,7 +40,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
   Widget build(BuildContext context) {
     final metadataStyle = TextStyle(
       fontStyle: FontStyle.italic,
-      color: Colors.white38
+      color: Theme.of(context).hintColor
     );
     return Scaffold(
       appBar: AppBar(title: const Text('Scryfall Download')),
