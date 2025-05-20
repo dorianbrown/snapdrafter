@@ -96,22 +96,15 @@ class Card {
   }
 
   String color() {
-    switch (colors) {
-      case "W":
-        return "White";
-      case "U":
-        return "Blue";
-      case "B":
-        return "Black";
-      case "R":
-        return "Red";
-      case "G":
-        return "Green";
-      case "":
-        return "Colorless";
-      default:
-        return "Multicolor";
-    }
+    return switch (colors) {
+      "W" => "White",
+      "U" => "Blue",
+      "B" => "Black",
+      "R" => "Red",
+      "G" => "Green",
+      "" => "Colorless",
+      _ => "Multicolor"
+    };
   }
 
   Widget createManaCost() {
