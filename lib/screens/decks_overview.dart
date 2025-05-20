@@ -242,7 +242,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     Spacer(flex: 4),
                     Text("No decks found", style: TextStyle(fontSize: 20)),
                     Spacer(flex: 3),
-                    Text('Use the "+" button below to add a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Colors.white38)),
+                    Text('Use the "+" button below to add a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Theme.of(context).hintColor)),
                     Spacer(flex: 3)
                   ]
                 )
@@ -264,7 +264,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 Expanded(
                   child: ListView.separated(
                     itemCount: filteredDecks.length,
-                    separatorBuilder: (context, index) => Divider(indent: 20, endIndent: 20, color: Colors.white12),
+                    separatorBuilder: (context, index) => Divider(indent: 20, endIndent: 20),
                     itemBuilder: (context, index) {
                       return generateSlidableDeckTile(filteredDecks, sets, cubes, index);
                     },
@@ -304,7 +304,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   controller: controller,
                   decoration: InputDecoration(
                       hintText: "1 Mox Jet\n1 Black Lotus\n1 ...",
-                      hintStyle: TextStyle(color: Colors.white54)
+                      hintStyle: TextStyle(color: Theme.of(context).hintColor)
                   ),
                 ),
                 actions: [

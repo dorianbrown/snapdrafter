@@ -20,6 +20,7 @@ class DownloadScreen extends StatefulWidget {
 
 class _DownloadScreenState extends State<DownloadScreen> {
   ValueNotifier downloadProgressNotifier = ValueNotifier(0);
+  final models.DeckChangeNotifier _changeNotifier = models.DeckChangeNotifier();
   int totalBytes = 0;
   bool isDownloading = false;
   late DeckStorage deckStorage;
@@ -103,8 +104,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
                     ,
                     style: const TextStyle(
                         fontSize: 20.0,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white),
+                        fontWeight: FontWeight.w600),
                   )
                   : ElevatedButton(onPressed: () {
                     isDownloading = true;
@@ -236,6 +236,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     await deckStorage.populateCardsTable(cards, scryfallMetadata).then((val) async {
       final cardsInDb = await deckStorage.countRows("cards");
       debugPrint("Cards in db: $cardsInDb");
+      _changeNotifier.markNeedsRefresh();
       if (context.mounted) {
         Navigator.of(context).pop();
       }

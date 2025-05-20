@@ -46,7 +46,6 @@ class _UserSettingsState extends State<UserSettings> {
                   },
                   decoration: InputDecoration(
                       hintText: "Username",
-                      hintStyle: TextStyle(color: Colors.white54)
                   ),
                 )
               ]
