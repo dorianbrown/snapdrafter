@@ -4,7 +4,7 @@ name: Build
 # Controls what will trigger the workflow. Change it to your needs.
 on:
   push:
-    branches: [ "release" ]
+    branches: [ "qa" ]
   workflow_dispatch:
 
 # A single workflow can have multiple jobs.
@@ -55,5 +55,6 @@ jobs:
           releaseFiles: ${{ steps.sign_app.outputs.signedReleaseFile }}
           mappingFile: ./build/app/outputs/mapping/release/mapping.txt
           debugSymbols: ./build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib
+          whatsNewDirectory: ./whatsnew
           track: internal
           status: completed
