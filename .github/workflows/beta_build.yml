@@ -1,5 +1,5 @@
 # Name of the workflow
-name: Build
+name: Publish to open/closed beta
 
 # Controls what will trigger the workflow. Change it to your needs.
 on:
