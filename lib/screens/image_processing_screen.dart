@@ -24,8 +24,7 @@ class deckImageProcessing extends StatefulWidget {
       {super.key, required this.filePath, required this.orientation});
 
   @override
-  _deckImageProcessingState createState() =>
-      _deckImageProcessingState(filePath, orientation);
+  _deckImageProcessingState createState() => _deckImageProcessingState(filePath, orientation);
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
