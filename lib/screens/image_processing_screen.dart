@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' hide Card;
+import 'package:flutter/material.dart' hide Card, Orientation;
 import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
@@ -13,23 +13,26 @@ import 'detection_preview.dart';
 import '/utils/data.dart';
 import '/utils/utils.dart';
 import '/utils/models.dart';
+import '/models/orientation.dart';
 
 DeckStorage _deckStorage = DeckStorage();
 
 class deckImageProcessing extends StatefulWidget {
-  final img.Image? inputImage;
-  final String? filePath;
-  const deckImageProcessing({super.key, this.inputImage, this.filePath});
+  final String filePath;
+  final Orientation orientation;
+  const deckImageProcessing(
+      {super.key, required this.filePath, required this.orientation});
 
   @override
-  _deckImageProcessingState createState() => _deckImageProcessingState(inputImage, filePath);
+  _deckImageProcessingState createState() =>
+      _deckImageProcessingState(filePath, orientation);
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
   // Class inputs
-  final img.Image? inputImage;
-  final String? filePath;
-  _deckImageProcessingState(this.inputImage, this.filePath);
+  final String filePath;
+  final Orientation orientation;
+  _deckImageProcessingState(this.filePath, this.orientation);
 
   late Interpreter _detector;
   late TextRecognizer _textRecognizer;
@@ -61,20 +64,24 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   }
 
   Future processInputImage() async {
-    if (inputImage != null) {
-      decodedImage = inputImage!;
-    } else {
-      // Try reading file until it exists
-      int i=0;
-      while (!File(filePath!).existsSync()) {
-        i++;
-        debugPrint("Attempt to read image file $i");
-        await Future.delayed(Duration(milliseconds: 100));
-      }
-      Uint8List fileBytes = await File(filePath!).readAsBytes();
-      decodedImage = img.decodeImage(fileBytes)!;
-      debugPrint("Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
+    // Try reading file until it exists
+    int i = 0;
+    while (!File(filePath).existsSync()) {
+      i++;
+      debugPrint("Attempt to read image file $i");
+      await Future.delayed(Duration(milliseconds: 100));
     }
+    Uint8List fileBytes = await File(filePath).readAsBytes();
+    decodedImage = img.decodeImage(fileBytes)!;
+    bool isLandscape = decodedImage.width > decodedImage.height;
+    if (isLandscape && orientation == Orientation.portrait) {
+      decodedImage = img.copyRotate(decodedImage, angle: 90);
+    }
+    if (!isLandscape && orientation == Orientation.landscape) {
+      decodedImage = img.copyRotate(decodedImage, angle: -90);
+    }
+    debugPrint(
+        "Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
   }
 
   Future<void> _loadModels() async {
@@ -310,11 +317,11 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     List<List<int>> detections = (outputTensor[0] as List<List<double>>)
         .where((element) => (element[4] > detectionThreshold))
         .map((el) => [
-      (el[0] * scalingFactor - widthPadding).toInt(),
-      (el[1] * scalingFactor - heightPadding).toInt(),
-      (el[2] * scalingFactor - widthPadding).toInt(),
-      (el[3] * scalingFactor - heightPadding).toInt()
-    ])
+          (el[0] * scalingFactor - widthPadding).toInt(),
+          (el[1] * scalingFactor - heightPadding).toInt(),
+          (el[2] * scalingFactor - widthPadding).toInt(),
+          (el[3] * scalingFactor - heightPadding).toInt()
+        ])
         .toList();
 
     return detections;

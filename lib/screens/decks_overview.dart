@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:flutter/material.dart' hide Card;
+import 'package:flutter/material.dart' hide Card, Orientation;
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
@@ -13,6 +13,7 @@ import '/utils/utils.dart';
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/widgets/deck_tile.dart';
+import '/models/orientation.dart';
 import 'deck_viewer.dart';
 import 'deck_scanner.dart';
 import 'settings/download_screen.dart';
@@ -150,10 +151,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               final ImagePicker picker = ImagePicker();
               final XFile? image = await picker.pickImage(source: ImageSource.gallery);
               if (image != null) {
-                img.Image inputImage = img.decodeImage(File(image.path).readAsBytesSync())!;
                 await Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (context) => deckImageProcessing(inputImage: inputImage)
+                        builder: (context) => deckImageProcessing(filePath: image.path, orientation: Orientation.auto,)
                     )
                 );
               }
