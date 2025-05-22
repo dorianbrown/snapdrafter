@@ -1,1 +1,2 @@
 - Added orientation override button to Deck Scanner
+- Retrained title detection model with larger training dataset, should improve accuracy

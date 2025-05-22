@@ -89,7 +89,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       if (Platform.isAndroid) {
         // options.addDelegate(GpuDelegateV2());
       }
-      final modelPath = 'assets/run22_fp16.tflite';
+      final modelPath = 'assets/20250522_fp16.tflite';
       _detector = await Interpreter.fromAsset(modelPath, options: options);
       _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
       setState(() {});
