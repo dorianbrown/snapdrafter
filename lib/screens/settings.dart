@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'settings/download_screen.dart';
 import 'settings/cube.dart';
@@ -198,6 +199,17 @@ class _SettingsState extends State<Settings> {
                   MaterialPageRoute(builder: (context) => DonationScreen()),
                 );
               },
+            ),
+            ListTile(
+              title: Text("Feedback"),
+              leading: Icon(
+                  Icons.discord
+              ),
+              subtitle: Text("Join the discussion in our Discord server", style: subtitleColor),
+              onTap: () {
+                String url = "https://discord.gg/8xeUfEHxxY";
+                launchUrl(Uri.parse(url));
+              }
             ),
             ListTile(
               title: Text("About"),
