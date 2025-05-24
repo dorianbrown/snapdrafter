@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '/utils/data.dart';
-import 'screens/decks_overview.dart';
+import 'screens/start_screen.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
 
@@ -49,7 +49,7 @@ class MainApp extends StatelessWidget {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeNotifier.themeMode,
-          home: MyDecksOverview(),
+          home: StartScreen(),
         );
       },
     );
