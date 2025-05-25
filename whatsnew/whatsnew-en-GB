@@ -1,2 +1,2 @@
 - Added Feedback section in settings menu which gives an invite to the Discord server.
-- Created the scaffolding for statistics, and added a very simple 'Most Played Cards' table. This is very much a work in progress.
+- Created the scaffolding for displaying statistics, and added a very simple 'Most Played Cards' table.

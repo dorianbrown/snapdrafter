@@ -82,11 +82,11 @@ class CardStatisticsState extends State<CardStatistics> {
                 ]
               )).toList();
 
-              widget = SingleChildScrollView(
-                child: DataTable(
-                    columns: columns,
-                    rows: rows
-                ),
+              widget = PaginatedDataTable(
+                rowsPerPage: 10,
+                showFirstLastButtons: true,
+                columns: columns,
+                source: ListDataSource(cardWinRates),
               );
 
             }
@@ -98,4 +98,32 @@ class CardStatisticsState extends State<CardStatistics> {
       )
     );
   }
+}
+
+class ListDataSource extends DataTableSource {
+  List<dynamic> listSource;
+  ListDataSource(this.listSource);
+
+  @override
+  int get rowCount => listSource!.length;
+
+  @override
+  DataRow? getRow(int index) {
+
+    List<dynamic> rowList = listSource![index].row;
+
+    List<DataCell> cells = rowList
+        .map((val) => DataCell(Text(val.toString())))
+        .toList();
+
+    return DataRow(
+      cells: cells
+    );
+  }
+
+  @override
+  bool get isRowCountApproximate => false;
+
+  @override
+  int get selectedRowCount => 0;
 }
