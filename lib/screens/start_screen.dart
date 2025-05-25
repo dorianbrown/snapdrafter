@@ -94,8 +94,8 @@ class StartScreenState extends State<StartScreen> with TickerProviderStateMixin 
               Text("In case you find a bug, have ideas for how things could "
                 "be improved, or features that are missing, I'd love to hear "
                   "your feedback."),
-              Text("Look for the 'Private feedback to developer' section in the "
-                  "app's Play Store page."),
+              Text("Clicking 'Settings > Feedback' will give you an invite to"
+                  "the SnapDrafter Discord server."),
               SizedBox(height: paragraphBreak,),
               Text("Getting Started", style: titleStyle,),
               Text("I try to make the interface as intuitive as possible, but "
