@@ -596,7 +596,8 @@ class DeckViewerState extends State<DeckViewer> {
     final getAttribute = (groupingAttribute == "type")
         ? (card) => card.type
         : (card) => card.color();
-    final uniqueGroupings = (groupingAttribute == "type") ? typeOrder : colorOrder;
+    final uniqueGroupings =
+    (groupingAttribute == "type") ? typeOrder : colorOrder;
 
     // Here we loop over unique groupings and generate the widgets for each grouping
     for (String attribute in uniqueGroupings) {
