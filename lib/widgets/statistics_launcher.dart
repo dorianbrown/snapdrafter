@@ -67,6 +67,22 @@ class StatisticsLauncherState extends State<StatisticsLauncher> with TickerProvi
                 final sets = snapshot.data![1] as List<Set>;
                 final cubes = snapshot.data![2] as List<Cube>;
 
+                if (decks.isEmpty) {
+                  return Center(
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          spacing: 20,
+                          children: [
+                            Spacer(flex: 4),
+                            Text("No decks found", style: TextStyle(fontSize: 20)),
+                            Spacer(flex: 3),
+                            Text('Use the "+" button below to add a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Theme.of(context).hintColor)),
+                            Spacer(flex: 3)
+                          ]
+                      )
+                  );
+                }
+
                 List<Cube> playedCubesList = decks
                     .map((deck) => deck.cubecobraId)
                     .where((cubeId) => cubeId != null)
@@ -77,29 +93,6 @@ class StatisticsLauncherState extends State<StatisticsLauncher> with TickerProvi
                     .where((setId) => setId != null)
                     .map((setId) => sets.firstWhere((set) => set.code == setId))
                     .toSet().toList();
-
-                if (playedCubesList.isEmpty && playedSetsList.isEmpty) {
-                  return Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          spacing: 20,
-                          children: [
-                            Spacer(flex: 4),
-                            Text("No decks found", style: TextStyle(fontSize: 20)),
-                            Spacer(flex: 1),
-                            Text('Add more decks and use the `Edit` \nbutton to add metadata',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                    fontSize: 16,
-                                    fontStyle: FontStyle.italic,
-                                    color: Theme.of(context).hintColor
-                                )
-                            ),
-                            Spacer(flex: 3)
-                          ]
-                      )
-                  );
-                }
 
                 int countCubeDecks(String cubeId) {
                   return decks
