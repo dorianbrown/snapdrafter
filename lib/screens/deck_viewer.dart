@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
@@ -10,6 +11,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '/utils/data.dart';
 import '/utils/models.dart';
@@ -36,6 +38,7 @@ class DeckViewerState extends State<DeckViewer> {
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
   List<Card>? allCards;
   late DeckStorage _deckStorage;
+  Uint8List? cachedShareImageBytes;
   List<String> renderValues = ["text", "type"];
   bool? showManaCurve = false;
   // These are used for dropdown menus controlling how decklist is displayed
@@ -143,13 +146,18 @@ class DeckViewerState extends State<DeckViewer> {
 
   Future shareDeck(Deck deck) async {
 
-    img.Image? image = await generateDeckImage(deck);
-
-    // Convert to memory bytes
-    Uint8List bytes = Uint8List.fromList(img.encodePng(image));
+    Uint8List? imageBytes;
+    if (cachedShareImageBytes != null) {
+      imageBytes = cachedShareImageBytes;
+    } else {
+      img.Image image = await generateDeckImage(deck);
+      // Convert to memory bytes
+      imageBytes = Uint8List.fromList(img.encodePng(image));
+      cachedShareImageBytes = imageBytes;
+    }
 
     final params = ShareParams(
-      files: [XFile.fromData(bytes, mimeType: 'image/png')]
+      files: [XFile.fromData(imageBytes!, mimeType: 'image/png')]
     );
 
     SharePlus.instance.share(params);
@@ -190,6 +198,8 @@ class DeckViewerState extends State<DeckViewer> {
       deck.cards = cardsCopy;
       _notifier.markNeedsRefresh();
     });
+    // Invalidate cache for share_image
+    cachedShareImageBytes = null;
     _deckStorage.updateDecklist(deck.id, cardsCopy).then((_) {
       Navigator.of(context).pop();
     });
