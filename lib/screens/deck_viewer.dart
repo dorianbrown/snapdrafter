@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
 import 'package:diffutil_dart/diffutil.dart';
 import 'package:collection/collection.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -107,7 +108,7 @@ class DeckViewerState extends State<DeckViewer> {
               ],
             ),
           ),
-          bottomNavigationBar: BottomAppBar(
+            bottomNavigationBar: BottomAppBar(
             height: 65,
             child: Row(
               children: [
@@ -124,7 +125,14 @@ class DeckViewerState extends State<DeckViewer> {
                 Spacer(),
                 IconButton(
                   tooltip: "Share to CubeCobra",
-                  icon: Icon(Icons.build_circle_outlined),
+                  icon: SvgPicture.asset("assets/app_icons/monochrome_cubecobra.svg",
+                    height: 28,
+                    colorFilter: ColorFilter.mode(
+                      // Theme.of(context).iconTheme.color!,
+                      Theme.of(context).unselectedWidgetColor,
+                      BlendMode.srcIn
+                    ),
+                  ),
                   onPressed: () {
                     Uri cubecobraUri = Uri(
                       scheme: "https",
