@@ -12,9 +12,9 @@ import 'models.dart';
 class DeckStorage {
   late Database _database;
   late List<Card> _allCards;
-  var cardsLoaded = false;
+  var _cardsLoaded = false;
   final String _databaseName = 'draftTracker.db';
-  final int _databaseVersion = 1;
+  final int _databaseVersion = 2;
 
   DeckStorage._privateConstructor();
   static final DeckStorage _instance = DeckStorage._privateConstructor();
@@ -27,6 +27,7 @@ class DeckStorage {
       join(await getDatabasesPath(), _databaseName),
       version: _databaseVersion,
       onCreate: (db, version) {
+        // Decks and Cards
         db.execute(
             """
           CREATE TABLE cards(
@@ -38,7 +39,9 @@ class DeckStorage {
             image_uri TEXT,
             colors TEXT,
             mana_cost TEXT,
-            mana_value INTEGER NOT NULL)
+            mana_value INTEGER NOT NULL,
+            produced_mana TEXT
+          )
           """
         );
         db.execute(
@@ -60,6 +63,28 @@ class DeckStorage {
             scryfall_id TEXT NOT NULL)
           """
         );
+        // Token related tables
+        db.execute(
+          """
+          CREATE TABLE cards_to_tokens(
+            id INTEGER PRIMARY KEY,
+            card_scryfall_id STRING NOT NULL,
+            token_oracle_id STRING NOT NULL
+          )
+          """
+        );
+        db.execute(
+          """
+          CREATE TABLE tokens(
+            id INTEGER PRIMARY KEY,
+            oracle_id STRING NOT NULL,
+            name STRING NOT NULL,
+            image_uri STRING NOT NULL
+          )
+          """
+        );
+
+        // Card Collections
         db.execute(
           """
           CREATE TABLE scryfall_metadata(
@@ -98,6 +123,35 @@ class DeckStorage {
           """
         );
         debugPrint("sqflite tables created");
+      },
+      onUpgrade: (db, oldVersion, newVersion) {
+        // Create new tables non-existent in V1
+        db.execute(
+          """
+          CREATE TABLE cards_to_tokens(
+            id INTEGER PRIMARY KEY,
+            card_scryfall_id STRING NOT NULL,
+            token_oracle_id STRING NOT NULL
+          )
+          """
+        );
+        db.execute(
+          """
+          CREATE TABLE tokens(
+            id INTEGER PRIMARY KEY,
+            oracle_id STRING NOT NULL,
+            name STRING NOT NULL,
+            image_uri STRING NOT NULL
+          )
+          """
+        );
+        // Upgrade altered tables
+        db.execute(
+          """
+          ALTER TABLE cards
+          ADD produced_mana TEXT
+          """
+        );
       },
     );
   }
@@ -174,7 +228,7 @@ class DeckStorage {
   }
 
   Future<List<Card>> getAllCards() async {
-    if (!cardsLoaded) {
+    if (!_cardsLoaded) {
       final result = await _database.query('cards');
       _allCards = [
         for (final {
@@ -201,7 +255,7 @@ class DeckStorage {
           )
       ];
       if (_allCards.isNotEmpty) {
-        cardsLoaded = true;
+        _cardsLoaded = true;
       }
     }
     return _allCards;
@@ -408,6 +462,29 @@ class DeckStorage {
       }
       
       await batch.commit();
+    });
+  }
+
+  Future<void> saveTokenList(List<Token> tokens) async {
+    _database.transaction((txn) async {
+      var batch = txn.batch();
+      for (final token in tokens) {
+        batch.insert(
+          "tokens",
+          token.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace
+        );
+        for (final cardId in token.cardScryfallIds) {
+          batch.insert(
+            "cards_to_tokens",
+            {
+              "card_scryfall_id": cardId,
+              "token_oracle_id": token.oracleId
+            }
+          );
+        }
+      }
+      batch.commit();
     });
   }
 }

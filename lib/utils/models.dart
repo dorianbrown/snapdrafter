@@ -13,6 +13,7 @@ class Card {
   final String? colors;  // ('R','WUBRG')
   final String? manaCost;
   final int manaValue;
+  final String? producedMana;
 
   const Card({
     required this.scryfallId,
@@ -21,9 +22,10 @@ class Card {
     required this.title,
     required this.type,
     required this.imageUri,
-    required this.colors,
-    required this.manaCost,
-    required this.manaValue
+    this.colors,
+    this.manaCost,
+    required this.manaValue,
+    this.producedMana
   });
 
   // Equality operator for comparing cards
@@ -46,7 +48,8 @@ class Card {
       "image_uri": imageUri,
       "colors": colors,
       "mana_cost": manaCost,
-      "mana_value": manaValue
+      "mana_value": manaValue,
+      "produced_mana": producedMana
     };
     return map;
   }
@@ -91,7 +94,8 @@ class Card {
       imageUri: map["image_uri"],
       colors: map["colors"],
       manaCost: map["mana_cost"],
-      manaValue: map["mana_value"]
+      manaValue: map["mana_value"],
+      producedMana: map["produced_mana"]
     );
   }
 
@@ -384,6 +388,29 @@ class DeckChangeNotifier extends ChangeNotifier {
 
   void clearRefresh() {
     _needsRefresh = false;
+  }
+}
+
+class Token {
+  final String oracleId;
+  final String name;
+  final String imageUri;
+  final List<String> cardScryfallIds;
+
+  Token({
+    required this.oracleId,
+    required this.name,
+    required this.imageUri,
+    required this.cardScryfallIds
+  });
+
+  Map<String, Object?> toMap() {
+    var map = {
+      'oracleId': oracleId,
+      'name': name,
+      'image_uri': imageUri
+    };
+    return map;
   }
 }
 

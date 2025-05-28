@@ -166,6 +166,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
       String colors = "";
       String manaCost = "";
       String imageUri = "";
+      String? producedMana;
       for (String type in validTypes) {
         if (val["type_line"].contains(type)) {
           cardType = type;
@@ -177,10 +178,12 @@ class _DownloadScreenState extends State<DownloadScreen> {
         imageUri = val["card_faces"][0]["image_uris"]["normal"];
         colors = val["card_faces"][0]["colors"].join("");
         manaCost = val["card_faces"][0]["mana_cost"];
+        producedMana = val["card_faces"][0]["produced_mana"] ?? val["card_faces"][1]["produced_mana"];
       } else {
         imageUri = val["image_uris"]["normal"];
         colors = val["colors"].join("");
         manaCost = val["mana_cost"];
+        producedMana = val["produced_mana"]?.join("");
       }
 
       return models.Card(
@@ -193,10 +196,12 @@ class _DownloadScreenState extends State<DownloadScreen> {
           imageUri: imageUri,
           manaCost: manaCost,
           manaValue: val["cmc"].toInt(),
+          producedMana: producedMana
       );
     }
 
     List<models.Card> cards = [];
+    Map<String, Map<String, dynamic>> tokens = {};
     String newestRelease = "1900-01-01";
     Map<String, dynamic> scryfallMetadata = {
       "id": 1,
@@ -205,7 +210,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     // This function allows us to parse elements from the stream, without
     // handling the entire json object. Might be a better way, but for now this
     // works.
-    reviver (key, val) {
+    reviver (key, val) async {
       if (val is Map && validLayouts.contains(val["layout"])) {
         if (val["card_faces"] == null && val["image_uris"] == null) {
           return null;
@@ -219,6 +224,33 @@ class _DownloadScreenState extends State<DownloadScreen> {
           newestRelease = val["released_at"];
           scryfallMetadata["newest_set_name"] = val["set_name"];
         }
+
+        // Get any tokens relevant to cards
+        // if (val["all_parts"] != null) {
+        //   String cardScryfallId = val["id"];
+        //   final allParts = val["all_parts"];
+        //   final tokenParts = allParts
+        //       .where((el) => el["component"] == "token")
+        //       .toList();
+        //   for (final part in tokenParts) {
+        //     final response = await http.get(Uri.parse(part["uri"]));
+        //     final body = jsonDecode(response.body);
+        //     String tokenScryfallId = part["id"];
+        //     // If doesn't exist, create a token map
+        //     if (!tokens.containsKey(tokenScryfallId)) {
+        //       tokens[tokenScryfallId] = {
+        //         "cards": [cardScryfallId],
+        //         "name": part["name"],
+        //         "token_uri": part["uri"]
+        //       };
+        //     }
+        //     // if it does, just add this card to the token map
+        //     else {
+        //       tokens[tokenScryfallId]!["cards"].add(cardScryfallId);
+        //     }
+        //   }
+        // }
+
         cards.add(mapToCard(val));
         return null;
       } else {
@@ -232,6 +264,13 @@ class _DownloadScreenState extends State<DownloadScreen> {
         .transform(JsonDecoder(reviver))
         .listen(null, onDone: () {completer.complete();});
     await completer.future;
+
+    // deckStorage.saveTokenList(tokens.entries.map((entry) => models.Token(
+    //     oracleId: entry.key,
+    //     name: entry.value["name"],
+    //     imageUri: entry.value["image_uri"],
+    //     cardScryfallIds: entry.value["cards"]
+    // )).toList());
 
     await deckStorage.populateCardsTable(cards, scryfallMetadata).then((val) async {
       final cardsInDb = await deckStorage.countRows("cards");
