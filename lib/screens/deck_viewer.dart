@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
@@ -11,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/data.dart';
 import '/utils/models.dart';
@@ -122,6 +122,21 @@ class DeckViewerState extends State<DeckViewer> {
                   onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
                 ),
                 Spacer(),
+                IconButton(
+                  tooltip: "Share to CubeCobra",
+                  icon: Icon(Icons.build_circle_outlined),
+                  onPressed: () {
+                    Uri cubecobraUri = Uri(
+                      scheme: "https",
+                      host: "cubecobra.com",
+                      path: "cube/records/import",
+                      queryParameters: {
+                        "o": deck.cards.map((card) => card.oracleId).toList()
+                      }
+                    );
+                    launchUrl(cubecobraUri);
+                  },
+                ),
                 IconButton(
                   tooltip: "Edit",
                   icon: Icon(Icons.edit),
