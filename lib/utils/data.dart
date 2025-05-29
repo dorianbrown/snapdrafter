@@ -68,7 +68,7 @@ class DeckStorage {
           """
           CREATE TABLE cards_to_tokens(
             id INTEGER PRIMARY KEY,
-            card_scryfall_id STRING NOT NULL,
+            card_oracle_id STRING NOT NULL,
             token_oracle_id STRING NOT NULL
           )
           """
@@ -130,7 +130,7 @@ class DeckStorage {
           """
           CREATE TABLE cards_to_tokens(
             id INTEGER PRIMARY KEY,
-            card_scryfall_id STRING NOT NULL,
+            card_oracle_id STRING NOT NULL,
             token_oracle_id STRING NOT NULL
           )
           """
@@ -474,17 +474,33 @@ class DeckStorage {
           token.toMap(),
           conflictAlgorithm: ConflictAlgorithm.replace
         );
-        for (final cardId in token.cardScryfallIds) {
-          batch.insert(
-            "cards_to_tokens",
-            {
-              "card_scryfall_id": cardId,
-              "token_oracle_id": token.oracleId
-            }
-          );
-        }
       }
       batch.commit();
     });
+  }
+
+  getDeckTokens(int deckId) async {
+    // final result = await _database.rawQuery("""
+    //   SELECT
+	  //     C.name as card_name,
+    //     T.name as token_name,
+    //     T.oracle_id as token_oracle_id,
+    //     T.image_uri as token_image
+    //   FROM decklists D
+    //     INNER JOIN cards C on D.scryfall_id = C.scryfall_id
+    //     INNER JOIN cards_to_tokens CT on D.scryfall_id = CT.card_scryfall_id
+    //     INNER JOIN tokens T on CT.token_oracle_id = T.oracle_id
+    //   WHERE deck_id = ?
+    // """, [deckId]);
+    //
+    // // Return list of maps: str 'image', str 'name', list<str> 'cards'
+    // final resultsList = [for (final res in result) {
+    //   "card_name": res["card_name"],
+    //   "token_name": res["token_name"],
+    //   "token_oracle_id": res["token_oracle_id"],
+    //   "token_image": res["token_image"],
+    // }];
+    //
+    // return;
   }
 }

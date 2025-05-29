@@ -121,6 +121,11 @@ class DeckViewerState extends State<DeckViewer> {
                   icon: Icon(Icons.landscape),
                   onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
                 ),
+                IconButton(
+                    tooltip: "Show Deck Tokens",
+                    icon: Icon(Icons.cruelty_free),
+                    onPressed: () => showDeckTokens(deck.id)
+                ),
                 Spacer(),
                 IconButton(
                   tooltip: "Edit",
@@ -141,6 +146,10 @@ class DeckViewerState extends State<DeckViewer> {
           ),
       )
     );
+  }
+
+  Future showDeckTokens(int deckId) async {
+    await _deckStorage.getDeckTokens(deckId);
   }
 
   Future shareDeck(Deck deck) async {
