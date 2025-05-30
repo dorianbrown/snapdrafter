@@ -203,6 +203,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     List<models.Card> cards = [];
     List<models.Token> tokens = [];
     List<List<String>> cardTokenMapping = [];
+    Map<String, String> nameOracleMapping = {};
     String newestRelease = "1900-01-01";
     Map<String, dynamic> scryfallMetadata = {
       "id": 1,
@@ -227,6 +228,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
           scryfallMetadata["newest_set_name"] = val["set_name"];
         }
 
+        nameOracleMapping[val["name"]] = val["oracle_id"];
 
         cards.add(mapToCard(val));
         return null;
@@ -236,6 +238,12 @@ class _DownloadScreenState extends State<DownloadScreen> {
         if (val["all_parts"] == null || val["all_parts"].isEmpty) {
           return null;
         }
+
+        List<Map<String, dynamic>> allParts = val["all_parts"]
+            .whereType<Map<String, dynamic>>()
+            .where((obj) => obj["component"] == "combo_piece")
+            .toList();
+        cardTokenMapping.addAll(allParts.map((obj) => [obj["name"] as String, val["oracle_id"] as String]));
 
         tokens.add(
           models.Token(
@@ -260,7 +268,12 @@ class _DownloadScreenState extends State<DownloadScreen> {
         .listen(null, onDone: () {completer.complete();});
     await completer.future;
 
-    deckStorage.saveTokenList(tokens);
+    cardTokenMapping = cardTokenMapping
+        .where((obj) => nameOracleMapping.keys.contains(obj[0]))  // Removes non-cards from mapping
+        .map((obj) => [nameOracleMapping[obj[0]]!, obj[1]])  // maps card names to oracle_ids
+        .toList();
+
+    deckStorage.saveTokenList(tokens, cardTokenMapping);
 
     await deckStorage.populateCardsTable(cards, scryfallMetadata).then((val) async {
       final cardsInDb = await deckStorage.countRows("cards");

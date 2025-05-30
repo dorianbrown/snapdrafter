@@ -149,7 +149,17 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Future showDeckTokens(int deckId) async {
-    await _deckStorage.getDeckTokens(deckId);
+    final deckTokens = await _deckStorage.getDeckTokens(deckId);
+
+    final groupedTokens = deckTokens
+        .groupFoldBy((obj) => obj["token_image"], (Map? obj1, Map obj2) {
+          return obj1 == null
+              ? {"name": obj2["token_name"], "cards": [obj2["card_name"]]}
+              : {"name": obj1["token_name"], "cards": obj1["cards"] + [obj2["card_name"]]};
+        });
+
+    // Create Dialog window to display tokens and associated cards
+
   }
 
   Future shareDeck(Deck deck) async {
