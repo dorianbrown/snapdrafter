@@ -22,14 +22,22 @@ class DisplayToken extends StatelessWidget {
                   child: Image.network(imageUri),
                 )
             ),
-            SizedBox(height: 7,),
+            SizedBox(height: 8,),
             ...cards.map((cardName) => Container(
-              padding: EdgeInsets.all(3),
-              child: Text(
-                "• $cardName",
-                style: TextStyle(
-                  fontSize: 14
-                ),
+              padding: EdgeInsets.all(2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("•  "),
+                  Expanded(
+                    child: Text(
+                      cardName,
+                      style: TextStyle(
+                          fontSize: 14
+                      ),
+                    )
+                  )
+                ],
               ),
             ))
           ],

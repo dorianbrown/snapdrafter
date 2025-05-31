@@ -268,6 +268,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
         .listen(null, onDone: () {completer.complete();});
     await completer.future;
 
+    debugPrint("tokenMapping: ${cardTokenMapping.length}");
+
     cardTokenMapping = cardTokenMapping
         .where((obj) => nameOracleMapping.keys.contains(obj[0]))  // Removes non-cards from mapping
         .map((obj) => [nameOracleMapping[obj[0]]!, obj[1]])  // maps card names to oracle_ids

@@ -68,8 +68,9 @@ class DeckStorage {
         db.execute(
           """
           CREATE TABLE cards_to_tokens(
-            card_oracle_id STRING PRIMARY KEY,
-            token_oracle_id STRING NOT NULL
+            card_oracle_id STRING NOT NULL,
+            token_oracle_id STRING NOT NULL,
+            PRIMARY KEY (card_oracle_id, token_oracle_id)
           )
           """
         );
@@ -128,8 +129,9 @@ class DeckStorage {
         db.execute(
           """
           CREATE TABLE cards_to_tokens(
-            card_oracle_id STRING PRIMARY KEY,
-            token_oracle_id STRING NOT NULL
+            card_oracle_id STRING NOT NULL,
+            token_oracle_id STRING NOT NULL,
+            PRIMARY KEY (card_oracle_id, token_oracle_id)
           )
           """
         );

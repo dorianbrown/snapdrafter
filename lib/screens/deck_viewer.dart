@@ -39,6 +39,7 @@ class DeckViewerState extends State<DeckViewer> {
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
   List<Card>? allCards;
   late DeckStorage _deckStorage;
+  Map groupedTokens = {};
   Uint8List? cachedShareImageBytes;
 
   List<String> renderValues = ["text", "type"];
@@ -61,6 +62,11 @@ class DeckViewerState extends State<DeckViewer> {
   void initState() {
     super.initState();
     _loadCards();
+    _deckStorage.getDeckTokens(deck.id).then((val) {
+      setState(() {
+        groupedTokens = val;
+      });
+    });
   }
 
   Future<void> _loadCards() async {
@@ -127,7 +133,7 @@ class DeckViewerState extends State<DeckViewer> {
                 IconButton(
                     tooltip: "Show Deck Tokens",
                     icon: Icon(Icons.cruelty_free),
-                    onPressed: () => showDeckTokens(deck.id)
+                    onPressed: groupedTokens.isNotEmpty ? () => showDeckTokens(deck.id) : null
                 ),
                 Spacer(),
                 IconButton(
@@ -152,15 +158,15 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Future showDeckTokens(int deckId) async {
-    final groupedTokens = await _deckStorage.getDeckTokens(deckId);
 
     // Create Dialog window to display tokens and associated cards
     showDialog(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text("Tokens"),
-          insetPadding: EdgeInsets.all(15),
+          // title: Text("Tokens"),
+          insetPadding: EdgeInsets.all(30),
+          contentPadding: EdgeInsets.all(10),
           content: Container(
             width: double.maxFinite,
             child: MasonryGridView.count(
@@ -168,8 +174,8 @@ class DeckViewerState extends State<DeckViewer> {
               shrinkWrap: true,
               crossAxisCount: 2,
               itemBuilder: (context, index) => DisplayToken(
-                  imageUri: groupedTokens.keys.toList()[index],
-                  cards: groupedTokens.values.toList()[index]["cards"]
+                imageUri: groupedTokens.keys.toList()[index],
+                cards: groupedTokens.values.toList()[index]["cards"]
               ),
             ),
           ),
