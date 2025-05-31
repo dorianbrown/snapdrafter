@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -485,7 +486,7 @@ class DeckStorage {
     });
   }
 
-  Future<List<Map<String, String>>> getDeckTokens(int deckId) async {
+  Future<Map<String, dynamic>> getDeckTokens(int deckId) async {
     final result = await _database.rawQuery("""
       SELECT  
         C.name as card_name,  
@@ -505,6 +506,12 @@ class DeckStorage {
       "token_image": res["token_image"] as String,
     }];
 
-    return resultsList;
+    final groupedTokens = resultsList.groupFoldBy((obj) => obj["token_image"]!, (Map? obj1, Map obj2) {
+      return obj1 == null
+          ? {"name": obj2["token_name"], "cards": [obj2["card_name"]]}
+          : {"name": obj1["token_name"], "cards": obj1["cards"] + [obj2["card_name"]]};
+    });
+
+    return groupedTokens;
   }
 }

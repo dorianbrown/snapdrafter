@@ -11,10 +11,12 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/utils/deck_image_generator.dart';
+import '/widgets/display_token.dart';
 
 const _headerStyle = TextStyle(
     fontSize: 20,
@@ -38,8 +40,9 @@ class DeckViewerState extends State<DeckViewer> {
   List<Card>? allCards;
   late DeckStorage _deckStorage;
   Uint8List? cachedShareImageBytes;
+
   List<String> renderValues = ["text", "type"];
-  bool? showManaCurve = false;
+  bool? showManaCurve = true;
   // These are used for dropdown menus controlling how decklist is displayed
   TextEditingController displayController = TextEditingController(text: "Text");
   TextEditingController sortingController = TextEditingController(text: "Type");
@@ -149,17 +152,37 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Future showDeckTokens(int deckId) async {
-    final deckTokens = await _deckStorage.getDeckTokens(deckId);
-
-    final groupedTokens = deckTokens
-        .groupFoldBy((obj) => obj["token_image"], (Map? obj1, Map obj2) {
-          return obj1 == null
-              ? {"name": obj2["token_name"], "cards": [obj2["card_name"]]}
-              : {"name": obj1["token_name"], "cards": obj1["cards"] + [obj2["card_name"]]};
-        });
+    final groupedTokens = await _deckStorage.getDeckTokens(deckId);
 
     // Create Dialog window to display tokens and associated cards
-
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: Text("Tokens"),
+          insetPadding: EdgeInsets.all(15),
+          content: Container(
+            width: double.maxFinite,
+            child: MasonryGridView.count(
+              itemCount: groupedTokens.keys.length,
+              shrinkWrap: true,
+              crossAxisCount: 2,
+              itemBuilder: (context, index) => DisplayToken(
+                  imageUri: groupedTokens.keys.toList()[index],
+                  cards: groupedTokens.values.toList()[index]["cards"]
+              ),
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.end,
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("Back")
+            ),
+          ],
+        );
+      }
+    );
   }
 
   Future shareDeck(Deck deck) async {
