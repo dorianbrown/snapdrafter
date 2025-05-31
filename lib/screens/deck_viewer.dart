@@ -11,11 +11,13 @@ import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/data.dart';
 import '/utils/models.dart';
 import '/utils/deck_image_generator.dart';
+import '/widgets/display_token.dart';
 
 const _headerStyle = TextStyle(
     fontSize: 20,
@@ -38,9 +40,11 @@ class DeckViewerState extends State<DeckViewer> {
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
   List<Card>? allCards;
   late DeckStorage _deckStorage;
+  Map groupedTokens = {};
   Uint8List? cachedShareImageBytes;
+
   List<String> renderValues = ["text", "type"];
-  bool? showManaCurve = false;
+  bool? showManaCurve = true;
   // These are used for dropdown menus controlling how decklist is displayed
   TextEditingController displayController = TextEditingController(text: "Text");
   TextEditingController sortingController = TextEditingController(text: "Type");
@@ -59,6 +63,11 @@ class DeckViewerState extends State<DeckViewer> {
   void initState() {
     super.initState();
     _loadCards();
+    _deckStorage.getDeckTokens(deck.id).then((val) {
+      setState(() {
+        groupedTokens = val;
+      });
+    });
   }
 
   Future<void> _loadCards() async {
@@ -108,7 +117,7 @@ class DeckViewerState extends State<DeckViewer> {
               ],
             ),
           ),
-            bottomNavigationBar: BottomAppBar(
+          bottomNavigationBar: BottomAppBar(
             height: 65,
             child: Row(
               children: [
@@ -121,6 +130,11 @@ class DeckViewerState extends State<DeckViewer> {
                   tooltip: "Add basics",
                   icon: Icon(Icons.landscape),
                   onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
+                ),
+                IconButton(
+                    tooltip: "Show Deck Tokens",
+                    icon: Icon(Icons.cruelty_free),
+                    onPressed: groupedTokens.isNotEmpty ? () => showDeckTokens(deck.id) : null
                 ),
                 Spacer(),
                 IconButton(
@@ -163,6 +177,40 @@ class DeckViewerState extends State<DeckViewer> {
             ),
           ),
       )
+    );
+  }
+
+  Future showDeckTokens(int deckId) async {
+
+    // Create Dialog window to display tokens and associated cards
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          // title: Text("Tokens"),
+          insetPadding: EdgeInsets.all(30),
+          contentPadding: EdgeInsets.all(10),
+          content: Container(
+            width: double.maxFinite,
+            child: MasonryGridView.count(
+              itemCount: groupedTokens.keys.length,
+              shrinkWrap: true,
+              crossAxisCount: 2,
+              itemBuilder: (context, index) => DisplayToken(
+                imageUri: groupedTokens.keys.toList()[index],
+                cards: groupedTokens.values.toList()[index]["cards"]
+              ),
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.end,
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("Back")
+            ),
+          ],
+        );
+      }
     );
   }
 

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart';
+import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
@@ -12,9 +13,9 @@ import 'models.dart';
 class DeckStorage {
   late Database _database;
   late List<Card> _allCards;
-  var cardsLoaded = false;
+  var _cardsLoaded = false;
   final String _databaseName = 'draftTracker.db';
-  final int _databaseVersion = 1;
+  final int _databaseVersion = 2;
 
   DeckStorage._privateConstructor();
   static final DeckStorage _instance = DeckStorage._privateConstructor();
@@ -27,6 +28,7 @@ class DeckStorage {
       join(await getDatabasesPath(), _databaseName),
       version: _databaseVersion,
       onCreate: (db, version) {
+        // Decks and Cards
         db.execute(
             """
           CREATE TABLE cards(
@@ -38,7 +40,9 @@ class DeckStorage {
             image_uri TEXT,
             colors TEXT,
             mana_cost TEXT,
-            mana_value INTEGER NOT NULL)
+            mana_value INTEGER NOT NULL,
+            produced_mana TEXT
+          )
           """
         );
         db.execute(
@@ -60,6 +64,27 @@ class DeckStorage {
             scryfall_id TEXT NOT NULL)
           """
         );
+        // Token related tables
+        db.execute(
+          """
+          CREATE TABLE cards_to_tokens(
+            card_oracle_id STRING NOT NULL,
+            token_oracle_id STRING NOT NULL,
+            PRIMARY KEY (card_oracle_id, token_oracle_id)
+          )
+          """
+        );
+        db.execute(
+          """
+          CREATE TABLE tokens(
+            oracle_id STRING PRIMARY KEY,
+            name STRING NOT NULL,
+            image_uri STRING NOT NULL
+          )
+          """
+        );
+
+        // Card Collections
         db.execute(
           """
           CREATE TABLE scryfall_metadata(
@@ -98,6 +123,34 @@ class DeckStorage {
           """
         );
         debugPrint("sqflite tables created");
+      },
+      onUpgrade: (db, oldVersion, newVersion) {
+        // Create new tables non-existent in V1
+        db.execute(
+          """
+          CREATE TABLE cards_to_tokens(
+            card_oracle_id STRING NOT NULL,
+            token_oracle_id STRING NOT NULL,
+            PRIMARY KEY (card_oracle_id, token_oracle_id)
+          )
+          """
+        );
+        db.execute(
+          """
+          CREATE TABLE tokens(
+            oracle_id STRING PRIMARY KEY,
+            name STRING NOT NULL,
+            image_uri STRING NOT NULL
+          )
+          """
+        );
+        // Upgrade altered tables
+        db.execute(
+          """
+          ALTER TABLE cards
+          ADD produced_mana TEXT
+          """
+        );
       },
     );
   }
@@ -174,7 +227,7 @@ class DeckStorage {
   }
 
   Future<List<Card>> getAllCards() async {
-    if (!cardsLoaded) {
+    if (!_cardsLoaded) {
       final result = await _database.query('cards');
       _allCards = [
         for (final {
@@ -201,7 +254,7 @@ class DeckStorage {
           )
       ];
       if (_allCards.isNotEmpty) {
-        cardsLoaded = true;
+        _cardsLoaded = true;
       }
     }
     return _allCards;
@@ -409,5 +462,58 @@ class DeckStorage {
       
       await batch.commit();
     });
+  }
+
+  Future<void> saveTokenList(List<Token> tokens, List<List<String>> cardTokenMapping) async {
+    _database.transaction((txn) async {
+      var batch = txn.batch();
+      for (final token in tokens) {
+        batch.insert(
+          "tokens",
+          token.toMap(),
+          conflictAlgorithm: ConflictAlgorithm.replace
+        );
+      }
+      for (final obj in cardTokenMapping) {
+        batch.insert(
+        "cards_to_tokens",
+        {
+          "card_oracle_id": obj[0],
+          "token_oracle_id": obj[1],
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace
+        );
+      }
+      batch.commit();
+    });
+  }
+
+  Future<Map<String, dynamic>> getDeckTokens(int deckId) async {
+    final result = await _database.rawQuery("""
+      SELECT  
+        C.name as card_name,  
+        T.name as token_name,  
+        T.image_uri as token_image
+      FROM decklists D
+        INNER JOIN cards C on D.scryfall_id = C.scryfall_id
+        INNER JOIN cards_to_tokens CT on C.oracle_id = CT.card_oracle_id
+        INNER JOIN tokens T on CT.token_oracle_id = T.oracle_id
+      WHERE deck_id = ?
+    """, [deckId]);
+
+    // Return list of maps: str 'image', str 'name', list<str> 'cards'
+    final resultsList = [for (final res in result) {
+      "card_name": res["card_name"] as String,
+      "token_name": res["token_name"] as String,
+      "token_image": res["token_image"] as String,
+    }];
+
+    final groupedTokens = resultsList.groupFoldBy((obj) => obj["token_image"]!, (Map? obj1, Map obj2) {
+      return obj1 == null
+          ? {"name": obj2["token_name"], "cards": [obj2["card_name"]]}
+          : {"name": obj1["token_name"], "cards": obj1["cards"] + [obj2["card_name"]]};
+    });
+
+    return groupedTokens;
   }
 }
