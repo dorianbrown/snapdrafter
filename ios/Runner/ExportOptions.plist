@@ -11,14 +11,7 @@
 	<key>method</key>
 	<string>app-store-connect</string>
 	<key>signingStyle</key>
-	<string>manual</string>
-	<key>provisioningProfiles</key>
-    <dict>
-        <key>com.dorianbrown.snapdrafter</key>
-        <string>snapdrafter_provisioning_profile</string>
-    </dict>
-    <key>signingCertificate</key>
-    <string>Apple Distribution: Dorian Brown (LC2T9344TX)</string>
+	<string>automatic</string>
 	<key>stripSwiftSymbols</key>
 	<true/>
 	<key>teamID</key>
