@@ -55,7 +55,7 @@ jobs:
         run: flutter build ipa --release
 
       # Debug step
-      - run: ls build/ios/archive
+      - run: ls build/ios/
 
       - name: 'Upload app to TestFlight'
         uses: apple-actions/upload-testflight-build@v3
