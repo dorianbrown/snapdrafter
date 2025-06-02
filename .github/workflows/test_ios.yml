@@ -47,7 +47,7 @@ jobs:
 
       # Build and sign the ipa using a single flutter command
       - name: Building IPA
-        run: flutter build ipa --release --export-options-plist=ios/Runner/ExportOptions
+        run: flutter build ipa --release
 
 #      - name: 'Upload app to TestFlight'
 #        uses: apple-actions/upload-testflight-build@v3
