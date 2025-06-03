@@ -84,10 +84,18 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   }
 
   Future<void> _loadModels() async {
-    final modelPath = 'assets/20250522_fp16.tflite';
-    _detector = await Interpreter.fromAsset(modelPath);
-    _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    setState(() {});
+    try {
+      final modelPath = 'assets/20250522_fp16.tflite';
+      _detector = await Interpreter.fromAsset(modelPath);
+      _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+      setState(() {});
+    }
+    catch (e) {
+      setState(() {
+        debugPrint("Error: $e");
+        errorMessage = e.toString();
+      });
+    }
   }
 
   @override
