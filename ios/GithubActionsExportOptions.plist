@@ -11,7 +11,12 @@
 	<key>method</key>
 	<string>app-store-connect</string>
 	<key>signingStyle</key>
-	<string>automatic</string>
+	<string>manual</string>
+	<key>provisioningProfiles</key>
+  <dict>
+    <key>com.dorianbrown.snapdrafter</key>
+    <string>distribution_provisioning_profile</string>
+  </dict>
 	<key>stripSwiftSymbols</key>
 	<true/>
 	<key>teamID</key>
