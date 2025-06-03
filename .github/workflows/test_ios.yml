@@ -18,7 +18,7 @@ jobs:
       - name: 'Build Flutter'
         uses: cedvdb/action-flutter-build-ios@v1
         with:
-          build-cmd: flutter build ipa --release --export-options-plist=ios/GithubActionsExportOptions.plist
+          build-cmd: flutter build ipa --release
           certificate-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           certificate-password: ${{ secrets.P12_PASSWORD }}
           provisioning-profile-base64: ${{ secrets.BUILD_PROVISION_PROFILE_BASE64 }}
