@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
         
-      - name: Build Flutter
+      - name: 'Build Flutter'
     	    uses: cedvdb/action-flutter-build-ios@v1
         with:
           build-cmd: flutter build ipa --release --export-options-plist=ios/GithubActionsExportOptions.plist
