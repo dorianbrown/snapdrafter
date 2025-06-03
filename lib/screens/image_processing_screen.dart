@@ -84,18 +84,10 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   }
 
   Future<void> _loadModels() async {
-    try {
-      final options = InterpreterOptions();
-      if (Platform.isAndroid) {
-        // options.addDelegate(GpuDelegateV2());
-      }
-      final modelPath = 'assets/20250522_fp16.tflite';
-      _detector = await Interpreter.fromAsset(modelPath, options: options);
-      _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      setState(() {});
-    } catch (e) {
-      debugPrint('Error loading models: $e');
-    }
+    final modelPath = 'assets/20250522_fp16.tflite';
+    _detector = await Interpreter.fromAsset(modelPath);
+    _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    setState(() {});
   }
 
   @override
