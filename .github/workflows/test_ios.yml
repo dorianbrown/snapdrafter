@@ -39,7 +39,7 @@ jobs:
         run: flutter pub get
 
       - name: Build App IPA
-        run: flutter build ipa --release --export-options-plist=ios/GithubActionsExportOptions.plist
+        run: flutter build ipa --release --export-options-plist=ios/GithubActionsExportOptions.plist -v
 
       - name: Debug Build Directory
         run: ls build/ios/ipa
