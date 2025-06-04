@@ -75,8 +75,9 @@ dev_dependencies:
   flutter_lints: ^5.0.0
 
 flutter_launcher_icons:
-  android: "ic_launcher"
+  android: true
   ios: true
+  remove_alpha_ios: true
   image_path: "assets/app_icons/app_icon.png"
   adaptive_icon_foreground_inset: 0
   adaptive_icon_background: "#ffffff"

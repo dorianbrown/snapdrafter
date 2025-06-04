@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -15,6 +17,43 @@ class DonationScreen extends StatelessWidget {
       "My aim is to keep SnapDrafter free, ad-free, and available to as many "
         "cube-lovers as possible. \n\nDonations like yours help make that happen.";
 
+    List<Widget> widgets;
+    if (Platform.isIOS) {
+      widgets = [Text("Put iOS donation widgets here")];
+    } else {
+      widgets = [
+        Spacer(flex: 3,),
+        Text(donationText,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              fontSize: 16
+          ),
+        ),
+        Spacer(flex: 1),
+        BuyMeACoffeeButton(buyMeACoffeeName: "ballzoffury"),
+        TextButton(
+            style: TextButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 11),
+                foregroundColor: Colors.white,
+                backgroundColor: Colors.blue
+            ),
+            child: Text("Support me on Paypal"),
+            onPressed: () {
+              String url = "https://www.paypal.com/donate/?business=UTF5TNGA8XYP2&no_recurring=0&item_name=To+keep+SnapDrafter+ad-free+and+available+to+as+many+cube-lovers+as+possible.+Your+donation+helps+make+that+happen.&currency_code=EUR";
+              launchUrl(Uri.parse(url));
+            }
+        ),
+        PatreonButton(
+          patreonName: "ballzoffury",
+          style: TextButton.styleFrom(
+              foregroundColor: Colors.white,
+              backgroundColor: Colors.red
+          ),
+        ),
+        Spacer(flex: 3)
+      ];
+    }
+
     return Scaffold(
       appBar: AppBar(title: const Text("Donation")),
       body: Container(
@@ -22,37 +61,7 @@ class DonationScreen extends StatelessWidget {
         child: Center(
             child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Spacer(flex: 3,),
-                  Text(donationText,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 16
-                    ),
-                  ),
-                  Spacer(flex: 1),
-                  BuyMeACoffeeButton(buyMeACoffeeName: "ballzoffury"),
-                  TextButton(
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.symmetric(horizontal: 30, vertical: 11),
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.blue
-                    ),
-                    child: Text("Support me on Paypal"),
-                    onPressed: () {
-                      String url = "https://www.paypal.com/donate/?business=UTF5TNGA8XYP2&no_recurring=0&item_name=To+keep+SnapDrafter+ad-free+and+available+to+as+many+cube-lovers+as+possible.+Your+donation+helps+make+that+happen.&currency_code=EUR";
-                      launchUrl(Uri.parse(url));
-                    }
-                  ),
-                  PatreonButton(
-                    patreonName: "ballzoffury",
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      backgroundColor: Colors.red
-                    ),
-                  ),
-                  Spacer(flex: 3)
-                ]
+                children: widgets
             )
         )
       )

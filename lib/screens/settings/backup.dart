@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:path_provider/path_provider.dart';
+
 import '../../utils/models.dart';
 import '/utils/data.dart';
 
@@ -47,11 +50,16 @@ class _BackupSettingsState extends State<BackupSettings> {
     try {
       final backup = await deckStorage.createBackupData();
       final jsonString = jsonEncode(backup);
-      // Currently hardcoded for android. Hopefully works for all API targets.
-      final directory = '/storage/emulated/0/Download';
+      Directory? directory;
+      if (Platform.isIOS) {
+        directory = await getApplicationDocumentsDirectory();
+      } else {
+        directory = Directory('/storage/emulated/0/Download');
+        if (!await directory.exists()) directory = await getExternalStorageDirectory();
+      }
       DateTime timestamp = DateTime.now();
       String datetimeString = "${timestamp.year}${timestamp.month}${timestamp.day}_${timestamp.hour}${timestamp.minute}${timestamp.second}";
-      final file = File('$directory/snapdrafter_backup_$datetimeString.json');
+      final file = File('${directory!.path}/snapdrafter_backup_$datetimeString.json');
       await file.writeAsString(jsonString);
 
       setState(() {

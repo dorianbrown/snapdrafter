@@ -60,9 +60,10 @@ class _SettingsState extends State<Settings> {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: Container(
-        padding: EdgeInsets.symmetric(vertical: 40, horizontal: 20),
+        padding: EdgeInsets.symmetric(vertical: 0, horizontal: 20),
         child: ListView(
           children: [
+            SizedBox(height: 20),
             ListTile(
               title: Text("Cubes"),
               leading: Icon(Icons.view_in_ar),
