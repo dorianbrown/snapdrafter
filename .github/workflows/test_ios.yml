@@ -35,14 +35,8 @@ jobs:
           channel: stable
           flutter-version-file: pubspec.yaml # path to pubspec.yaml
 
-      - name: Get Flutter dependencies
-        run: flutter pub get
-
       - name: Build App IPA
-        run: flutter build ipa --release --export-options-plist=ios/GithubActionsExportOptions.plist -v
-
-      - name: Debug Build Directory
-        run: ls build/ios/ipa
+        run: flutter build ipa --release --export-options-plist=ios/GithubActionsExportOptions.plist
 
       - name: Upload app to TestFlight
         uses: apple-actions/upload-testflight-build@v3
