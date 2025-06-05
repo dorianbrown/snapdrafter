@@ -24,10 +24,11 @@ jobs:
           channel: stable
           flutter-version-file: pubspec.yaml # path to pubspec.yaml
 
-      - run: echo ${{ github.run_number }}
-
       - name: Build Unsigned App Bundle
-        run: flutter build appbundle --build-number ${{ github.run_number }}
+        run: |
+          OFFSET=40
+          BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
+          flutter build appbundle --build-number $BUILD_NUM
 
       - name: Sign App Bundle
         uses: r0adkll/sign-android-release@v1
@@ -78,7 +79,10 @@ jobs:
           flutter-version-file: pubspec.yaml # path to pubspec.yaml
 
       - name: Build App IPA
-        run: flutter build ipa --build-number ${{ github.run_number }} --export-options-plist=ios/GithubActionsExportOptions.plist
+        run: |
+          OFFSET=40
+          BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
+          flutter build ipa --build-number $BUILD_NUM --export-options-plist=ios/GithubActionsExportOptions.plist
 
 #      - name: Upload app to TestFlight
 #        uses: apple-actions/upload-testflight-build@v3
