@@ -17,18 +17,23 @@ class DonationScreen extends StatelessWidget {
       "My aim is to keep SnapDrafter free, ad-free, and available to as many "
         "cube-lovers as possible. \n\nDonations like yours help make that happen.";
 
-    List<Widget> widgets;
-    if (Platform.isIOS) {
-      widgets = [Text("Put iOS donation widgets here")];
-    } else {
-      widgets = [
-        Spacer(flex: 3,),
-        Text(donationText,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 16
-          ),
+    List<Widget> widgets = [
+      Spacer(flex: 3,),
+      Text(donationText,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+            fontSize: 16
         ),
+      ),
+    ];
+    if (Platform.isIOS) {
+      widgets.addAll([
+        Spacer(flex: 1),
+        Text("Put iOS donation widgets here"),
+        Spacer(flex: 3,)
+      ]);
+    } else {
+      widgets.addAll([
         Spacer(flex: 1),
         BuyMeACoffeeButton(buyMeACoffeeName: "ballzoffury"),
         TextButton(
@@ -51,7 +56,7 @@ class DonationScreen extends StatelessWidget {
           ),
         ),
         Spacer(flex: 3)
-      ];
+      ]);
     }
 
     return Scaffold(
