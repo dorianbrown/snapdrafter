@@ -5,8 +5,61 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_donation_buttons/flutter_donation_buttons.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 
-class DonationScreen extends StatelessWidget {
+class DonationScreen extends StatefulWidget {
+  const DonationScreen({super.key});
+
+  @override
+  State<DonationScreen> createState() => DonationScreenState();
+}
+
+class DonationScreenState extends State<DonationScreen> {
+
+  List<ProductDetails> donationOptions = [];
+  Set<String> donationProductIds = {
+    "donate_5_once",
+    "donate_10_once",
+    "donate_2_monthly",
+    "donate_3_monthly",
+    "donate_5_monthly"
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    if (Platform.isIOS) {
+      loadInAppPurchases();
+    }
+  }
+
+  Future loadInAppPurchases() async {
+    ProductDetailsResponse response = await InAppPurchase.instance.queryProductDetails(donationProductIds);
+    donationOptions = response.productDetails;
+  }
+
+  Widget purchaseButton(ProductDetails productDetails) {
+
+    final buttonStyle = ElevatedButton.styleFrom(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+
+    final String buttonText = productDetails.price;
+    PurchaseParam purchaseParam = PurchaseParam(productDetails: productDetails);
+
+    return ElevatedButton(
+      onPressed: () => InAppPurchase.instance.buyConsumable(purchaseParam: purchaseParam),
+      style: buttonStyle,
+      child: Text(
+        buttonText,
+        style: TextStyle(
+            fontSize: 20
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +82,10 @@ class DonationScreen extends StatelessWidget {
     if (Platform.isIOS) {
       widgets.addAll([
         Spacer(flex: 1),
-        Text("Put iOS donation widgets here"),
+        Wrap(
+          spacing: 5,
+          children: donationOptions.map((el) => purchaseButton(el)).toList(),
+        ),
         Spacer(flex: 3,)
       ]);
     } else {
