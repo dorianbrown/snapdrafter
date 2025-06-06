@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:http/http.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'utils.dart';
 import 'models.dart';
@@ -24,8 +26,13 @@ class DeckStorage {
   }
 
   Future<void> init() async {
+
+    String databasePathRoot = Platform.isAndroid
+        ? await getDatabasesPath()
+        : (await getLibraryDirectory()).path;
+
     _database = await openDatabase(
-      join(await getDatabasesPath(), _databaseName),
+      join(databasePathRoot, _databaseName),
       version: _databaseVersion,
       onCreate: (db, version) {
         // Decks and Cards
