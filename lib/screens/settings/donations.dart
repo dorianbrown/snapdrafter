@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -25,39 +23,29 @@ class DonationScreen extends StatelessWidget {
             fontSize: 16
         ),
       ),
-    ];
-    if (Platform.isIOS) {
-      widgets.addAll([
-        Spacer(flex: 1),
-        Text("Put iOS donation widgets here"),
-        Spacer(flex: 3,)
-      ]);
-    } else {
-      widgets.addAll([
-        Spacer(flex: 1),
-        BuyMeACoffeeButton(buyMeACoffeeName: "ballzoffury"),
-        TextButton(
-            style: TextButton.styleFrom(
-                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 11),
-                foregroundColor: Colors.white,
-                backgroundColor: Colors.blue
-            ),
-            child: Text("Support me on Paypal"),
-            onPressed: () {
-              String url = "https://www.paypal.com/donate/?business=UTF5TNGA8XYP2&no_recurring=0&item_name=To+keep+SnapDrafter+ad-free+and+available+to+as+many+cube-lovers+as+possible.+Your+donation+helps+make+that+happen.&currency_code=EUR";
-              launchUrl(Uri.parse(url));
-            }
-        ),
-        PatreonButton(
-          patreonName: "ballzoffury",
+      Spacer(flex: 1),
+      BuyMeACoffeeButton(buyMeACoffeeName: "ballzoffury"),
+      TextButton(
           style: TextButton.styleFrom(
+              padding: EdgeInsets.symmetric(horizontal: 30, vertical: 11),
               foregroundColor: Colors.white,
-              backgroundColor: Colors.red
+              backgroundColor: Colors.blue
           ),
+          child: Text("Support me on Paypal"),
+          onPressed: () {
+            String url = "https://www.paypal.com/donate/?business=UTF5TNGA8XYP2&no_recurring=0&item_name=To+keep+SnapDrafter+ad-free+and+available+to+as+many+cube-lovers+as+possible.+Your+donation+helps+make+that+happen.&currency_code=EUR";
+            launchUrl(Uri.parse(url));
+          }
+      ),
+      PatreonButton(
+        patreonName: "ballzoffury",
+        style: TextButton.styleFrom(
+            foregroundColor: Colors.white,
+            backgroundColor: Colors.red
         ),
-        Spacer(flex: 3)
-      ]);
-    }
+      ),
+      Spacer(flex: 3)
+    ];
 
     return Scaffold(
       appBar: AppBar(title: const Text("Donation")),
