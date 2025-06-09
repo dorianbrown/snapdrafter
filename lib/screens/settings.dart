@@ -221,7 +221,7 @@ class _SettingsState extends State<Settings> {
                   context: context,
                   applicationIcon: Icon(Icons.info),
                   applicationName: "SnapDrafter",
-                  applicationVersion: _packageInfo.version,
+                  applicationVersion: "${_packageInfo.version} (${_packageInfo.buildNumber})",
                   applicationLegalese: "© Copyright Dorian Brown 2025",
                 );
               }
