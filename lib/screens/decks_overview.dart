@@ -324,7 +324,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                           try {
                             int count = int.parse(regexMatch.first[1]!);
                             String cardName = regexMatch.first[2]!;
-                            Card? matchedCard = allCards.firstWhereOrNull((card) => card.name == cardName);
+                            Card? matchedCard = allCards.firstWhereOrNull((card) => card.name.toLowerCase() == cardName.toLowerCase());
                             if (matchedCard == null) {
                               ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text("Card not found: '$cardName'")));
                               return;

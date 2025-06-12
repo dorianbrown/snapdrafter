@@ -205,7 +205,13 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     }
 
     final matches = await Future.wait(matchedFutures);
-    List<Card> matchedCards = matches.map((match) => allCards[match.index]).toList();
+    
+    Card fblthp = allCards.firstWhere((card) => card.name == "Fblthp, the Lost");
+    List<Card> matchedCards = matches.map(
+            (match) => match.score > 5
+                ? allCards[match.index]
+                : fblthp
+    ).toList();
 
     // Add annotations to image
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
@@ -330,13 +336,22 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     // Extract only relevant part from inputImage
     var [x1, y1, x2, y2] = detection;
-    debugPrint("Detection: $detection");
     img.Image detectionImg = img.copyCrop(inputImage,
         x: x1,
         y: y1,
         width: x2 - x1,
         height: y2 - y1
     );
+
+    // The OCR package fails on image with height < 32px. Here we resize titles
+    // higher than 16px to 32px.
+    if ((detectionImg.height < 32) && (detectionImg.height > 16)) {
+      detectionImg = img.copyResize(detectionImg,
+        height: 33,
+        maintainAspect: true,
+        interpolation: img.Interpolation.cubic
+      );
+    }
 
     // Convert img.Image to MLKit inputImage
     // TODO: Figure out how to do this in memory
@@ -354,8 +369,14 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     //     )
     // );
     // Run MLKit text recognition
-    final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
-    debugPrint("Text: ${recognizedText.text}");
-    return recognizedText.text;
+    try {
+      final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
+      debugPrint("Text: ${recognizedText.text}");
+      return recognizedText.text;
+    }
+    catch (e) {
+      // When OCR fails (ie < 32px), for we'll return the current NaN, empty string
+      return "";
+    }
   }
 }
