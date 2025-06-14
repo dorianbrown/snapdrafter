@@ -21,28 +21,14 @@ const int nCol = 6;
 
 // Card Measurements
 const double cardAspectRatio = 2.5 / 3.5;
-const int cardWidth =
+int cardWidth =
     (imageWidth - 2 * pageMargin - (nCol - 1) * cardMargin) ~/ nCol;
-const int cardHeight = cardWidth ~/ cardAspectRatio;
-const int cardStackOffset = cardHeight ~/ 8.5;
+int cardHeight = cardWidth ~/ cardAspectRatio;
+int cardStackOffset = cardHeight ~/ 8.5;
 
 Future<Image> generateDeckImage(Deck deck) async {
 
-  // Split into Creatures, Noncreature spells, and non-basic lands, sorted by
-  // mana value
-  final sortedCardImages = await getManaCurveImages(deck.cards);
-  final creatures = sortedCardImages[0] as Map<String, List<Image>>;
-  final nonCreatures = sortedCardImages[1] as Map<String, List<Image>>;
-  final nonBasicLands = sortedCardImages[2] as List<Image>;
-
-  List<String> basicNames = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
-  List<Card> basics = deck.cards
-      .where((card) => basicNames.contains(card.name))
-      .toList();
-
-  basics.sort((a,b) => basicNames.indexOf(a.name).compareTo(basicNames.indexOf(b.name)));
-
-  // Note that this assets can't be resized on the fly, required regenerating
+  // Note that these assets can't be resized on the fly, required regenerating
   // zip file. So this should be done after all other measurements are final.
   final titleFontAsset = await rootBundle.load("assets/fonts/roboto-bold90.zip");
   final titleFont = BitmapFont.fromZip(titleFontAsset.buffer.asUint8List());
@@ -152,6 +138,67 @@ Future<Image> generateDeckImage(Deck deck) async {
     dstW: 2 * qrHeight,
     dstH: qrHeight,
   );
+
+  // Adding Cards to image
+
+  if (deck.cards.length <= 20) {
+
+    int nCol = 5;
+    cardWidth = (imageWidth - 2 * pageMargin - (nCol - 1) * cardMargin) ~/ nCol;
+    cardHeight = cardWidth ~/ cardAspectRatio;
+    cardStackOffset = cardHeight ~/ 8.5;
+
+    // Generate list of card images
+    final creatures = deck.cards
+        .where((card) => card.type.contains("Creature"))
+        .sorted((a,b) => a.manaValue.toInt() - b.manaValue.toInt())
+        .toList();
+    final nonCreatures = deck.cards
+        .where((card) => !card.type.contains("Creature") && !card.type.contains("Land"))
+        .sorted((a,b) => a.manaValue.toInt() - b.manaValue.toInt())
+        .toList();
+    final lands = deck.cards
+        .where((card) => card.type.contains("Land"))
+        .sorted((a,b) => a.manaValue.toInt() - b.manaValue.toInt())
+        .toList();
+    final cards = creatures + nonCreatures + lands;
+    
+    List<Image> cardImages = await Future.wait(cards.map((card) => getCardImage(card)));
+
+    int row = 0;
+    int col = 0;
+    for (int i = 0; i < cardImages.length; i++) {
+      deckImage = drawCard(deckImage, cardImages[i], col, 0, yOffset: row * (10 + cardHeight));
+      col++;
+      if (col == nCol && i < cardImages.length - 1) {
+        col = 0;
+        row++;
+      }
+    }
+
+    deckImage = copyCrop(deckImage,
+        x: 0,
+        y: 0,
+        width: deckImage.width,
+        height: pageHeaderMargin + (row + 1) * (cardHeight + 10) + 75
+    );
+
+    return deckImage;
+  }
+
+  // Split into Creatures, Noncreature spells, and non-basic lands, sorted by
+  // mana value
+  final sortedCardImages = await getManaCurveImages(deck.cards);
+  final creatures = sortedCardImages[0] as Map<String, List<Image>>;
+  final nonCreatures = sortedCardImages[1] as Map<String, List<Image>>;
+  final nonBasicLands = sortedCardImages[2] as List<Image>;
+
+  List<String> basicNames = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'];
+  List<Card> basics = deck.cards
+      .where((card) => basicNames.contains(card.name))
+      .toList();
+
+  basics.sort((a,b) => basicNames.indexOf(a.name).compareTo(basicNames.indexOf(b.name)));
 
   final int maxStackCreatures = creatures.values
       .map((val) => val.length)
