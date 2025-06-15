@@ -21,8 +21,7 @@ const int nCol = 6;
 
 // Card Measurements
 const double cardAspectRatio = 2.5 / 3.5;
-int cardWidth =
-    (imageWidth - 2 * pageMargin - (nCol - 1) * cardMargin) ~/ nCol;
+int cardWidth = (imageWidth - 2 * pageMargin - (nCol - 1) * cardMargin) ~/ nCol;
 int cardHeight = cardWidth ~/ cardAspectRatio;
 int cardStackOffset = cardHeight ~/ 8.5;
 
@@ -141,7 +140,7 @@ Future<Image> generateDeckImage(Deck deck) async {
 
   // Adding Cards to image
 
-  if (deck.cards.length <= 20) {
+  if (deck.cards.length <= 15) {
 
     int nCol = 5;
     cardWidth = (imageWidth - 2 * pageMargin - (nCol - 1) * cardMargin) ~/ nCol;
