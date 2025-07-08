@@ -1,3 +1,1 @@
-- Smaller titles will now be upscaled, which now allows title with `16px < height < 32px` to be scanned.
-- Adding cards by text isn't case sensitive anymore. Don't think that will case any problems.
-- Moved back to the old icon, with some color changes. A little more unique than the previous one.
+- Now a double-faced card can be added using either front or back side of the card. This should also make these cards work with photo scanning
