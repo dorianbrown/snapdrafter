@@ -191,8 +191,24 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     List<String> detectionText = await Future.wait(detectionTextFutures);
 
     final allCards = await _deckStorage.getAllCards();
-    final choices = allCards.map((card) => card.title).toList();
+    List<String> choices = [];
+    Map<int, int> choicesToCardsMap = {};
     final List<Future<ExtractedResult<String>>> matchedFutures = [];
+    for (int i = 0; i < allCards.length; i++) {
+      final cardName = allCards[i].name;
+      // Two cards to add to choices
+      if (cardName.contains(" // ")) {
+        cardName.split(" // ").forEach((el) => choices.add(el));
+        choicesToCardsMap[choices.length - 2] = i;
+        choicesToCardsMap[choices.length - 1] = i;
+      }
+      // Single card to add
+      else {
+        choices.add(cardName);
+        choicesToCardsMap[choices.length - 1] = i;
+      }
+    }
+
     debugPrint("Matching detections with database");
     for (final text in detectionText) {
       debugPrint("Matching $text with database");
@@ -209,7 +225,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     Card fblthp = allCards.firstWhere((card) => card.name == "Fblthp, the Lost");
     List<Card> matchedCards = matches.map(
             (match) => match.score > 5
-                ? allCards[match.index]
+                ? allCards[choicesToCardsMap[match.index]!]
                 : fblthp
     ).toList();
 
