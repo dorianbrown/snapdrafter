@@ -53,7 +53,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               Spacer(flex: 7),
               Text("No card titles detected", style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
               Spacer(flex: 1),
-              Text("Make sure the card titles are visible and at least 32 pixels height. \nYou can use the button with the picture icon to preview the picture taken",
+              Text("Make sure the cards are oriented in the upwards direction",
                 style: TextStyle(
                   fontSize: 16,
                   fontStyle: FontStyle.italic,
