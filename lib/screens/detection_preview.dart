@@ -97,7 +97,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                 Expanded(
                   flex: 1,
                   child: Autocomplete(
-                    initialValue: TextEditingValue(text: detections[index].card.name),
+                    initialValue: TextEditingValue(text: detections[index].card?.name ?? ""),
                     optionsViewOpenDirection: OptionsViewOpenDirection.down,
                     optionsBuilder: (val) {
                       if (val.text == "") {
@@ -113,7 +113,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                       setState(() {
                         detections[index].card = newCard;
                       });
-                      debugPrint(detections.map((x) => x.card.name).toList().toString());
+                      debugPrint(detections.map((x) => x.card?.name ?? "").toList().toString());
                     },
                   )
                 ),
@@ -134,7 +134,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
             IconButton(
               onPressed: () async {
                 detections = [Detection(
-                    card: allCards.firstWhere((x) => x.name == "Black Lotus"),
+                    card: null,
                     ocrText: ""
                 )] + detections;
                 setState(() {});
@@ -168,13 +168,26 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   }
 
   void saveDetectionsToDeck() async {
+
+    // Check that all cards are defined
+    if (detections.map((x) => x.card).any((x) => x == null)) {
+      // Communicate problem to user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('You have undefined cards, remove them first'),
+        ),
+      );
+      return;
+    }
+
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) =>
             Center(child: CircularProgressIndicator()),
       ),
     );
-    final deckId = await createDeckAndSave(detections.map((x) => x.card).toList());
+    
+    final deckId = await createDeckAndSave(detections.map((x) => x.card!).toList());
     debugPrint("Deck saved with id: $deckId");
     final allDecks = await _deckStorage.getAllDecks();
     final newDeck = allDecks.where((x) => x.id == deckId).first;

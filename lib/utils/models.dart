@@ -413,7 +413,7 @@ class Token {
 }
 
 class Detection {
-  Card card;
+  Card? card;
   final String ocrText;
   final int? ocrDistance;
   final img.Image? textImage;
