@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '/utils/data.dart';
+import '/data/database/database_helper.dart';
 import 'screens/decks_overview.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
@@ -17,8 +17,8 @@ Future<void> main() async {
   ]);
 
   // Initialize DeckStorage to have it available in future
-  DeckStorage deckStorage = DeckStorage();
-  await deckStorage.init();
+  DatabaseHelper db = DatabaseHelper();
+  await db.database; // initializes database
 
   // Get System Theme
   SharedPreferences prefs = await SharedPreferences.getInstance();

@@ -6,10 +6,15 @@ import 'package:image/image.dart';
 import "package:collection/collection.dart";
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'models.dart';
-import 'data.dart';
+import 'package:snapdrafter/data/models/deck.dart';
+import 'package:snapdrafter/data/models/card.dart';
+import 'package:snapdrafter/data/models/cube.dart';
+import 'package:snapdrafter/data/models/set.dart';
+import 'package:snapdrafter/data/repositories/set_repository.dart';
+import 'package:snapdrafter/data/repositories/cube_repository.dart';
 
-DeckStorage deckStorage = DeckStorage();
+SetRepository setRepository = SetRepository();
+CubeRepository cubeRepository = CubeRepository();
 
 // Layout of Page
 const imageWidth = 2000;
@@ -99,8 +104,8 @@ Future<Image> generateDeckImage(Deck deck) async {
   String usernameString = username != null ? "Drafter: $username" : "";
 
   // Fetching the deck's cube or set name
-  List<Set> allSets = await deckStorage.getAllSets();
-  List<Cube> allCubes = await deckStorage.getAllCubes();
+  List<Set> allSets = await setRepository.getAllSets();
+  List<Cube> allCubes = await cubeRepository.getAllCubes();
   Set? set = allSets.firstWhereOrNull((set) => set.code == deck.setId);
   Cube? cube = allCubes.firstWhereOrNull((cube) => cube.cubecobraId == deck.cubecobraId);
 

@@ -5,8 +5,10 @@ import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:fuzzywuzzy/ratios/simple_ratio.dart';
 import 'package:http/http.dart' as http;
 
+import 'package:snapdrafter/data/models/card.dart';
+import 'package:snapdrafter/data/repositories/card_repository.dart';
+
 import 'models.dart';
-import 'data.dart';
 
 String convertDatetimeToYMDHM(DateTime datetime) {
   String outputString = datetime.year.toString().substring(0,4);
@@ -75,14 +77,15 @@ ExtractedResult<String> runFuzzyMatch(MatchParams params) {
 }
 
 Future<List<Card>> fetchCubecobraList(String cubecobraId) async {
+
+  CardRepository cardRepository = CardRepository();
+
   String uri = "https://cubecobra.com/cube/api/cubecardnames/$cubecobraId/mainboard";
-  // FIXME: Sometimes we get weird responses here. We need to figure out what the
-  // return html is.
   final response = await http.get(Uri.parse(uri));
   if (response.statusCode == 200) {
     final body = jsonDecode(response.body);
     List<String> cubeList = unpackCubeMap(body["cardnames"]);
-    final cards = await DeckStorage().getAllCards();
+    final cards = await cardRepository.getAllCards();
     // With double sided cards cubecobra only used front side. This solves the issue,
     // but might cause some issues in the future.
     return cards.where((card) => cubeList.contains(card.name) || cubeList.contains(card.title)).toList();
