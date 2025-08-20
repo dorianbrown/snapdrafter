@@ -5,9 +5,23 @@ import 'package:collection/collection.dart'; // For groupFoldBy method
 import '../models/token.dart'; // Adjust import path as needed
 
 class TokenRepository {
-  final DatabaseHelper _dbHelper;
+  late final DatabaseHelper _dbHelper;
+  bool _dbHelperLoaded = false;
 
-  TokenRepository(this._dbHelper);
+  // Make class singleton
+  TokenRepository._privateConstructor();
+  static final TokenRepository _instance = TokenRepository._privateConstructor();
+  factory TokenRepository() {
+    if (!_instance._dbHelperLoaded) {
+      _instance.init();
+    }
+    return _instance;
+  }
+
+  void init() {
+    _dbHelper = DatabaseHelper();
+    _dbHelperLoaded = true;
+  }
 
   Future<Database> get _db async => await _dbHelper.database;
 

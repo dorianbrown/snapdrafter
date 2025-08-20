@@ -5,10 +5,14 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:image/image.dart' as img;
 
 import 'deck_viewer.dart';
-import '/utils/data.dart';
-import '/utils/models.dart';
+import '/models/detection.dart';
+import '/utils/deck_change_notifier.dart';
+import '/data/models/card.dart';
+import '/data/repositories/card_repository.dart';
+import '/data/repositories/deck_repository.dart';
 
-DeckStorage _deckStorage = DeckStorage();
+CardRepository cardRepository = CardRepository();
+DeckRepository deckRepository = DeckRepository();
 
 class DetectionPreviewScreen extends StatefulWidget {
   final img.Image image;
@@ -35,7 +39,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   void initState() {
     super.initState();
     detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
-    _deckStorage.getAllCards().then((value) => setState(() {allCards = value;}));
+    cardRepository.getAllCards().then((value) => setState(() {allCards = value;}));
     imagePng = img.encodePng(image);
   }
 
@@ -189,7 +193,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     
     final deckId = await createDeckAndSave(detections.map((x) => x.card!).toList());
     debugPrint("Deck saved with id: $deckId");
-    final allDecks = await _deckStorage.getAllDecks();
+    final allDecks = await deckRepository.getAllDecks();
     final newDeck = allDecks.where((x) => x.id == deckId).first;
 
     _changeNotifier.markNeedsRefresh();
@@ -226,7 +230,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
 
   Future<int> createDeckAndSave(List<Card> matchedCards) async {
     final DateTime dateTime = DateTime.now();
-    return await _deckStorage.saveNewDeck(dateTime, matchedCards);
+    return await deckRepository.saveNewDeck(dateTime, matchedCards);
   }
 
   Future<bool> confirmDeletion(direction) async {

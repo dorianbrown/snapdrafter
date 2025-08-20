@@ -6,12 +6,12 @@ import 'package:image/image.dart';
 import "package:collection/collection.dart";
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:snapdrafter/data/models/deck.dart';
-import 'package:snapdrafter/data/models/card.dart';
-import 'package:snapdrafter/data/models/cube.dart';
-import 'package:snapdrafter/data/models/set.dart';
-import 'package:snapdrafter/data/repositories/set_repository.dart';
-import 'package:snapdrafter/data/repositories/cube_repository.dart';
+import '/data/models/deck.dart';
+import '/data/models/card.dart';
+import '/data/models/cube.dart';
+import '/data/models/set.dart';
+import '/data/repositories/set_repository.dart';
+import '/data/repositories/cube_repository.dart';
 
 SetRepository setRepository = SetRepository();
 CubeRepository cubeRepository = CubeRepository();

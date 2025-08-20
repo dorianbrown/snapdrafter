@@ -3,13 +3,18 @@ import 'dart:io';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Card;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
+import 'package:snapdrafter/utils/deck_image_generator.dart';
 
-import '/utils/data.dart';
-import '/utils/models.dart' as models;
 import '/utils/utils.dart';
+import '/utils/deck_change_notifier.dart';
+import '/data/models/card.dart';
+import '/data/models/token.dart';
+import '/data/repositories/card_repository.dart';
+import '/data/repositories/set_repository.dart';
+import '/data/repositories/token_repository.dart';
 
 class DownloadScreen extends StatefulWidget {
   const DownloadScreen({Key? key}) : super(key: key);
@@ -20,18 +25,23 @@ class DownloadScreen extends StatefulWidget {
 
 class _DownloadScreenState extends State<DownloadScreen> {
   ValueNotifier downloadProgressNotifier = ValueNotifier(0);
-  final models.DeckChangeNotifier _changeNotifier = models.DeckChangeNotifier();
+  final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
   int totalBytes = 0;
   bool isDownloading = false;
-  late DeckStorage deckStorage;
+  late CardRepository cardRepository;
+  late SetRepository setRepository;
+  late TokenRepository tokenRepository;
   Map<String, dynamic>? scryfallMetadata;
 
   @override
   initState() {
     super.initState();
-    deckStorage = DeckStorage();
-    deckStorage.populateSetsTable();
-    deckStorage.getScryfallMetadata().then((value) {
+    cardRepository = CardRepository();
+    setRepository = SetRepository();
+    tokenRepository = TokenRepository();
+
+    setRepository.populateSetsTable();
+    setRepository.getScryfallMetadata().then((value) {
       scryfallMetadata = value;
       setState(() {});
     });
@@ -186,7 +196,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
         producedMana = val["produced_mana"]?.join("");
       }
 
-      return models.Card(
+      return Card(
           scryfallId: val["id"],
           oracleId: val["oracle_id"],
           name: val["name"],
@@ -200,8 +210,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
       );
     }
 
-    List<models.Card> cards = [];
-    List<models.Token> tokens = [];
+    List<Card> cards = [];
+    List<Token> tokens = [];
     List<List<String>> cardTokenMapping = [];
     Map<String, String> nameOracleMapping = {};
     String newestRelease = "1900-01-01";
@@ -246,7 +256,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
         cardTokenMapping.addAll(allParts.map((obj) => [obj["name"] as String, val["oracle_id"] as String]));
 
         tokens.add(
-          models.Token(
+          Token(
             oracleId: val["oracle_id"],
             name: val["name"],
             imageUri: val["card_faces"] != null
@@ -275,11 +285,9 @@ class _DownloadScreenState extends State<DownloadScreen> {
         .map((obj) => [nameOracleMapping[obj[0]]!, obj[1]])  // maps card names to oracle_ids
         .toList();
 
-    deckStorage.saveTokenList(tokens, cardTokenMapping);
+    tokenRepository.saveTokenList(tokens, cardTokenMapping);
 
-    await deckStorage.populateCardsTable(cards, scryfallMetadata).then((val) async {
-      final cardsInDb = await deckStorage.countRows("cards");
-      debugPrint("Cards in db: $cardsInDb");
+    await cardRepository.populateCardsTable(cards, scryfallMetadata).then((val) async {
       _changeNotifier.markNeedsRefresh();
       if (context.mounted) {
         Navigator.of(context).pop();

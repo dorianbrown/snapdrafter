@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '/data/database/database_helper.dart';
-import 'screens/decks_overview.dart';
+import '/screens/decks_overview.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
 

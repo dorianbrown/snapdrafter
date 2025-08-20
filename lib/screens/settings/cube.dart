@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart' hide Card;
 
-import '/utils/data.dart';
-import '/utils/models.dart';
 import '/utils/utils.dart';
+import '/utils/deck_change_notifier.dart';
+import '/data/models/cube.dart';
+import '/data/models/card.dart';
+import '/data/repositories/cube_repository.dart';
 
 class CubeSettings extends StatefulWidget {
   const CubeSettings({Key? key}) : super(key: key);
@@ -12,14 +14,14 @@ class CubeSettings extends StatefulWidget {
 }
 
 class _CubeSettingsState extends State<CubeSettings> {
-  late DeckStorage deckStorage;
+  late CubeRepository cubeRepository;
 
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
 
   @override
   initState() {
     super.initState();
-    deckStorage = DeckStorage();
+    cubeRepository = CubeRepository();
   }
 
   @override
@@ -34,7 +36,7 @@ class _CubeSettingsState extends State<CubeSettings> {
               children: [
                 Text("My Cubes"),
                 FutureBuilder(
-                  future: deckStorage.getAllCubes(),
+                  future: cubeRepository.getAllCubes(),
                   builder: (futureContext, snapshot) {
                     if (snapshot.connectionState != ConnectionState.done) {
                       return CircularProgressIndicator();
@@ -50,7 +52,7 @@ class _CubeSettingsState extends State<CubeSettings> {
                             subtitle: Text(cubes[index].ymd),
                             trailing: IconButton(
                                 onPressed: () async {
-                                  await deckStorage.deleteCube(cubes[index].cubecobraId);
+                                  await cubeRepository.deleteCube(cubes[index].cubecobraId);
                                   setState(() {});
                                 },
                                 icon: Icon(Icons.delete)
@@ -146,7 +148,7 @@ class _CubeSettingsState extends State<CubeSettings> {
                           String name = nameController.text;
                           String ymd = convertDatetimeToYMD(DateTime.now());
                           String cubecobraId = cubecobraIdController.text;
-                          deckStorage.saveNewCube(name, ymd, cubecobraId, cubeList);
+                          cubeRepository.saveNewCube(name, ymd, cubecobraId, cubeList);
                           _notifier.markNeedsRefresh();
                           Navigator.of(context).pop();
                           setState(() {});

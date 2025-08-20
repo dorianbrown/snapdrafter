@@ -4,9 +4,12 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:snapdrafter/data/database/database_helper.dart';
 
-import '../../utils/models.dart';
-import '/utils/data.dart';
+import '/utils/deck_change_notifier.dart';
+import '/data/repositories/deck_repository.dart';
+import '/data/repositories/cube_repository.dart';
+import '/data/database/backup_helper.dart';
 
 class BackupSettings extends StatefulWidget {
   const BackupSettings({Key? key}) : super(key: key);
@@ -16,7 +19,9 @@ class BackupSettings extends StatefulWidget {
 }
 
 class _BackupSettingsState extends State<BackupSettings> {
-  late DeckStorage deckStorage;
+  late DeckRepository deckRepository;
+  late CubeRepository cubeRepository;
+  late BackupHelper backupHelper;
   bool isBackingUp = false;
   bool isRestoring = false;
   String? backupStatus;
@@ -28,13 +33,15 @@ class _BackupSettingsState extends State<BackupSettings> {
   @override
   void initState() {
     super.initState();
-    deckStorage = DeckStorage();
+    deckRepository = DeckRepository();
+    cubeRepository = CubeRepository();
+    backupHelper = BackupHelper();
     _loadDeckCount();
   }
 
   Future<void> _loadDeckCount() async {
-    final decks = await deckStorage.getAllDecks();
-    final cubes = await deckStorage.getAllCubes();
+    final decks = await deckRepository.getAllDecks();
+    final cubes = await cubeRepository.getAllCubes();
     setState(() {
       deckCount = decks.length;
       cubeCount = cubes.length;
@@ -48,7 +55,7 @@ class _BackupSettingsState extends State<BackupSettings> {
     });
 
     try {
-      final backup = await deckStorage.createBackupData();
+      final backup = await backupHelper.createBackupData();
       final jsonString = jsonEncode(backup);
       Directory? directory;
       if (Platform.isIOS) {
@@ -90,7 +97,7 @@ class _BackupSettingsState extends State<BackupSettings> {
       final jsonString = await file.readAsString();
       final backupData = jsonDecode(jsonString);
 
-      await deckStorage.restoreBackup(backupData);
+      await backupHelper.restoreBackup(backupData);
       await _loadDeckCount();
 
       setState(() {

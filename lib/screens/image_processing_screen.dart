@@ -10,12 +10,14 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:path_provider/path_provider.dart';
 
 import 'detection_preview.dart';
-import '/utils/data.dart';
 import '/utils/utils.dart';
-import '/utils/models.dart';
 import '/models/orientation.dart';
 
-DeckStorage _deckStorage = DeckStorage();
+import '/data/repositories/card_repository.dart';
+import '/data/models/card.dart';
+import '/models/detection.dart';
+
+CardRepository cardRepository = CardRepository();
 
 class deckImageProcessing extends StatefulWidget {
   final String filePath;
@@ -190,7 +192,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     List<String> detectionText = await Future.wait(detectionTextFutures);
 
-    final allCards = await _deckStorage.getAllCards();
+    final allCards = await cardRepository.getAllCards();
     List<String> choices = [];
     Map<int, int> choicesToCardsMap = {};
     final List<Future<ExtractedResult<String>>> matchedFutures = [];

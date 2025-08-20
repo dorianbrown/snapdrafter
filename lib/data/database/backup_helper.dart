@@ -3,8 +3,21 @@ import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 
 class BackupHelper {
-  final DatabaseHelper _dbHelper;
-  BackupHelper(this._dbHelper);
+  late final DatabaseHelper _dbHelper;
+
+  // Make class singleton
+  BackupHelper._privateConstructor();
+  static final BackupHelper _instance = BackupHelper._privateConstructor();
+  factory BackupHelper() {
+    // FIXME: This will run every time a new instance is created. Should only be done on first one.
+    _instance.init();
+    return _instance;
+  }
+
+  void init() {
+    _dbHelper = DatabaseHelper();
+  }
+
   Future<Database> get _db async => await _dbHelper.database;
 
   Future<Map<String, dynamic>> createBackupData() async {

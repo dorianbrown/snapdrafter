@@ -151,10 +151,4 @@ class DatabaseHelper {
     return Sqflite.firstIntValue(result);
   }
 
-  Future<Map<String, dynamic>> getScryfallMetadata() async {
-    final db = await database;
-    final result = await db.query("scryfall_metadata", limit: 1); // Ensure only one row
-    return result.isNotEmpty ? result.first : {};
-  }
-
 }

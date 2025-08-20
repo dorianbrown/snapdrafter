@@ -1,24 +1,27 @@
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
-import '../database/database_helper.dart';
-import '../models/card.dart'; // Adjust import path as needed
+import '/data/database/database_helper.dart';
+import '/data/models/card.dart';
 
 class CardRepository {
   late final DatabaseHelper _dbHelper;
   List<Card> _allCards = [];
   bool _cardsLoaded = false;
+  bool _dbHelperLoaded = false;
 
   // Make class singleton
   CardRepository._privateConstructor();
   static final CardRepository _instance = CardRepository._privateConstructor();
   factory CardRepository() {
-    // FIXME: This will run every time a new instance is created. Should only be done on first one.
-    _instance.init();
+    if (!_instance._dbHelperLoaded) {
+      _instance.init();
+    }
     return _instance;
   }
 
   void init() {
     _dbHelper = DatabaseHelper();
+    _dbHelperLoaded = true;
   }
 
   Future<Database> get _db async => await _dbHelper.database;

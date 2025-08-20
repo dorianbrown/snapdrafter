@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
-import '../models/cube.dart'; // Adjust import path
-import '../models/card.dart'; // Adjust import path
+import '/data/models/cube.dart';
+import '/data/models/card.dart';
 import 'card_repository.dart'; // If you need to fetch full card objects
 
 class CubeRepository {

@@ -8,8 +8,6 @@ import 'package:http/http.dart' as http;
 import 'package:snapdrafter/data/models/card.dart';
 import 'package:snapdrafter/data/repositories/card_repository.dart';
 
-import 'models.dart';
-
 String convertDatetimeToYMDHM(DateTime datetime) {
   String outputString = datetime.year.toString().substring(0,4);
   outputString += "-${datetime.month.toString().padLeft(2,'0')}";

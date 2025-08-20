@@ -3,15 +3,10 @@ import 'dart:convert'; // For json.decode
 import 'package:http/http.dart' as http; // For network requests
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:sqflite/sqflite.dart';
-import '../database/database_helper.dart';
-import '../models/set.dart';
-// import '../../utils/date_utils.dart'; // Assuming convertDatetimeToYMD is here
 
-// Placeholder for the utility function, ensure it's accessible
-String convertDatetimeToYMD(DateTime dateTime, {String sep = ""}) {
-  // Implement or import this utility function
-  return "${dateTime.year}$sep${dateTime.month.toString().padLeft(2, '0')}$sep${dateTime.day.toString().padLeft(2, '0')}";
-}
+import '/data/database/database_helper.dart';
+import '/data/models/set.dart';
+import '/utils/utils.dart';
 
 
 class SetRepository {
@@ -70,5 +65,11 @@ class SetRepository {
             releasedAt: releasedAt
         )
     ];
+  }
+
+  Future<Map<String, dynamic>> getScryfallMetadata() async {
+    final db = await _db;
+    final result = await db.query("scryfall_metadata", limit: 1); // Ensure only one row
+    return result.isNotEmpty ? result.first : {};
   }
 }

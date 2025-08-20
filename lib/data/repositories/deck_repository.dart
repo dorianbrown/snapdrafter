@@ -6,16 +6,25 @@ import '../models/deck.dart';
 import '../models/card.dart';
 import '../models/decklist.dart';
 
-// Placeholder for the utility function, ensure it's accessible
-String convertDatetimeToYMD(DateTime dateTime, {String sep = ""}) {
-  // Implement or import this utility function
-  return "${dateTime.year}$sep${dateTime.month.toString().padLeft(2, '0')}$sep${dateTime.day.toString().padLeft(2, '0')}";
-}
+import '/utils/utils.dart';
 
 class DeckRepository {
-  final DatabaseHelper _dbHelper;
+  late final DatabaseHelper _dbHelper;
+  bool _dbHelperLoaded = false;
 
-  DeckRepository(this._dbHelper);
+  DeckRepository._privateConstructor();
+  static final DeckRepository _instance = DeckRepository._privateConstructor();
+  factory DeckRepository() {
+    if (!_instance._dbHelperLoaded) {
+      _instance.init();
+    }
+    return _instance;
+  }
+
+  void init() {
+    _dbHelper = DatabaseHelper();
+    _dbHelperLoaded = true;
+  }
 
   Future<Database> get _db async => await _dbHelper.database;
 

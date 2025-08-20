@@ -12,12 +12,18 @@ import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
+import 'package:snapdrafter/data/repositories/card_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '/utils/data.dart';
-import '/utils/models.dart';
 import '/utils/deck_image_generator.dart';
 import '/widgets/display_token.dart';
+import '/data/repositories/card_repository.dart';
+import '/data/repositories/token_repository.dart';
+import '/data/repositories/deck_repository.dart';
+import '/data/models/card.dart';
+import '/data/models/deck.dart';
+import '/utils/constants.dart';
+import '/utils/deck_change_notifier.dart';
 
 const _headerStyle = TextStyle(
     fontSize: 20,
@@ -39,7 +45,9 @@ class DeckViewerState extends State<DeckViewer> {
 
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
   List<Card>? allCards;
-  late DeckStorage _deckStorage;
+  late CardRepository cardRepository;
+  late TokenRepository tokenRepository;
+  late DeckRepository deckRepository;
   Map groupedTokens = {};
   Uint8List? cachedShareImageBytes;
 
@@ -63,7 +71,9 @@ class DeckViewerState extends State<DeckViewer> {
   void initState() {
     super.initState();
     _loadCards();
-    _deckStorage.getDeckTokens(deck.id).then((val) {
+    tokenRepository = TokenRepository();
+    deckRepository = DeckRepository();
+    tokenRepository.getDeckTokens(deck.id).then((val) {
       setState(() {
         groupedTokens = val;
       });
@@ -71,8 +81,8 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Future<void> _loadCards() async {
-    _deckStorage = DeckStorage();
-    final cards = await _deckStorage.getAllCards();
+    cardRepository = CardRepository();
+    final cards = await cardRepository.getAllCards();
     allCards = cards;
   }
 
@@ -281,7 +291,7 @@ class DeckViewerState extends State<DeckViewer> {
     });
     // Invalidate cache for share_image
     cachedShareImageBytes = null;
-    _deckStorage.updateDecklist(deck.id, cardsCopy).then((_) {
+    deckRepository.updateDecklist(deck.id, cardsCopy).then((_) {
       Navigator.of(context).pop();
     });
   }
@@ -435,7 +445,7 @@ class DeckViewerState extends State<DeckViewer> {
                       _notifier.markNeedsRefresh();
                     });
                     // Force refresh the FutureBuilder by creating a new future
-                    _deckStorage.updateDecklist(deck.id, newCards).then((_) {
+                    deckRepository.updateDecklist(deck.id, newCards).then((_) {
                       Navigator.of(context).pop();
                     });
                   },

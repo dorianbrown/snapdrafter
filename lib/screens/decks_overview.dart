@@ -10,8 +10,8 @@ import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '/utils/utils.dart';
-import '/utils/data.dart';
-import '/utils/models.dart';
+import '/utils/deck_change_notifier.dart';
+import '/models/filter.dart';
 import '/widgets/deck_tile.dart';
 import '/models/orientation.dart';
 import 'deck_viewer.dart';
@@ -19,6 +19,15 @@ import 'deck_scanner.dart';
 import 'settings/download_screen.dart';
 import 'image_processing_screen.dart';
 import 'settings.dart';
+
+import '/data/models/deck.dart';
+import '/data/models/card.dart';
+import '/data/models/cube.dart';
+import '/data/models/set.dart';
+import '/data/repositories/deck_repository.dart';
+import '/data/repositories/set_repository.dart';
+import '/data/repositories/cube_repository.dart';
+import '/data/repositories/card_repository.dart';
 
 class MyDecksOverview extends StatefulWidget {
   const MyDecksOverview({super.key});
@@ -32,8 +41,11 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   late Future<List<Deck>> decksFuture;
   late Future<List<Set>> setsFuture;
   late Future<List<Cube>> cubesFuture;
+  late DeckRepository deckRepository;
+  late SetRepository setRepository;
+  late CubeRepository cubeRepository;
+  late CardRepository cardRepository;
   late Future buildFuture;
-  late DeckStorage _deckStorage;
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
   bool _hasSeenOverviewTutorial = false;
@@ -41,15 +53,19 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   @override
   void initState() {
     super.initState();
-    _deckStorage = DeckStorage();
-    decksFuture = _deckStorage.getAllDecks();
+    deckRepository = DeckRepository();
+    setRepository = SetRepository();
+    cubeRepository = CubeRepository();
+    decksFuture = deckRepository.getAllDecks();
+    setsFuture = setRepository.getAllSets();
+    cubesFuture = cubeRepository.getAllCubes();
+
     _changeNotifier.addListener(_refreshIfNeeded);
-    setsFuture = _deckStorage.getAllSets();
-    cubesFuture = _deckStorage.getAllCubes();
     decksFuture.then((_) {
       setState(() {});
     });
-    _deckStorage.getAllCards().then((cards) async {
+    cardRepository = CardRepository();
+    cardRepository.getAllCards().then((cards) async {
       if (cards.isEmpty) {
         Navigator.of(context).push(
             MaterialPageRoute(
@@ -84,9 +100,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
 
   void refreshDecks() async {
     setState(() {
-      setsFuture = _deckStorage.getAllSets();
-      cubesFuture = _deckStorage.getAllCubes();
-      decksFuture = _deckStorage.getAllDecks();
+      setsFuture = setRepository.getAllSets();
+      cubesFuture = cubeRepository.getAllCubes();
+      decksFuture = deckRepository.getAllDecks();
     });
   }
 
@@ -314,7 +330,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ),
                   TextButton(
                       onPressed: () async {
-                        List<Card> allCards = await _deckStorage.getAllCards();
+                        List<Card> allCards = await cardRepository.getAllCards();
                         List<Card> deckList = [];
 
                         List<String> text = controller.text.split("\n");
@@ -349,7 +365,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                           }
                         }
 
-                        _deckStorage.saveNewDeck(DateTime.now(), deckList).then((_) {
+                        deckRepository.saveNewDeck(DateTime.now(), deckList).then((_) {
                           refreshDecks();
                           Navigator.of(context).pop();
                         });
@@ -400,7 +416,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           ),
           TextButton(
             onPressed: () {
-              _deckStorage.deleteDeck(deckId);
+              deckRepository.deleteDeck(deckId);
               Navigator.of(dialogContext).pop();
               refreshDecks();
             },
@@ -690,7 +706,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 final String winLoss = "${3 - winController.selected}/${3 - lossController.selected}";
                 final setId = draftType == "set" ? currentCubeSetId : null;
                 final cubecobraId = draftType == "cube" ? currentCubeSetId : null;
-                _deckStorage.insertDeck({
+                deckRepository.insertDeck({
                   'id': deck.id,
                   'name': name.isEmpty ? null : name,
                   'win_loss': winLoss,
