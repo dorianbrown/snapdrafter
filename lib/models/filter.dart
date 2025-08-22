@@ -56,7 +56,8 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: tags,
-      colors: colors,
+      includedColors: includedColors,
+      excludedColors: excludedColors,
     );
   }
 
@@ -69,7 +70,8 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: tags,
-      colors: colors,
+      includedColors: includedColors,
+      excludedColors: excludedColors,
     );
   }
 
@@ -82,7 +84,8 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: tags,
-      colors: colors,
+      includedColors: includedColors,
+      excludedColors: excludedColors,
     );
   }
 
@@ -95,7 +98,8 @@ class Filter {
       minWins: 0,
       maxWins: 3,
       tags: tags,
-      colors: colors,
+      includedColors: includedColors,
+      excludedColors: excludedColors,
     );
   }
 
@@ -108,7 +112,8 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: const [],
-      colors: colors,
+      includedColors: includedColors,
+      excludedColors: excludedColors,
     );
   }
 
