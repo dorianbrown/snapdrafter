@@ -8,6 +8,7 @@ import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:wheel_picker/wheel_picker.dart';
 import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';

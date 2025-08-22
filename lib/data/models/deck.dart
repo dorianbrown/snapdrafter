@@ -25,7 +25,7 @@ class Deck {
 
   String get colors {
     String colors = cards.map(
-            (card) => card.colors
+            (card) => card.colors ?? ""
     ).toList().join("");
 
     String outputString = "";

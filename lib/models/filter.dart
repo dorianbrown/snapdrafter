@@ -8,6 +8,7 @@ class Filter {
   final int minWins;
   final int maxWins;
   final List<String> tags;
+  final List<String> colors;
 
   const Filter({
     this.startDate,
@@ -27,6 +28,7 @@ class Filter {
     int? minWins,
     int? maxWins,
     List<String>? tags,
+    List<String>? colors,
   }) {
     return Filter(
       startDate: startDate ?? this.startDate,
@@ -36,6 +38,7 @@ class Filter {
       minWins: minWins ?? this.minWins,
       maxWins: maxWins ?? this.maxWins,
       tags: tags ?? this.tags,
+      colors: colors ?? this.colors,
     );
   }
 
@@ -96,6 +99,20 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: const [],
+      colors: colors,
+    );
+  }
+
+  Filter clearColors() {
+    return Filter(
+      startDate: startDate,
+      endDate: endDate,
+      setId: setId,
+      cubecobraId: cubecobraId,
+      minWins: minWins,
+      maxWins: maxWins,
+      tags: tags,
+      colors: const [],
     );
   }
 
@@ -106,7 +123,8 @@ class Filter {
         endDate == null &&
         minWins == 0 &&
         maxWins == 3 &&
-        tags.isEmpty;
+        tags.isEmpty &&
+        colors.isEmpty;
   }
 
   bool matchesDeck(Deck deck) {
@@ -115,6 +133,15 @@ class Filter {
     if (endDate != null && date.isAfter(endDate!)) return false;
     if (setId != null && deck.setId != setId) return false;
     if (cubecobraId != null && deck.cubecobraId != cubecobraId) return false;
+
+    // Check if all colors in the filter are present in the deck's colors
+    if (colors.isNotEmpty) {
+      for (final color in colors) {
+        if (!deck.colors.contains(color)) {
+          return false;
+        }
+      }
+    }
 
     // Check if all tags in the filter are present in the deck's tags
     if (tags.isNotEmpty) {
