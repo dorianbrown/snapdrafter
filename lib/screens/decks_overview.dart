@@ -1,9 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart' hide Card, Orientation;
 import 'package:image_picker/image_picker.dart';
-import 'package:image/image.dart' as img;
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:wheel_picker/wheel_picker.dart';
 import 'package:collection/collection.dart';
@@ -985,9 +983,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           ),
         if (filter.includedColors.isNotEmpty)
           ...filter.includedColors.map((color) => Chip(
-            label: Text("Color: $color"),
-            backgroundColor: Colors.blue[100],
-            deleteIconColor: Colors.blue,
+            label: Text(""),
+            avatar: SvgPicture.asset("assets/svg_icons/$color.svg", height: 18,),
+            side: BorderSide(color: Colors.green.shade300),
             onDeleted: () => setState(() {
               final newIncludedColors = List<String>.from(filter.includedColors)..remove(color);
               currentFilter = filter.copyWith(includedColors: newIncludedColors);
@@ -1000,10 +998,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           )).toList(),
         if (filter.excludedColors.isNotEmpty)
           ...filter.excludedColors.map((color) => Chip(
-            label: Text("Exclude: $color"),
-            backgroundColor: Colors.red[100],
-            deleteIconColor: Colors.red,
-            side: BorderSide(color: Colors.red),
+            label: Text(""),
+            avatar: SvgPicture.asset("assets/svg_icons/$color.svg", height: 18,),
+            side: BorderSide(color: Colors.red.shade300),
             onDeleted: () => setState(() {
               final newExcludedColors = List<String>.from(filter.excludedColors)..remove(color);
               currentFilter = filter.copyWith(excludedColors: newExcludedColors);
