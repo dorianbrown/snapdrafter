@@ -725,27 +725,43 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ],
                 ),
                 createPaddedText("Tags"),
-                Wrap(
-                  spacing: 8,
-                  children: deckTags.map((tag) {
-                    return Chip(
-                      label: Text(tag),
-                      onDeleted: () {
-                        setDialogState(() {
-                          deckTags.remove(tag);
-                        });
-                      },
-                    );
-                  }).toList(),
-                ),
+                // Show available tags as toggleable chips
+                if (allTags.isNotEmpty) ...[
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text("Available Tags:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: allTags.map((tag) {
+                      final isSelected = deckTags.contains(tag);
+                      return FilterChip(
+                        label: Text(tag),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setDialogState(() {
+                            if (selected) {
+                              deckTags.add(tag);
+                            } else {
+                              deckTags.remove(tag);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                  SizedBox(height: 16),
+                ],
+                // Add new tag section
                 Row(
                   children: [
                     Expanded(
                       child: TextFormField(
                         controller: tagController,
                         decoration: InputDecoration(
-                          labelText: 'Add tag',
+                          labelText: 'Add new tag',
                           border: OutlineInputBorder(),
+                          hintText: 'Enter custom tag',
                         ),
                       ),
                     ),
@@ -763,6 +779,27 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     ),
                   ],
                 ),
+                // Show current deck tags as removable chips
+                if (deckTags.isNotEmpty) ...[
+                  SizedBox(height: 16),
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 8),
+                    child: Text("Current Tags:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: deckTags.map((tag) {
+                      return Chip(
+                        label: Text(tag),
+                        onDeleted: () {
+                          setDialogState(() {
+                            deckTags.remove(tag);
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
             )
           );
@@ -805,6 +842,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 }
                 
                 refreshDecks();
+                _loadTags(); // Reload tags to include any new ones
                 Navigator.of(context).pop();
               }
             },
