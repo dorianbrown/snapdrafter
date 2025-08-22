@@ -713,7 +713,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                             firstDate: DateTime(2000),
                             lastDate: DateTime(2100)
                         );
-                        debugPrint(date.toString());
                         if (date != null) {
                           setDialogState(() {
                             selectedDate = convertDatetimeToYMD(date);
@@ -734,6 +733,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   Wrap(
                     spacing: 8,
                     children: allTags.map((tag) {
+                      debugPrint("tag: $tag");
                       final isSelected = deckTags.contains(tag);
                       return FilterChip(
                         label: Text(tag),
@@ -746,6 +746,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                               deckTags.remove(tag);
                             }
                           });
+                          debugPrint(deckTags.toString());
                         },
                       );
                     }).toList(),
@@ -772,6 +773,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                         if (tag.isNotEmpty && !deckTags.contains(tag)) {
                           setDialogState(() {
                             deckTags.add(tag);
+                            allTags.add(tag);
                             tagController.clear();
                           });
                         }
@@ -779,27 +781,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     ),
                   ],
                 ),
-                // Show current deck tags as removable chips
-                if (deckTags.isNotEmpty) ...[
-                  SizedBox(height: 16),
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text("Current Tags:", style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: deckTags.map((tag) {
-                      return Chip(
-                        label: Text(tag),
-                        onDeleted: () {
-                          setDialogState(() {
-                            deckTags.remove(tag);
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                ],
               ],
             )
           );
@@ -807,7 +788,10 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              _loadTags();
+              Navigator.of(context).pop();
+            },
             child: Text("Dismiss")
         ),
         TextButton(
@@ -842,7 +826,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 }
                 
                 refreshDecks();
-                _loadTags(); // Reload tags to include any new ones
+                _loadTags(); // Reload tags to include any newly added ones
                 Navigator.of(context).pop();
               }
             },
