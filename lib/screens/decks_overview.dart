@@ -475,6 +475,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("Date Range"),
+                  SizedBox(
+                    height: 5,
+                  ),
                   OutlinedButton(
                     onPressed: () async {
                       final range = await showDateRangePicker(
@@ -523,6 +526,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       });
                     },
                   ),
+                  SizedBox(
+                    height: 5
+                  ),
                   DropdownMenu(
                     hintText: "Select $draftType",
                     dropdownMenuEntries: draftType == "set"
@@ -545,7 +551,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     },
                   ),
                   Padding(
-                    padding: EdgeInsets.only(top: 16),
+                    padding: EdgeInsets.only(top: 16, bottom: 10),
                     child: Text("Colors"),
                   ),
                   Row(
@@ -576,8 +582,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                               colorFilter: selectedColors.contains(color)
                                   ? null
                                   : ColorFilter.mode(
-                                      Colors.grey.withOpacity(0.5),
-                                      BlendMode.srcIn,
+                                      Colors.grey.withAlpha(150),
+                                      BlendMode.dstOut,
                                     ),
                             ),
                           ),
@@ -585,7 +591,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     ],
                   ),
                   Padding(
-                    padding: EdgeInsets.only(top: 16),
+                    padding: EdgeInsets.only(top: 16, bottom: 10),
                     child: Text("Tags"),
                   ),
                   Wrap(
@@ -776,7 +782,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   Wrap(
                     spacing: 8,
                     children: allTags.map((tag) {
-                      debugPrint("tag: $tag");
                       final isSelected = deckTags.contains(tag);
                       return FilterChip(
                         label: Text(tag),

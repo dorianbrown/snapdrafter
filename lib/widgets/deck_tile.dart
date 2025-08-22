@@ -58,7 +58,7 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
       });
     }
 
-    String subtitle = _buildSubtitle();
+    Widget subtitle = _buildSubtitle();
 
     return Slidable(
       controller: slidableController,
@@ -94,7 +94,7 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
           overflow: TextOverflow.ellipsis,
         ),
         trailing: const Icon(Icons.keyboard_arrow_right_rounded, size: 25),
-        subtitle: Text(subtitle),
+        subtitle: subtitle,
         onTap: widget.onTap,
       )
     );
@@ -110,11 +110,10 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
     }).then((_) async {
       await slidableController.openStartActionPane(duration: Duration(seconds: 1), curve: _curve);
     });
-    debugPrint("Open Start Action Pane was called");
     widget.onFirstDeckViewed(); // Mark as seen after showing toast
   }
 
-  String _buildSubtitle() {
+  Widget _buildSubtitle() {
     String subtitle = "";
     if (widget.deck.winLoss != null) {
       subtitle = "${subtitle}W/L: ${widget.deck.winLoss}\n";
@@ -125,7 +124,26 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
     if (widget.deck.cubecobraId != null) {
       subtitle = "${subtitle}Cube: ${widget.cubes.firstWhere((x) => x.cubecobraId == widget.deck.cubecobraId).name}\n";
     }
-    return "$subtitle${widget.deck.ymd}";
+
+    List<Widget> tagChips = widget.deck.tags.map((tag) {
+      return Chip(
+        label: Text(tag, style: TextStyle(fontSize: 12),),
+        visualDensity: VisualDensity.compact,
+        padding: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      );
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text("$subtitle${widget.deck.ymd}"),
+        if (tagChips.isNotEmpty)
+          SizedBox(height: 4),
+        Wrap(children: tagChips, spacing: 5, runSpacing: 5,),
+      ],
+    );
   }
 
   Widget _buildColorIcons() {
