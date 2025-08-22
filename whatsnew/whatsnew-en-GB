@@ -1,1 +1,3 @@
-- Now a double-faced card can be added using either front or back side of the card. This should also make these cards work with photo scanning
+- When adding a deck and fine-tuning the detection results, newly added cards are now blank instead of Fblthp. Should save some time backspacing
+- Decks can now be tagged, the tags are shown in the overview, and you can filter your decks by tag. Should solve a lot of different use-cases (folders, extra deck metadata, etc)
+- Added the option to filter by deck colors. Seems like a no-brainer that I somehow missed when putting this together.
