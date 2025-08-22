@@ -546,6 +546,46 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ),
                   Padding(
                     padding: EdgeInsets.only(top: 16),
+                    child: Text("Colors"),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      for (final color in ["W", "U", "B", "R", "G"])
+                        GestureDetector(
+                          onTap: () {
+                            setDialogState(() {
+                              if (selectedColors.contains(color)) {
+                                selectedColors.remove(color);
+                              } else {
+                                selectedColors.add(color);
+                              }
+                            });
+                          },
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              border: selectedColors.contains(color)
+                                  ? Border.all(color: Colors.blue, width: 2)
+                                  : null,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: SvgPicture.asset(
+                              "assets/svg_icons/$color.svg",
+                              colorFilter: selectedColors.contains(color)
+                                  ? null
+                                  : ColorFilter.mode(
+                                      Colors.grey.withOpacity(0.5),
+                                      BlendMode.srcIn,
+                                    ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(top: 16),
                     child: Text("Tags"),
                   ),
                   Wrap(
