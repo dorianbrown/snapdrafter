@@ -18,6 +18,7 @@ class Filter {
     required this.minWins,
     required this.maxWins,
     this.tags = const [],
+    this.colors = const [],
   });
 
   Filter copyWith({
@@ -51,6 +52,7 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: tags,
+      colors: colors,
     );
   }
 
@@ -63,6 +65,7 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: tags,
+      colors: colors,
     );
   }
 
@@ -75,6 +78,7 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: tags,
+      colors: colors,
     );
   }
 
@@ -87,6 +91,7 @@ class Filter {
       minWins: 0,
       maxWins: 3,
       tags: tags,
+      colors: colors,
     );
   }
 

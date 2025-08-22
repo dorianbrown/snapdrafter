@@ -446,6 +446,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     String draftType = "set";
     RangeValues winRange = const RangeValues(0, 3);
     List<String> selectedTags = currentFilter?.tags ?? [];
+    List<String> selectedColors = currentFilter?.colors ?? [];
 
     return AlertDialog(
       title: Text("Filter Decks"),
@@ -587,6 +588,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               minWins: winRange.start.round(),
               maxWins: winRange.end.round(),
               tags: selectedTags,
+              colors: selectedColors,
             );
             Navigator.of(context).pop(filter);
           },
@@ -913,6 +915,18 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             label: Text("Wins: ${filter.minWins == filter.maxWins ? filter.minWins : '${filter.minWins}-${filter.maxWins}'}"),
             onDeleted: () => setState(() {
               currentFilter = filter.clearWinRange();
+              if (currentFilter!.isEmpty()) {
+                currentFilter = null;
+              }
+            }),
+            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: EdgeInsets.all(6),
+          ),
+        if (filter.colors.isNotEmpty)
+          Chip(
+            label: Text("Colors: ${filter.colors.join('')}"),
+            onDeleted: () => setState(() {
+              currentFilter = filter.clearColors();
               if (currentFilter!.isEmpty()) {
                 currentFilter = null;
               }
