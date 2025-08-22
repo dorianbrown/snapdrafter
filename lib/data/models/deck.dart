@@ -10,6 +10,7 @@ class Deck {
   final String? cubecobraId;
   final String ymd;
   List<Card> cards;
+  List<String> tags;
 
   Deck({
     required this.id,
@@ -18,7 +19,8 @@ class Deck {
     this.setId,
     this.cubecobraId,
     required this.ymd,
-    required this.cards
+    required this.cards,
+    this.tags = const [],
   });
 
   String get colors {

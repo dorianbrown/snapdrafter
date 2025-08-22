@@ -45,6 +45,13 @@ class DeckRepository {
       FROM decklists 
       INNER JOIN cards ON decklists.scryfall_id = cards.scryfall_id 
     """);
+    
+    // Get tags for all decks
+    final tagsData = await dbClient.rawQuery("""
+      SELECT dt.deck_id, t.name 
+      FROM deck_tags dt 
+      INNER JOIN tags t ON dt.tag_id = t.id
+    """);
 
     final List<Deck> deckList = [];
     for (final deck in decksData) {
@@ -59,6 +66,12 @@ class DeckRepository {
           .where((x) => x['deck_id'] == deckId)
           .map((x) => Card.fromMap(x))
           .toList();
+          
+      // Get tags for this deck
+      var deckTags = tagsData
+          .where((x) => x['deck_id'] == deckId)
+          .map((x) => x['name'] as String)
+          .toList();
 
       deckList.add(Deck(
           id: deckId,
@@ -67,7 +80,8 @@ class DeckRepository {
           setId: setId,
           cubecobraId: cubecobraId,
           ymd: ymd,
-          cards: currentDecklist
+          cards: currentDecklist,
+          tags: deckTags
       ));
     }
     return deckList;
@@ -111,6 +125,47 @@ class DeckRepository {
     await updateDecklist(deckId, cards);
     debugPrint("Deck inserted successfully, deck_id: $deckId");
     return deckId;
+  }
+
+  // Tag management methods
+  Future<List<String>> getAllTags() async {
+    final dbClient = await _db;
+    final result = await dbClient.query('tags');
+    return result.map((row) => row['name'] as String).toList();
+  }
+
+  Future<void> addTagToDeck(int deckId, String tagName) async {
+    final dbClient = await _db;
+    await dbClient.transaction((txn) async {
+      // Insert tag if it doesn't exist
+      var tagResult = await txn.rawQuery(
+        'SELECT id FROM tags WHERE name = ?',
+        [tagName]
+      );
+      int tagId;
+      if (tagResult.isEmpty) {
+        tagId = await txn.insert('tags', {'name': tagName});
+      } else {
+        tagId = tagResult.first['id'] as int;
+      }
+      
+      // Link tag to deck
+      await txn.insert(
+        'deck_tags',
+        {'deck_id': deckId, 'tag_id': tagId},
+        conflictAlgorithm: ConflictAlgorithm.ignore,
+      );
+    });
+  }
+
+  Future<void> removeTagFromDeck(int deckId, String tagName) async {
+    final dbClient = await _db;
+    await dbClient.rawDelete('''
+      DELETE FROM deck_tags 
+      WHERE deck_id = ? AND tag_id IN (
+        SELECT id FROM tags WHERE name = ?
+      )
+    ''', [deckId, tagName]);
   }
 
 }

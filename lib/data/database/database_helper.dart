@@ -110,6 +110,22 @@ class DatabaseHelper {
         scryfall_id STRING NOT NULL
       )
     """);
+    // Add tables for tags
+    await db.execute("""
+      CREATE TABLE tags(
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+      )
+    """);
+    await db.execute("""
+      CREATE TABLE deck_tags(
+        deck_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (deck_id, tag_id),
+        FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+      )
+    """);
     debugPrint("sqflite tables created");
   }
 

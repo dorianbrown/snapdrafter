@@ -7,6 +7,7 @@ class Filter {
   final String? cubecobraId;
   final int minWins;
   final int maxWins;
+  final List<String> tags;
 
   const Filter({
     this.startDate,
@@ -15,6 +16,7 @@ class Filter {
     this.cubecobraId,
     required this.minWins,
     required this.maxWins,
+    this.tags = const [],
   });
 
   Filter copyWith({
@@ -24,6 +26,7 @@ class Filter {
     String? cubecobraId,
     int? minWins,
     int? maxWins,
+    List<String>? tags,
   }) {
     return Filter(
       startDate: startDate ?? this.startDate,
@@ -32,6 +35,7 @@ class Filter {
       cubecobraId: cubecobraId ?? this.cubecobraId,
       minWins: minWins ?? this.minWins,
       maxWins: maxWins ?? this.maxWins,
+      tags: tags ?? this.tags,
     );
   }
 
@@ -43,6 +47,7 @@ class Filter {
       cubecobraId: cubecobraId,
       minWins: minWins,
       maxWins: maxWins,
+      tags: tags,
     );
   }
 
@@ -54,6 +59,7 @@ class Filter {
       cubecobraId: null,
       minWins: minWins,
       maxWins: maxWins,
+      tags: tags,
     );
   }
 
@@ -65,6 +71,7 @@ class Filter {
       cubecobraId: cubecobraId,
       minWins: minWins,
       maxWins: maxWins,
+      tags: tags,
     );
   }
 
@@ -76,6 +83,19 @@ class Filter {
       cubecobraId: cubecobraId,
       minWins: 0,
       maxWins: 3,
+      tags: tags,
+    );
+  }
+
+  Filter clearTags() {
+    return Filter(
+      startDate: startDate,
+      endDate: endDate,
+      setId: setId,
+      cubecobraId: cubecobraId,
+      minWins: minWins,
+      maxWins: maxWins,
+      tags: const [],
     );
   }
 
@@ -85,7 +105,8 @@ class Filter {
         startDate == null &&
         endDate == null &&
         minWins == 0 &&
-        maxWins == 3;
+        maxWins == 3 &&
+        tags.isEmpty;
   }
 
   bool matchesDeck(Deck deck) {
@@ -94,6 +115,13 @@ class Filter {
     if (endDate != null && date.isAfter(endDate!)) return false;
     if (setId != null && deck.setId != setId) return false;
     if (cubecobraId != null && deck.cubecobraId != cubecobraId) return false;
+
+    // Check if all tags in the filter are present in the deck's tags
+    if (tags.isNotEmpty) {
+      for (final tag in tags) {
+        if (!deck.tags.contains(tag)) return false;
+      }
+    }
 
     if (deck.winLoss == null) {
       // If we're filtering for non-zero wins but deck has no win data, exclude it
