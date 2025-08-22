@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   static Database? _database;
   static const String _databaseName = "draftTracker.db";
-  static const int _databaseVersion = 2; // Latest db version after all upgrades
+  static const int _databaseVersion = 3; // Latest db version after all upgrades
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -157,6 +157,24 @@ class DatabaseHelper {
       }
       debugPrint("sqflite: Upgraded to V2");
     }
+    if (oldVersion < 3) {
+      await db.execute("""
+      CREATE TABLE tags(
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+      )
+      """);
+      await db.execute("""
+      CREATE TABLE deck_tags(
+        deck_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (deck_id, tag_id),
+        FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+      )
+      """);
+    }
+
     // Add further migration steps for future versions here
     // if (oldVersion < 3) { ... }
   }
