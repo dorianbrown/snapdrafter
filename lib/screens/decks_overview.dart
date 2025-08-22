@@ -446,7 +446,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     String draftType = "set";
     RangeValues winRange = const RangeValues(0, 3);
     List<String> selectedTags = currentFilter?.tags ?? [];
-    List<String> selectedColors = currentFilter?.colors ?? [];
+    List<String> includedColors = currentFilter?.includedColors ?? [];
+    List<String> excludedColors = currentFilter?.excludedColors ?? [];
 
     return AlertDialog(
       title: Text("Filter Decks"),
@@ -634,7 +635,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               minWins: winRange.start.round(),
               maxWins: winRange.end.round(),
               tags: selectedTags,
-              colors: selectedColors,
+              includedColors: includedColors,
+              excludedColors: excludedColors,
             );
             Navigator.of(context).pop(filter);
           },
@@ -967,18 +969,37 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
             padding: EdgeInsets.all(6),
           ),
-        if (filter.colors.isNotEmpty)
-          Chip(
-            label: Text("Colors: ${filter.colors.join('')}"),
+        if (filter.includedColors.isNotEmpty)
+          ...filter.includedColors.map((color) => Chip(
+            label: Text("Color: $color"),
+            backgroundColor: Colors.blue[100],
+            deleteIconColor: Colors.blue,
             onDeleted: () => setState(() {
-              currentFilter = filter.clearColors();
+              final newIncludedColors = List<String>.from(filter.includedColors)..remove(color);
+              currentFilter = filter.copyWith(includedColors: newIncludedColors);
               if (currentFilter!.isEmpty()) {
                 currentFilter = null;
               }
             }),
             labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
             padding: EdgeInsets.all(6),
-          ),
+          )).toList(),
+        if (filter.excludedColors.isNotEmpty)
+          ...filter.excludedColors.map((color) => Chip(
+            label: Text("Exclude: $color"),
+            backgroundColor: Colors.red[100],
+            deleteIconColor: Colors.red,
+            side: BorderSide(color: Colors.red),
+            onDeleted: () => setState(() {
+              final newExcludedColors = List<String>.from(filter.excludedColors)..remove(color);
+              currentFilter = filter.copyWith(excludedColors: newExcludedColors);
+              if (currentFilter!.isEmpty()) {
+                currentFilter = null;
+              }
+            }),
+            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: EdgeInsets.all(6),
+          )).toList(),
         if (filter.tags.isNotEmpty)
           ...filter.tags.map((tag) => Chip(
             label: Text("Tag: $tag"),

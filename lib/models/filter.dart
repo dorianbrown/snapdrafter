@@ -8,7 +8,8 @@ class Filter {
   final int minWins;
   final int maxWins;
   final List<String> tags;
-  final List<String> colors;
+  final List<String> includedColors;
+  final List<String> excludedColors;
 
   const Filter({
     this.startDate,
@@ -18,7 +19,8 @@ class Filter {
     required this.minWins,
     required this.maxWins,
     this.tags = const [],
-    this.colors = const [],
+    this.includedColors = const [],
+    this.excludedColors = const [],
   });
 
   Filter copyWith({
@@ -29,7 +31,8 @@ class Filter {
     int? minWins,
     int? maxWins,
     List<String>? tags,
-    List<String>? colors,
+    List<String>? includedColors,
+    List<String>? excludedColors,
   }) {
     return Filter(
       startDate: startDate ?? this.startDate,
@@ -39,7 +42,8 @@ class Filter {
       minWins: minWins ?? this.minWins,
       maxWins: maxWins ?? this.maxWins,
       tags: tags ?? this.tags,
-      colors: colors ?? this.colors,
+      includedColors: includedColors ?? this.includedColors,
+      excludedColors: excludedColors ?? this.excludedColors,
     );
   }
 
@@ -117,7 +121,8 @@ class Filter {
       minWins: minWins,
       maxWins: maxWins,
       tags: tags,
-      colors: const [],
+      includedColors: const [],
+      excludedColors: const [],
     );
   }
 
@@ -129,7 +134,8 @@ class Filter {
         minWins == 0 &&
         maxWins == 3 &&
         tags.isEmpty &&
-        colors.isEmpty;
+        includedColors.isEmpty &&
+        excludedColors.isEmpty;
   }
 
   bool matchesDeck(Deck deck) {
@@ -139,10 +145,19 @@ class Filter {
     if (setId != null && deck.setId != setId) return false;
     if (cubecobraId != null && deck.cubecobraId != cubecobraId) return false;
 
-    // Check if all colors in the filter are present in the deck's colors
-    if (colors.isNotEmpty) {
-      for (final color in colors) {
+    // Check if all included colors are present in the deck's colors
+    if (includedColors.isNotEmpty) {
+      for (final color in includedColors) {
         if (!deck.colors.contains(color)) {
+          return false;
+        }
+      }
+    }
+    
+    // Check if any excluded colors are present in the deck's colors
+    if (excludedColors.isNotEmpty) {
+      for (final color in excludedColors) {
+        if (deck.colors.contains(color)) {
           return false;
         }
       }
