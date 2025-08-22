@@ -562,25 +562,39 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                         GestureDetector(
                           onTap: () {
                             setDialogState(() {
-                              if (selectedColors.contains(color)) {
-                                selectedColors.remove(color);
+                              // Cycle through states: neutral -> included -> excluded -> neutral
+                              if (includedColors.contains(color)) {
+                                includedColors.remove(color);
+                                excludedColors.add(color);
+                              } else if (excludedColors.contains(color)) {
+                                excludedColors.remove(color);
                               } else {
-                                selectedColors.add(color);
+                                includedColors.add(color);
                               }
+                            });
+                          },
+                          onLongPress: () {
+                            setDialogState(() {
+                              // Long press to clear the state
+                              includedColors.remove(color);
+                              excludedColors.remove(color);
                             });
                           },
                           child: Container(
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              border: selectedColors.contains(color)
+                              border: includedColors.contains(color)
                                   ? Border.all(color: Colors.blue, width: 2)
-                                  : null,
+                                  : excludedColors.contains(color)
+                                      ? Border.all(color: Colors.red, width: 2)
+                                      : null,
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: SvgPicture.asset(
                               "assets/svg_icons/$color.svg",
-                              colorFilter: selectedColors.contains(color)
+                              colorFilter: (includedColors.contains(color) || 
+                                           excludedColors.contains(color))
                                   ? null
                                   : ColorFilter.mode(
                                       Colors.grey.withAlpha(150),
