@@ -542,7 +542,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       });
                     },
                   ),
-                  ),
                   Padding(
                     padding: EdgeInsets.only(top: 16),
                     child: Text("Tags"),
