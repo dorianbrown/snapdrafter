@@ -49,6 +49,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
   bool _hasSeenOverviewTutorial = false;
+  List<String> allTags = [];
+  final TextEditingController _tagController = TextEditingController();
 
   @override
   void initState() {
@@ -75,9 +77,17 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       }
     });
     _loadFirstDeckStatus();
+    _loadTags();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
 
+  }
+
+  Future<void> _loadTags() async {
+    final tags = await deckRepository.getAllTags();
+    setState(() {
+      allTags = tags;
+    });
   }
 
   Future<void> _loadFirstDeckStatus() async {
@@ -94,6 +104,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   void _refreshIfNeeded() {
     if (_changeNotifier.needsRefresh) {
       refreshDecks();
+      _loadTags();
       _changeNotifier.clearRefresh();
     }
   }
@@ -433,6 +444,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     String? selectedCubeId;
     String draftType = "set";
     RangeValues winRange = const RangeValues(0, 3);
+    List<String> selectedTags = currentFilter?.tags ?? [];
 
     return AlertDialog(
       title: Text("Filter Decks"),
@@ -530,6 +542,30 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       });
                     },
                   ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(top: 16),
+                    child: Text("Tags"),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    children: allTags.map((tag) {
+                      final isSelected = selectedTags.contains(tag);
+                      return FilterChip(
+                        label: Text(tag),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          setDialogState(() {
+                            if (selected) {
+                              selectedTags.add(tag);
+                            } else {
+                              selectedTags.remove(tag);
+                            }
+                          });
+                        },
+                      );
+                    }).toList(),
+                  ),
                 ],
               );
             },
@@ -550,6 +586,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               cubecobraId: selectedCubeId,
               minWins: winRange.start.round(),
               maxWins: winRange.end.round(),
+              tags: selectedTags,
             );
             Navigator.of(context).pop(filter);
           },
@@ -577,6 +614,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     final formKey = GlobalKey<FormState>();
     String? currentCubeSetId = deck.cubecobraId ?? deck.setId;
     String draftType = deck.cubecobraId != null ? "cube" : "set";
+    List<String> deckTags = List.from(deck.tags);
+    final tagController = TextEditingController();
 
     Widget createPaddedText(String text) {
       return Container(
@@ -685,7 +724,46 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       child: Text(selectedDate)
                     )
                   ],
-                )
+                ),
+                createPaddedText("Tags"),
+                Wrap(
+                  spacing: 8,
+                  children: deckTags.map((tag) {
+                    return Chip(
+                      label: Text(tag),
+                      onDeleted: () {
+                        setDialogState(() {
+                          deckTags.remove(tag);
+                        });
+                      },
+                    );
+                  }).toList(),
+                ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: tagController,
+                        decoration: InputDecoration(
+                          labelText: 'Add tag',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.add),
+                      onPressed: () {
+                        final tag = tagController.text.trim();
+                        if (tag.isNotEmpty && !deckTags.contains(tag)) {
+                          setDialogState(() {
+                            deckTags.add(tag);
+                            tagController.clear();
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
               ],
             )
           );
@@ -697,7 +775,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             child: Text("Dismiss")
         ),
         TextButton(
-            onPressed: () {
+            onPressed: () async {
               if (formKey.currentState!.validate()) {
                 // Since this is an existing deck_id, it should overwrite
                 // metadata in db.
@@ -713,6 +791,20 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   'set_id': setId,
                   'cubecobra_id': cubecobraId,
                   'ymd': selectedDate});
+                
+                // Update tags
+                final currentTags = deck.tags;
+                for (final tag in currentTags) {
+                  if (!deckTags.contains(tag)) {
+                    await deckRepository.removeTagFromDeck(deck.id, tag);
+                  }
+                }
+                for (final tag in deckTags) {
+                  if (!currentTags.contains(tag)) {
+                    await deckRepository.addTagToDeck(deck.id, tag);
+                  }
+                }
+                
                 refreshDecks();
                 Navigator.of(context).pop();
               }
@@ -806,6 +898,19 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
             padding: EdgeInsets.all(6),
           ),
+        if (filter.tags.isNotEmpty)
+          ...filter.tags.map((tag) => Chip(
+            label: Text("Tag: $tag"),
+            onDeleted: () => setState(() {
+              final newTags = List<String>.from(filter.tags)..remove(tag);
+              currentFilter = filter.copyWith(tags: newTags);
+              if (currentFilter!.isEmpty()) {
+                currentFilter = null;
+              }
+            }),
+            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+            padding: EdgeInsets.all(6),
+          )).toList(),
         ActionChip(
           label: Text("Clear Filters"),
           onPressed: () => setState(() => currentFilter = null),
