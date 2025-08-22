@@ -160,12 +160,23 @@ class DeckRepository {
 
   Future<void> removeTagFromDeck(int deckId, String tagName) async {
     final dbClient = await _db;
-    await dbClient.rawDelete('''
-      DELETE FROM deck_tags 
-      WHERE deck_id = ? AND tag_id IN (
-        SELECT id FROM tags WHERE name = ?
-      )
-    ''', [deckId, tagName]);
+    await dbClient.transaction((txn) async {
+      // First remove the tag from the deck
+      await txn.rawDelete('''
+        DELETE FROM deck_tags 
+        WHERE deck_id = ? AND tag_id IN (
+          SELECT id FROM tags WHERE name = ?
+        )
+      ''', [deckId, tagName]);
+
+      // Then remove any dangling tags (tags with no associated decks)
+      await txn.rawDelete('''
+        DELETE FROM tags 
+        WHERE id NOT IN (
+          SELECT DISTINCT tag_id FROM deck_tags
+        )
+      ''');
+    });
   }
 
 }
