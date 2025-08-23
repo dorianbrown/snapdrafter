@@ -16,9 +16,9 @@ Future<void> main() async {
     DeviceOrientation.portraitUp,
   ]);
 
-  // Initialize DeckStorage to have it available in future
+  // Initialize Database to create/upgrade tables if necessary
   DatabaseHelper db = DatabaseHelper();
-  await db.database; // initializes database
+  await db.database;
 
   // Get System Theme
   SharedPreferences prefs = await SharedPreferences.getInstance();

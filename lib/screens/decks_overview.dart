@@ -608,11 +608,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     child: Text("Tags"),
                   ),
                   Wrap(
-                    spacing: 8,
+                    spacing: 6,
                     children: allTags.map((tag) {
                       final isSelected = selectedTags.contains(tag);
                       return FilterChip(
                         label: Text(tag),
+                        visualDensity: VisualDensity.compact,
                         selected: isSelected,
                         onSelected: (selected) {
                           setDialogState(() {
@@ -794,11 +795,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     child: Text("Available Tags:", style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   Wrap(
-                    spacing: 8,
+                    spacing: 6,
                     children: allTags.map((tag) {
                       final isSelected = deckTags.contains(tag);
                       return FilterChip(
                         label: Text(tag),
+                        visualDensity: VisualDensity.compact,
                         selected: isSelected,
                         onSelected: (selected) {
                           setDialogState(() {
@@ -808,12 +810,11 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                               deckTags.remove(tag);
                             }
                           });
-                          debugPrint(deckTags.toString());
                         },
                       );
                     }).toList(),
                   ),
-                  SizedBox(height: 16),
+                  SizedBox(height: 12),
                 ],
                 // Add new tag section
                 Row(
@@ -830,6 +831,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     ),
                     IconButton(
                       icon: Icon(Icons.add),
+                      tooltip: "Add tag",
                       onPressed: () {
                         final tag = tagController.text.trim();
                         if (tag.isNotEmpty && !deckTags.contains(tag)) {
@@ -985,7 +987,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           ...filter.includedColors.map((color) => Chip(
             label: Text(""),
             avatar: SvgPicture.asset("assets/svg_icons/$color.svg", height: 18,),
-            side: BorderSide(color: Colors.green.shade300),
+            side: BorderSide(color: Colors.blue.shade200),
             onDeleted: () => setState(() {
               final newIncludedColors = List<String>.from(filter.includedColors)..remove(color);
               currentFilter = filter.copyWith(includedColors: newIncludedColors);
@@ -1000,7 +1002,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           ...filter.excludedColors.map((color) => Chip(
             label: Text(""),
             avatar: SvgPicture.asset("assets/svg_icons/$color.svg", height: 18,),
-            side: BorderSide(color: Colors.red.shade300),
+            side: BorderSide(color: Colors.red.shade200),
             onDeleted: () => setState(() {
               final newExcludedColors = List<String>.from(filter.excludedColors)..remove(color);
               currentFilter = filter.copyWith(excludedColors: newExcludedColors);

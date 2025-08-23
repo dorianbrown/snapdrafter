@@ -4,18 +4,21 @@ import 'database_helper.dart';
 
 class BackupHelper {
   late final DatabaseHelper _dbHelper;
+  bool _dbHelperLoaded = false;
 
   // Make class singleton
   BackupHelper._privateConstructor();
   static final BackupHelper _instance = BackupHelper._privateConstructor();
   factory BackupHelper() {
-    // FIXME: This will run every time a new instance is created. Should only be done on first one.
-    _instance.init();
+    if (!_instance._dbHelperLoaded) {
+      _instance.init();
+    }
     return _instance;
   }
 
   void init() {
     _dbHelper = DatabaseHelper();
+    _dbHelperLoaded = true;
   }
 
   Future<Database> get _db async => await _dbHelper.database;
