@@ -78,6 +78,9 @@ jobs:
           channel: stable
           flutter-version-file: pubspec.yaml # path to pubspec.yaml
 
+      - name: Download Xcode Platform
+        run: xcodebuild -downloadPlatform iOS -buildVersion 18.1
+
       - name: Build App IPA
         run: |
           OFFSET=40
