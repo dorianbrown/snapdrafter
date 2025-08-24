@@ -11,7 +11,6 @@ import 'package:path_provider/path_provider.dart';
 
 import 'detection_preview.dart';
 import '/utils/utils.dart';
-import '/models/orientation.dart';
 
 import '/data/repositories/card_repository.dart';
 import '/data/models/card.dart';
@@ -21,19 +20,17 @@ CardRepository cardRepository = CardRepository();
 
 class deckImageProcessing extends StatefulWidget {
   final String filePath;
-  final Orientation orientation;
   const deckImageProcessing(
-      {super.key, required this.filePath, required this.orientation});
+      {super.key, required this.filePath});
 
   @override
-  _deckImageProcessingState createState() => _deckImageProcessingState(filePath, orientation);
+  _deckImageProcessingState createState() => _deckImageProcessingState(filePath);
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
   // Class inputs
   final String filePath;
-  final Orientation orientation;
-  _deckImageProcessingState(this.filePath, this.orientation);
+  _deckImageProcessingState(this.filePath);
 
   late Interpreter _detector;
   late TextRecognizer _textRecognizer;
@@ -74,13 +71,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     }
     Uint8List fileBytes = await File(filePath).readAsBytes();
     decodedImage = img.decodeImage(fileBytes)!;
-    bool isLandscape = decodedImage.width > decodedImage.height;
-    if (isLandscape && orientation == Orientation.portrait) {
-      decodedImage = img.copyRotate(decodedImage, angle: 90);
-    }
-    if (!isLandscape && orientation == Orientation.landscape) {
-      decodedImage = img.copyRotate(decodedImage, angle: -90);
-    }
     debugPrint(
         "Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
   }
@@ -170,10 +160,26 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     // 3. for each detection: transcribeDetection
     // 4. Combine these into output image.
 
-    final img.Image inputImageCopy = inputImage.clone();
-
     // Yolo title detection
-    List<List<int>> detections = _titleDetection(inputImage);
+
+    // Since accelerometer orientation can be a bit flaky for pictures on a table,
+    // we run title detection on all 4 orientations and take the one with the most
+    // detections.
+    List<List<int>> detections = [];
+    int correctRotation = 0;
+
+    for (int rotation in [0, 90, 180, 270]) {
+      final currentDetections = _titleDetection(img.copyRotate(inputImage, angle: rotation));
+      debugPrint("Found ${currentDetections.length} detections for rotation $rotation");
+      if (currentDetections.length > detections.length) {
+        detections = currentDetections;
+        correctRotation = rotation;
+      }
+    }
+
+    inputImage = img.copyRotate(inputImage, angle: correctRotation);
+    img.Image inputImageCopy = inputImage.clone();
+
 
     // Using MLKit OCR to turn BBox info into strings.
     List<Future<String>> detectionTextFutures = detections

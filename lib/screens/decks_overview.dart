@@ -12,7 +12,6 @@ import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';
 import '/models/filter.dart';
 import '/widgets/deck_tile.dart';
-import '/models/orientation.dart';
 import 'deck_viewer.dart';
 import 'deck_scanner.dart';
 import 'settings/download_screen.dart';
@@ -179,7 +178,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               if (image != null) {
                 await Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (context) => deckImageProcessing(filePath: image.path, orientation: Orientation.auto,)
+                        builder: (context) => deckImageProcessing(filePath: image.path)
                     )
                 );
               }

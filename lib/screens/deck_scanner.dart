@@ -3,7 +3,6 @@ import 'package:flutter/material.dart' hide Orientation;
 import 'package:camerawesome/camerawesome_plugin.dart';
 
 import 'image_processing_screen.dart';
-import '/models/orientation.dart';
 
 class DeckScanner extends StatefulWidget {
   const DeckScanner({super.key});
@@ -13,8 +12,6 @@ class DeckScanner extends StatefulWidget {
 }
 
 class DeckScannerState extends State<DeckScanner> {
-
-  Orientation orientationState = Orientation.auto;
 
   @override
   void initState() {
@@ -49,34 +46,6 @@ class DeckScannerState extends State<DeckScanner> {
             return AwesomeBottomActions(
               state: state,
               captureButton: AwesomeCaptureButton(state: state),
-              left: AwesomeOrientedWidget(
-                rotateWithDevice: true,
-                child: TextButton(
-                  onPressed: () => setState(() {
-                    orientationState = Orientation.next(orientationState);
-                  }),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        switch (orientationState) {
-                          Orientation.auto => Icons.screen_rotation,
-                          Orientation.landscape => Icons.stay_primary_landscape,
-                          Orientation.portrait => Icons.stay_primary_portrait,
-                        },
-                        size: 35
-                      ),
-                      Text(
-                        switch (orientationState) {
-                          Orientation.auto => "Auto",
-                          Orientation.landscape => "Landscape",
-                          Orientation.portrait => "Portrait",
-                        }
-                      )
-                    ],
-                  ),
-                )
-              )
             );
           },
           previewFit: CameraPreviewFit.contain,
@@ -89,7 +58,7 @@ class DeckScannerState extends State<DeckScanner> {
                   String filePath = singeCaptureRequest.path!;
                   Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (context) => deckImageProcessing(filePath: filePath, orientation: orientationState)
+                          builder: (context) => deckImageProcessing(filePath: filePath)
                       )
                   );
                 } else if (mediaCapture.status == MediaCaptureStatus.success) {
