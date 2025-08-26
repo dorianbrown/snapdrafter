@@ -44,7 +44,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   int _numDetections = -1;
   int currentStep = 0;
   int totalSteps = 4;
-  double? currentTaskProgress;
+  int? currentTaskCount;
+  int? totalCurrentTask;
   String currentTask = "Loading image";
   String? errorMessage;
 
@@ -99,17 +100,24 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Spacer(flex: 3),
-                    Text(currentTask),
-                    SizedBox(height: 5),
-                    CircularProgressIndicator(
-                      value: currentTaskProgress,
+                    Spacer(flex: 5),
+                    Text(
+                      currentTask,
+                      style: TextStyle(fontSize: 16),
                     ),
-                    SizedBox(height: 50,),
-                    Text("Total Progress"),
+                    CircularProgressIndicator(
+                      value: currentTaskCount != null && totalCurrentTask != null
+                        ? currentTaskCount! / totalCurrentTask!
+                        : null,
+                    ),
+                    Text(currentTaskCount != null && totalCurrentTask != null
+                        ? "$currentTaskCount/$totalCurrentTask"
+                        : ""),
+                    Spacer(flex: 1),
                     LinearProgressIndicator(
                         value: currentStep / totalSteps
                     ),
+                    Text("Total Progress"),
                     if (errorMessage != null) ...[
                       Text("Error:", style: TextStyle(
                           color: Colors.redAccent,
@@ -187,14 +195,15 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         .toList();
 
     _numDetections = detectionTextFutures.length;
+    currentTaskCount = 0;
+    totalCurrentTask = _numDetections;
 
     // Update progress bar as each future completes
     for (var future in detectionTextFutures) {
       future.then((_) {
         debugPrint("Finished OCRing detection ${ocrProgress + 1}");
         setState(() {
-          ocrProgress = ocrProgress + 1;
-          currentTaskProgress = ocrProgress / _numDetections;
+          currentTaskCount = currentTaskCount! + 1;
         });
       });
     }
@@ -224,14 +233,16 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     }
 
     debugPrint("Matching detections with database");
+    currentTaskCount = 0;
+    totalCurrentTask = _numDetections;
+
     for (final text in detectionText) {
       debugPrint("Matching $text with database");
       final matchParams = MatchParams(query: text, choices: choices);
       Future<ExtractedResult<String>> matchFuture = compute(runFuzzyMatch, matchParams);
       matchFuture.then((match) {
         setState(() {
-          matchingProgress = matchingProgress + 1;
-          currentTaskProgress = matchingProgress / _numDetections;
+          currentTaskCount = currentTaskCount! + 1;
         });
       });
       matchedFutures.add(matchFuture);
