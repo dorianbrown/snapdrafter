@@ -162,13 +162,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       });
     }).toList();
 
-    futureDetections.forEach((future) => future.then((value) {
-      setState(() {
-        orientationProgress = orientationProgress + 1;
-        currentTaskProgress = orientationProgress / 4;
-      });
-    }));
-
     List<List<List<int>>> allDetections = await Future.wait(futureDetections);
 
     // Choose best orientation by number of detections
