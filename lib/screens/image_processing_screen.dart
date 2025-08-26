@@ -38,7 +38,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   late Future<void> _loadModelsFuture;
   late img.Image decodedImage;
 
-  bool detectionStarted = false;
   int ocrProgress = 0;
   int matchingProgress = 0;
   int orientationProgress = 0;
@@ -53,32 +52,17 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   void initState() {
     super.initState();
     _loadModelsFuture = _loadModels();
-    final processInputFuture = processInputImage();
-    Future.wait([_loadModelsFuture, processInputFuture]).then((_) {
-      setState(() {
-        detectionStarted = true;
-      });
-      _runCardDetection(decodedImage).catchError((e) {
-        debugPrint("Error: $e");
-        setState(() {
-          errorMessage = e.toString();
-        });
-      });
-    });
-  }
 
-  Future processInputImage() async {
-    // Try reading file until it exists
-    int i = 0;
-    while (!File(filePath).existsSync()) {
-      i++;
-      debugPrint("Attempt to read image file $i");
-      await Future.delayed(Duration(milliseconds: 100));
-    }
-    Uint8List fileBytes = await File(filePath).readAsBytes();
-    decodedImage = img.decodeImage(fileBytes)!;
-    debugPrint(
-        "Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
+    // Start CardDetection after first layout complete
+    WidgetsBinding.instance
+      .addPostFrameCallback((_) {
+        _runCardDetection().catchError((e) {
+          debugPrint("Error: $e");
+          setState(() {
+            errorMessage = e.toString();
+          });
+        });
+    });
   }
 
   Future<void> _loadModels() async {
@@ -117,7 +101,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                   children: [
                     Spacer(flex: 3),
                     Text(currentTask),
-                    SizedBox(height: 10),
+                    SizedBox(height: 5),
                     CircularProgressIndicator(
                       value: currentTaskProgress,
                     ),
@@ -146,7 +130,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     );
   }
 
-  Future<void> _runCardDetection(img.Image inputImage) async {
+  Future<void> _runCardDetection() async {
     // 1. Take picture (or load from disk)
     // 2. Run titleDetection
     // 3. for each detection: transcribeDetection
@@ -157,6 +141,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     // Since accelerometer orientation can be a bit flaky for pictures on a table,
     // we run title detection on all 4 orientations and take the one with the most
     // detections.
+
+    img.Image inputImage = await compute(processInputImage, filePath);
 
     setState(() => currentStep += 1);
     currentTask = "Running title detection on image";
@@ -376,6 +362,20 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       return "";
     }
   }
+}
+
+Future<img.Image> processInputImage(String fp) async {
+  // Try reading file until it exists
+  int i = 0;
+  while (!File(fp).existsSync()) {
+    i++;
+    debugPrint("Attempt to read image file $i");
+    await Future.delayed(Duration(milliseconds: 100));
+  }
+  Uint8List fileBytes = await File(fp).readAsBytes();
+  final decodedImage = img.decodeImage(fileBytes)!;
+  debugPrint("Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
+  return decodedImage;
 }
 
 Future<List<List<int>>> _titleDetection(Map argMap) async {
