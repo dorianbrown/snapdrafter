@@ -1,4 +1,8 @@
-Changes in this update:
+Release 6.1:
+- When scanning a picture, we now determine the best orientation automatically by checking which has the most detections
+- Updated image processing screen to freeze less during loading
+
+Release 6.0:
 - When adding a deck and fine-tuning the detection results, newly added cards are now blank instead of Fblthp. Should save some time backspacing
 - Decks can now be tagged, the tags are shown in the overview, and you can filter your decks by tag. Should solve a lot of different use-cases (folders, extra deck metadata, etc)
-- Added the option to filter by deck colors. Seems like a no-brainer that I somehow missed when putting this together.
+- Added the option to filter by deck colors. Seems like a no-brainer that I somehow missed when putting this together
