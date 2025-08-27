@@ -43,7 +43,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   int orientationProgress = 0;
   int _numDetections = -1;
   int currentStep = 0;
-  int totalSteps = 4;
+  int totalSteps = 6;
   int? currentTaskCount;
   int? totalCurrentTask;
   String currentTask = "Loading image";
@@ -69,7 +69,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   Future<void> _loadModels() async {
     try {
       _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-      setState(() {});
     }
     catch (e) {
       setState(() {
@@ -100,10 +99,11 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Spacer(flex: 5),
+                    Spacer(flex: 7),
                     Text(
                       currentTask,
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 18),
+                      textAlign: TextAlign.center,
                     ),
                     CircularProgressIndicator(
                       value: currentTaskCount != null && totalCurrentTask != null
@@ -152,12 +152,15 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     img.Image inputImage = await compute(processInputImage, filePath);
 
-    setState(() => currentStep += 1);
-    currentTask = "Running title detection on image";
+    setState(() {
+      currentTask = "Running title detection on image";
+      currentStep += 1;
+    });
 
     List<List<int>> detections = [];
     int correctRotation = 0;
 
+    // TODO: Figure out how move this to isolate, currently causing errors if we do
     final modelPath = 'assets/20250522_fp16.tflite';
     final modelFile = await rootBundle.load(modelPath);
     final modelBuffer = modelFile.buffer.asUint8List();
@@ -182,8 +185,10 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       }
     }
 
-    setState(() => currentStep += 1);
-    currentTask = "Transcribing detections to text";
+    setState(() {
+      currentTask = "Transcribing detections to text";
+      currentStep += 1;
+    });
 
     inputImage = img.copyRotate(inputImage, angle: correctRotation);
     img.Image inputImageCopy = inputImage.clone();
@@ -197,6 +202,8 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     _numDetections = detectionTextFutures.length;
     currentTaskCount = 0;
     totalCurrentTask = _numDetections;
+    totalSteps = 3 * _numDetections;
+    currentStep = _numDetections;
 
     // Update progress bar as each future completes
     for (var future in detectionTextFutures) {
@@ -204,14 +211,17 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         debugPrint("Finished OCRing detection ${ocrProgress + 1}");
         setState(() {
           currentTaskCount = currentTaskCount! + 1;
+          currentStep += 1;
         });
       });
     }
 
     List<String> detectionText = await Future.wait(detectionTextFutures);
 
-    setState(() => currentStep += 1);
-    currentTask = "Matching transcribed titles to card database";
+    setState(() {
+      currentTask = "Matching transcribed titles to card database";
+      currentStep += 1;
+    });
 
     final allCards = await cardRepository.getAllCards();
     List<String> choices = [];
@@ -236,6 +246,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     currentTaskCount = 0;
     totalCurrentTask = _numDetections;
 
+
     for (final text in detectionText) {
       debugPrint("Matching $text with database");
       final matchParams = MatchParams(query: text, choices: choices);
@@ -243,6 +254,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       matchFuture.then((match) {
         setState(() {
           currentTaskCount = currentTaskCount! + 1;
+          currentStep += 1;
         });
       });
       matchedFutures.add(matchFuture);
@@ -425,6 +437,7 @@ Future<List<List<int>>> _titleDetection(Map argMap) async {
 
   // Running of actual Yolo detection model
   detector.run(inputTensor, outputTensor);
+  detector.close();
 
   // Converting output detection dimensions back to full
   // image dimensions
@@ -440,8 +453,7 @@ Future<List<List<int>>> _titleDetection(Map argMap) async {
     (el[1] * scalingFactor - heightPadding).toInt(),
     (el[2] * scalingFactor - widthPadding).toInt(),
     (el[3] * scalingFactor - heightPadding).toInt()
-  ])
-      .toList();
+  ]).toList();
 
   return detections;
 }
