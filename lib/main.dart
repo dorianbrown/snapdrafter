@@ -51,6 +51,7 @@ class MainApp extends StatefulWidget {
 
 class MainAppState extends State<MainApp> {
   late StreamSubscription _intentDataStreamSubscription;
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
@@ -76,12 +77,12 @@ class MainAppState extends State<MainApp> {
     // Wait for the app to be fully built before navigating
     await Future.delayed(Duration(milliseconds: 100));
 
-    if (mounted) {
-      Navigator.of(context).pushAndRemoveUntil(
+    if (mounted && navigatorKey.currentState != null) {
+      navigatorKey.currentState!.pushAndRemoveUntil(
         MaterialPageRoute(
           builder: (context) => deckImageProcessing(filePath: imagePath),
         ),
-            (route) => false, // Remove all previous routes
+        (route) => false, // Remove all previous routes
       );
     }
   }
@@ -95,6 +96,7 @@ class MainAppState extends State<MainApp> {
           theme: lightTheme,
           darkTheme: darkTheme,
           themeMode: themeNotifier.themeMode,
+          navigatorKey: navigatorKey,
           home: MyDecksOverview(),
         );
       },
