@@ -68,13 +68,14 @@ class MainAppState extends State<MainApp> {
     FlutterSharingIntent.instance.getInitialSharing().then((List<SharedFile> val) {
       if (val.isNotEmpty){
         final String sharedFile = val[0].value!;
-        addShareIntentCallback(sharedFile);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          addShareIntentCallback(sharedFile);
+        });
       }
     });
   }
 
   void addShareIntentCallback(String imagePath) async {
-    // Wait for the app to be fully built before navigating
     await Future.delayed(Duration(milliseconds: 100));
 
     if (mounted && navigatorKey.currentState != null) {
@@ -82,7 +83,7 @@ class MainAppState extends State<MainApp> {
         MaterialPageRoute(
           builder: (context) => deckImageProcessing(filePath: imagePath),
         ),
-        (route) => false, // Remove all previous routes
+        ModalRoute.withName('/'),
       );
     }
   }
@@ -101,5 +102,11 @@ class MainAppState extends State<MainApp> {
         );
       },
     );
+  }
+
+  @override
+  void dispose() {
+    _intentDataStreamSubscription.cancel();
+    super.dispose();
   }
 }
