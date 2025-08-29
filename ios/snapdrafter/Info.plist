@@ -8,6 +8,18 @@
 		<dict>
 			<key>NSExtensionActivationRule</key>
 			<string>TRUEPREDICATE</string>
+            <key>PHSupportedMediaTypes</key>
+            <array>
+                <!-- To share images into your app-->
+                <string>Image</string>
+            </array>
+
+            <key>NSExtensionActivationRule</key>
+            <dict>
+                <!-- To share images into your app -->
+                <key>NSExtensionActivationSupportsImageWithMaxCount</key>
+                <integer>20</integer>
+            </dict>
 		</dict>
 		<key>NSExtensionMainStoryboard</key>
 		<string>MainInterface</string>
