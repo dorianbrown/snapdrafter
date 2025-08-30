@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>AppGroupId</key>
-    <string>group.com.dorianbrown.snapdrafter</string>
+    <string>$(CUSTOM_GROUP_ID)</string>
 	<key>NSExtension</key>
 	<dict>
 		<key>NSExtensionAttributes</key>

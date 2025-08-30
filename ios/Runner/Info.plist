@@ -39,7 +39,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
     <key>AppGroupId</key>
-    <string>group.com.dorianbrown.snapdrafter</string>
+    <string>$(CUSTOM_GROUP_ID)</string>
     <key>CFBundleURLTypes</key>
 	<array>
 		<dict>
