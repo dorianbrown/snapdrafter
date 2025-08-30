@@ -585,6 +585,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
+				CUSTOM_GROUP_ID = group.com.dorianbrown.snapdrafter;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = LC2T9344TX;
 				ENABLE_BITCODE = NO;
@@ -785,6 +786,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
+				CUSTOM_GROUP_ID = group.com.dorianbrown.snapdrafter;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = LC2T9344TX;
 				ENABLE_BITCODE = NO;
@@ -823,6 +825,7 @@
 				CODE_SIGN_IDENTITY = "Apple Distribution: Dorian Brown (LC2T9344TX)";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution: Dorian Brown (LC2T9344TX)";
 				CODE_SIGN_STYLE = Manual;
+				CUSTOM_GROUP_ID = group.com.dorianbrown.snapdrafter;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = LC2T9344TX;
 				ENABLE_BITCODE = NO;
@@ -865,6 +868,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
+				CUSTOM_GROUP_ID = group.com.dorianbrown.snapdrafter;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = LC2T9344TX;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -911,6 +915,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution: Dorian Brown (LC2T9344TX)";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
+				CUSTOM_GROUP_ID = group.com.dorianbrown.snapdrafter;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = LC2T9344TX;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -954,6 +959,7 @@
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
 				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
+				CUSTOM_GROUP_ID = group.com.dorianbrown.snapdrafter;
 				DEVELOPMENT_TEAM = "";
 				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = LC2T9344TX;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
