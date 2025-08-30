@@ -114,11 +114,10 @@ class ShareViewController: UIViewController {
             loadIds();
             let url = URL(string: "SharingMedia-\(hostAppBundleIdentifier)://dataUrl=\(sharedKey)#\(type)")
             var responder = self as UIResponder?
-            let selectorOpenURL = sel_registerName("openURL:")
-
+            
             while (responder != nil) {
-                if (responder?.responds(to: selectorOpenURL))! {
-                    let _ = responder?.perform(selectorOpenURL, with: url)
+                if let application = responder as? UIApplication {
+                    application.open(url!)
                 }
                 responder = responder!.next
             }
