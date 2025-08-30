@@ -16,7 +16,7 @@
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
-		98C7194D2E61F0E400A6285B /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 98C719432E61F0E400A6285B /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		98C7194D2E61F0E400A6285B /* snapdrafter.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 98C719432E61F0E400A6285B /* snapdrafter.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -53,7 +53,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
-				98C7194D2E61F0E400A6285B /* ShareExtension.appex in Embed Foundation Extensions */,
+				98C7194D2E61F0E400A6285B /* snapdrafter.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -76,14 +76,14 @@
 		7B4ADE5ACDA946F05C47F156 /* Pods-RunnerTests.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-RunnerTests.profile.xcconfig"; path = "Target Support Files/Pods-RunnerTests/Pods-RunnerTests.profile.xcconfig"; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
 		9740EEB31CF90195004384FC /* Generated.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Generated.xcconfig; path = Flutter/Generated.xcconfig; sourceTree = "<group>"; };
-		97C146EE1CF9000F007C117D /* SnapDrafter.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SnapDrafter.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		97C146EE1CF9000F007C117D /* Runner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Runner.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		97C146FB1CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		981C6C972E62EFB300453B5C /* Runner.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Runner.entitlements; sourceTree = "<group>"; };
 		985179DEE60367554C44732E /* Pods-Runner.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.release.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.release.xcconfig"; sourceTree = "<group>"; };
-		98C719432E61F0E400A6285B /* ShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		98C719432E61F0E400A6285B /* snapdrafter.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = snapdrafter.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		AAAD579A995EA5856C673268 /* Pods-Runner.profile.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.profile.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.profile.xcconfig"; sourceTree = "<group>"; };
 		D260034ADC41D720FCFEC545 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -94,7 +94,7 @@
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 98C719422E61F0E400A6285B /* ShareExtension */;
+			target = 98C719422E61F0E400A6285B /* snapdrafter */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -173,9 +173,9 @@
 		97C146EF1CF9000F007C117D /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				97C146EE1CF9000F007C117D /* SnapDrafter.app */,
+				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
-				98C719432E61F0E400A6285B /* ShareExtension.appex */,
+				98C719432E61F0E400A6285B /* snapdrafter.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -231,9 +231,9 @@
 			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		97C146ED1CF9000F007C117D /* SnapDrafter */ = {
+		97C146ED1CF9000F007C117D /* Runner */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "SnapDrafter" */;
+			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				C90253E6DFADF371F29A98DC /* [CP] Check Pods Manifest.lock */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
@@ -251,14 +251,14 @@
 			dependencies = (
 				98C7194C2E61F0E400A6285B /* PBXTargetDependency */,
 			);
-			name = SnapDrafter;
+			name = Runner;
 			productName = Runner;
-			productReference = 97C146EE1CF9000F007C117D /* SnapDrafter.app */;
+			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
 			productType = "com.apple.product-type.application";
 		};
-		98C719422E61F0E400A6285B /* ShareExtension */ = {
+		98C719422E61F0E400A6285B /* snapdrafter */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 98C719532E61F0E400A6285B /* Build configuration list for PBXNativeTarget "ShareExtension" */;
+			buildConfigurationList = 98C719532E61F0E400A6285B /* Build configuration list for PBXNativeTarget "snapdrafter" */;
 			buildPhases = (
 				98C7193F2E61F0E400A6285B /* Sources */,
 				98C719402E61F0E400A6285B /* Frameworks */,
@@ -271,11 +271,11 @@
 			fileSystemSynchronizedGroups = (
 				98C719442E61F0E400A6285B /* snapdrafter */,
 			);
-			name = ShareExtension;
+			name = snapdrafter;
 			packageProductDependencies = (
 			);
 			productName = snapdrafter;
-			productReference = 98C719432E61F0E400A6285B /* ShareExtension.appex */;
+			productReference = 98C719432E61F0E400A6285B /* snapdrafter.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
@@ -315,9 +315,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				97C146ED1CF9000F007C117D /* SnapDrafter */,
+				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
-				98C719422E61F0E400A6285B /* ShareExtension */,
+				98C719422E61F0E400A6285B /* snapdrafter */,
 			);
 		};
 /* End PBXProject section */
@@ -492,12 +492,12 @@
 /* Begin PBXTargetDependency section */
 		331C8086294A63A400263BE5 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 97C146ED1CF9000F007C117D /* SnapDrafter */;
+			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
 		};
 		98C7194C2E61F0E400A6285B /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 98C719422E61F0E400A6285B /* ShareExtension */;
+			target = 98C719422E61F0E400A6285B /* snapdrafter */;
 			targetProxy = 98C7194B2E61F0E400A6285B /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -1005,7 +1005,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "SnapDrafter" */ = {
+		97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				97C147061CF9000F007C117D /* Debug */,
@@ -1015,7 +1015,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		98C719532E61F0E400A6285B /* Build configuration list for PBXNativeTarget "ShareExtension" */ = {
+		98C719532E61F0E400A6285B /* Build configuration list for PBXNativeTarget "snapdrafter" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				98C7194F2E61F0E400A6285B /* Debug */,
