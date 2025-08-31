@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:collection/collection.dart';
 
 import "card.dart";
@@ -9,6 +11,7 @@ class Deck {
   final String? setId;
   final String? cubecobraId;
   final String ymd;
+  final String? imagePath;
   List<Card> cards;
   List<String> tags;
 

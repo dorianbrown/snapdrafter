@@ -16,24 +16,25 @@ DeckRepository deckRepository = DeckRepository();
 
 class DetectionPreviewScreen extends StatefulWidget {
   final img.Image image;
+  final img.Image originalImage;
   final List<Detection> detections;
-  final Uint8List originalImageBytes;
 
   const DetectionPreviewScreen({
       super.key, 
-      required this.image, 
+      required this.image,
+      required this.originalImage,
       required this.detections,
-      required this.originalImageBytes
   });
 
   @override
-  _detectionPreviewState createState() => _detectionPreviewState(image, detections);
+  _detectionPreviewState createState() => _detectionPreviewState(image, originalImage, detections);
 }
 
 class _detectionPreviewState extends State<DetectionPreviewScreen> {
   final img.Image image;
+  final img.Image originalImage;
   List<Detection> detections;
-  _detectionPreviewState(this.image, this.detections);
+  _detectionPreviewState(this.image, this.originalImage, this.detections);
 
   late Uint8List imagePng;
   List<Card> allCards = [];
@@ -201,7 +202,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         .map((detection) => detection.card!)
         .toList();
     
-    final deckId = await createDeckAndSave(matchedCards, widget.originalImageBytes);
+    final deckId = await createDeckAndSave(matchedCards, originalImage);
     debugPrint("Deck saved with id: $deckId");
     final allDecks = await deckRepository.getAllDecks();
     final newDeck = allDecks.where((x) => x.id == deckId).first;
@@ -238,9 +239,9 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     );
   }
 
-  Future<int> createDeckAndSave(List<Card> matchedCards, Uint8List imageBytes) async {
+  Future<int> createDeckAndSave(List<Card> matchedCards, img.Image image) async {
     final DateTime dateTime = DateTime.now();
-    return await deckRepository.saveNewDeck(dateTime, matchedCards, imageBytes: imageBytes);
+    return await deckRepository.saveNewDeck(dateTime, matchedCards, image: image);
   }
 
   Future<bool> confirmDeletion(direction) async {

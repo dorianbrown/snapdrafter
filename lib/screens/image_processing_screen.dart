@@ -324,7 +324,9 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     await Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (context) => DetectionPreviewScreen(
-            image: outputImage, detections: detectionOutput),
+            image: outputImage,
+            originalImage: inputImageCopy,
+            detections: detectionOutput),
       ),
       ModalRoute.withName('/')
     );

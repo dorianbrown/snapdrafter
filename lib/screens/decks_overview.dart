@@ -424,8 +424,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             child: const Text("Cancel"),
           ),
           TextButton(
-            onPressed: () {
-              deckRepository.deleteDeck(deckId);
+            onPressed: () async {
+              await deckRepository.deleteDeck(deckId);
               Navigator.of(dialogContext).pop();
               refreshDecks();
             },

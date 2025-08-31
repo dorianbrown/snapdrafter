@@ -57,6 +57,7 @@ class DatabaseHelper {
         win_loss TEXT,
         set_id TEXT,
         cubecobra_id STRING,
+        image_path TEXT,
         ymd TEXT NOT NULL)
     """);
     await db.execute("""
