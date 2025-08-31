@@ -1,3 +1,2 @@
-Release 6.1:
-- When scanning a picture, we now determine the best orientation automatically by checking which has the most detections
-- Updated image processing screen to freeze less during loading
+Release 6.2:
+- Deck photo's can now be shared from other apps using the OS share system (iOS & Android).
