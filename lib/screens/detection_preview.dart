@@ -17,9 +17,14 @@ DeckRepository deckRepository = DeckRepository();
 class DetectionPreviewScreen extends StatefulWidget {
   final img.Image image;
   final List<Detection> detections;
+  final Uint8List originalImageBytes;
 
-  const DetectionPreviewScreen(
-      {super.key, required this.image, required this.detections});
+  const DetectionPreviewScreen({
+      super.key, 
+      required this.image, 
+      required this.detections,
+      required this.originalImageBytes
+  });
 
   @override
   _detectionPreviewState createState() => _detectionPreviewState(image, detections);
@@ -191,7 +196,12 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       ),
     );
     
-    final deckId = await createDeckAndSave(detections.map((x) => x.card!).toList());
+    final matchedCards = detections
+        .where((detection) => detection.card != null)
+        .map((detection) => detection.card!)
+        .toList();
+    
+    final deckId = await createDeckAndSave(matchedCards, widget.originalImageBytes);
     debugPrint("Deck saved with id: $deckId");
     final allDecks = await deckRepository.getAllDecks();
     final newDeck = allDecks.where((x) => x.id == deckId).first;
@@ -228,9 +238,9 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     );
   }
 
-  Future<int> createDeckAndSave(List<Card> matchedCards) async {
+  Future<int> createDeckAndSave(List<Card> matchedCards, Uint8List imageBytes) async {
     final DateTime dateTime = DateTime.now();
-    return await deckRepository.saveNewDeck(dateTime, matchedCards);
+    return await deckRepository.saveNewDeck(dateTime, matchedCards, imageBytes: imageBytes);
   }
 
   Future<bool> confirmDeletion(direction) async {

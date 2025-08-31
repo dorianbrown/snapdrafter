@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:path_provider/path_provider.dart';
 import '../database/database_helper.dart';
 import '../models/deck.dart';
 import '../models/card.dart';
@@ -80,6 +82,7 @@ class DeckRepository {
           setId: setId,
           cubecobraId: cubecobraId,
           ymd: ymd,
+          imagePath: imagePath,
           cards: currentDecklist,
           tags: deckTags
       ));
@@ -89,17 +92,28 @@ class DeckRepository {
 
   Future<void> deleteDeck(int id) async {
     final dbClient = await _db;
+    
+    // Get image path before deletion
+    final deck = await dbClient.query(
+      'decks',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    
+    final imagePath = deck.isNotEmpty ? deck.first['image_path'] as String? : null;
+    
     await dbClient.transaction((txn) async {
-      await txn.delete(
-        'decks',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      await txn.delete(
-        'decklists',
-        where: 'deck_id = ?',
-        whereArgs: [id],
-      );
+      // Delete image file if exists
+      if (imagePath != null) {
+        final file = File(imagePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+      
+      await txn.delete('decks', where: 'id = ?', whereArgs: [id]);
+      await txn.delete('decklists', where: 'deck_id = ?', whereArgs: [id]);
+      await txn.delete('deck_tags', where: 'deck_id = ?', whereArgs: [id]);
     });
   }
 
@@ -119,9 +133,43 @@ class DeckRepository {
     });
   }
 
-  Future<int> saveNewDeck(DateTime dateTime, List<Card> cards) async {
+  Future<String?> _saveDeckImage(Uint8List imageBytes, int deckId) async {
+    try {
+      final directory = await getApplicationDocumentsDirectory();
+      final imagePath = '${directory.path}/deck_$deckId_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      
+      final file = File(imagePath);
+      await file.writeAsBytes(imageBytes);
+      
+      return imagePath;
+    } catch (e) {
+      debugPrint('Error saving deck image: $e');
+      return null;
+    }
+  }
+
+  Future<void> _updateDeckImagePath(int deckId, String imagePath) async {
+    final dbClient = await _db;
+    await dbClient.update(
+      'decks',
+      {'image_path': imagePath},
+      where: 'id = ?',
+      whereArgs: [deckId],
+    );
+  }
+
+  Future<int> saveNewDeck(DateTime dateTime, List<Card> cards, {Uint8List? imageBytes}) async {
     String ymd = convertDatetimeToYMD(dateTime);
-    int deckId = await insertDeck({'ymd': ymd}); // Get the auto-generated ID for new deck from database
+    int deckId = await insertDeck({'ymd': ymd});
+    
+    // Save image if provided
+    if (imageBytes != null) {
+      final imagePath = await _saveDeckImage(imageBytes, deckId);
+      if (imagePath != null) {
+        await _updateDeckImagePath(deckId, imagePath);
+      }
+    }
+    
     await updateDecklist(deckId, cards);
     debugPrint("Deck inserted successfully, deck_id: $deckId");
     return deckId;

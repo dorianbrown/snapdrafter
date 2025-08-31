@@ -19,6 +19,7 @@ class Deck {
     this.setId,
     this.cubecobraId,
     required this.ymd,
+    this.imagePath,
     required this.cards,
     this.tags = const [],
   });

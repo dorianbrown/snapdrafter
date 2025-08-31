@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   static Database? _database;
   static const String _databaseName = "draftTracker.db";
-  static const int _databaseVersion = 3; // Latest db version after all upgrades
+  static const int _databaseVersion = 4; // Latest db version after all upgrades
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -173,6 +173,13 @@ class DatabaseHelper {
         FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
       )
       """);
+    }
+    if (oldVersion < 4) {
+      await db.execute("""
+        ALTER TABLE decks
+        ADD image_path TEXT
+      """);
+      debugPrint("sqflite: Added image_path column to decks table");
     }
 
     // Add further migration steps for future versions here
