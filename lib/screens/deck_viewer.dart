@@ -493,7 +493,7 @@ class DeckViewerState extends State<DeckViewer> {
           },
         ),
         IconButton(
-            onPressed: () => deck.imagePath != null ? createInteractiveImageViewer(deck.imagePath!, context) : null,
+            onPressed: deck.imagePath != null ? () => createInteractiveImageViewer(deck.imagePath!, context) : null,
             icon: Icon(Icons.image)
         ),
         SizedBox(width: 0,)
