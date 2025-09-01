@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'dart:ffi' hide Size;
 
 import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
@@ -16,6 +18,7 @@ import 'package:snapdrafter/data/repositories/card_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
+import '/utils/interactive_image_viewer.dart';
 import '/widgets/display_token.dart';
 import '/data/repositories/card_repository.dart';
 import '/data/repositories/token_repository.dart';
@@ -51,11 +54,10 @@ class DeckViewerState extends State<DeckViewer> {
   Map groupedTokens = {};
   Uint8List? cachedShareImageBytes;
 
-  List<String> renderValues = ["text", "type"];
-  bool? showManaCurve = true;
+  List<String> renderValues = ["type", "2"];
   // These are used for dropdown menus controlling how decklist is displayed
-  TextEditingController displayController = TextEditingController(text: "Text");
-  TextEditingController sortingController = TextEditingController(text: "Type");
+  TextEditingController displayController = TextEditingController(text: "Images");
+  TextEditingController numColumnsController = TextEditingController(text: "2");
 
   final myInputDecorationTheme = InputDecorationTheme(
     labelStyle: TextStyle(fontSize: 10),
@@ -113,7 +115,7 @@ class DeckViewerState extends State<DeckViewer> {
             child: ListView(
               padding: const EdgeInsets.all(10),
               children: [
-                if (showManaCurve!) ...generateManaCurve(deck.cards),
+                generateManaCurve(deck.cards),
                 Container(
                     padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
                     child: Row(
@@ -468,8 +470,8 @@ class DeckViewerState extends State<DeckViewer> {
           inputDecorationTheme: myInputDecorationTheme,
           textStyle: const TextStyle(fontSize: 12),
           dropdownMenuEntries: [
-            DropdownMenuEntry(value: "text", label: "Text"),
-            DropdownMenuEntry(value: "image", label: "Images")
+            DropdownMenuEntry(value: "image", label: "Images"),
+            DropdownMenuEntry(value: "text", label: "Text")
           ],
           onSelected: (value) {
             renderValues[0] = value!;
@@ -477,35 +479,23 @@ class DeckViewerState extends State<DeckViewer> {
           },
         ),
         DropdownMenu(
-          label: const Text("Group By"),
-          controller: sortingController,
+          label: const Text("Columns"),
+          controller: numColumnsController,
           inputDecorationTheme: myInputDecorationTheme,
           textStyle: const TextStyle(fontSize: 12),
           dropdownMenuEntries: [
-            DropdownMenuEntry(value: "type", label: "Type"),
-            DropdownMenuEntry(value: "color", label: "Color"),
-            // DropdownMenuEntry(value: "mv", label: "Mana Value")
+            DropdownMenuEntry(value: "2", label: "2"),
+            DropdownMenuEntry(value: "3", label: "3"),
+            DropdownMenuEntry(value: "4", label: "4"),
           ],
           onSelected: (value) {
             renderValues[1] = value!;
             setState(() {});
           },
         ),
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          spacing: 2,
-          children: [
-            const Text("Show Curve", style: TextStyle(height: 0.2, fontSize: 7)),
-            Checkbox(
-                visualDensity: VisualDensity.compact,
-                value: showManaCurve,
-                onChanged: (bool? value) {
-                  setState(() {
-                    showManaCurve = value;
-                  });
-                }
-            ),
-          ],
+        IconButton(
+            onPressed: () => deck.imagePath != null ? createInteractiveViewer(deck.imagePath!, context) : null,
+            icon: Icon(Icons.image)
         ),
         SizedBox(width: 0,)
       ],
@@ -627,8 +617,7 @@ class DeckViewerState extends State<DeckViewer> {
     );
   }
 
-  List<Widget> generateManaCurve(List<Card> cards) {
-    List<Widget> outputChildren = [Text("Mana Curve", style: _headerStyle)];
+  Widget generateManaCurve(List<Card> cards) {
 
     List<int> manaValues = [0, 1, 2, 3, 4, 5, 6, 7];
     final nonCreatureSeries = [];
@@ -672,7 +661,7 @@ class DeckViewerState extends State<DeckViewer> {
           data: creatureSeries)
     ];
 
-    outputChildren.add(SizedBox(
+    return SizedBox(
         height: 200,
         child: charts.BarChart(
             animate: false,
@@ -681,24 +670,19 @@ class DeckViewerState extends State<DeckViewer> {
             primaryMeasureAxis: charts.NumericAxisSpec(
                 tickProviderSpec: charts.BasicNumericTickProviderSpec(
                     dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
-            behaviors: [charts.SeriesLegend(showMeasures: true)])));
-    return outputChildren;
+            behaviors: [charts.SeriesLegend(showMeasures: true)]
+        )
+    );
   }
 
   List<Widget> generateDeckView(Deck deck, List<String> renderValues) {
     // Initial setup for rendering
     final List<Widget> deckView = [];
 
-    var renderCard =
-    (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
+    var renderCard = (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
 
-    // TODO: Rework this to accept mana_value as grouping
-    final groupingAttribute = renderValues[1];
-    final getAttribute = (groupingAttribute == "type")
-        ? (card) => card.type
-        : (card) => card.color();
-    final uniqueGroupings =
-    (groupingAttribute == "type") ? typeOrder : colorOrder;
+    getAttribute(card) => card.type;
+    final uniqueGroupings = typeOrder;
 
     // Here we loop over unique groupings and generate the widgets for each grouping
     for (String attribute in uniqueGroupings) {
@@ -732,7 +716,7 @@ class DeckViewerState extends State<DeckViewer> {
                 : [GridView.count(
                   physics: NeverScrollableScrollPhysics(),
                   childAspectRatio: 0.72,
-                  crossAxisCount: 3,
+                  crossAxisCount: int.parse(renderValues[1]),
                   shrinkWrap: true,
                   children: cardWidgets,
                 )]
@@ -827,6 +811,28 @@ class DeckViewerState extends State<DeckViewer> {
       )
     );
   }
+}
+
+void createInteractiveViewer(String imagePath, BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (innerContext) {
+      return Dialog(
+        child: LayoutBuilder(
+            builder: (innerContext, constraints) {
+              return InteractiveViewer(
+                  constrained: false,
+                  clipBehavior: Clip.none,
+                  minScale: 0.1,
+                  maxScale: 1,
+                  boundaryMargin: const EdgeInsets.all(double.infinity),
+                  child: Image.file(File(imagePath))
+              );
+            }
+        )
+      );
+    }
+  );
 }
 
 class CardPopup extends StatefulWidget {
