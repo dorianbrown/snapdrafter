@@ -159,16 +159,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               icon: Icon(Icons.add)
             ),
             IconButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder: (context) {
-                    return Dialog(
-                      child: createInteractiveViewer(image),
-                    );
-                  }
-                );
-              },
+              onPressed: () => createInteractiveViewer(imagePng),
               icon: Icon(Icons.image)
             )
           ],
@@ -217,24 +208,36 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     );
   }
 
-  LayoutBuilder createInteractiveViewer(img.Image image) {
-    return LayoutBuilder(
-        builder: (context, constraints) {
-          double aspectRatio = image.width / image.height;
-          double translationY = 0.5*(constraints.maxHeight - (constraints.maxWidth / aspectRatio));
-          double minScale = constraints.maxWidth / image.width;
-          final scaleMatrix = Matrix4.identity()..scale(minScale);
-          scaleMatrix.setEntry(1, 3, translationY);
-          final viewTransformationController = TransformationController(scaleMatrix);
-
-          return InteractiveViewer(
-              constrained: false,
-              clipBehavior: Clip.none,
-              minScale: minScale,
-              maxScale: 1,
-              boundaryMargin: const EdgeInsets.all(double.infinity),
-              transformationController: viewTransformationController,
-              child: Image.memory(imagePng),
+  void createInteractiveViewer(Uint8List imageBytes) {
+    showDialog(
+        context: context,
+        builder: (innerContext) {
+          return AlertDialog(
+              insetPadding: EdgeInsets.zero, // Maximize viewing area
+              contentPadding: EdgeInsets.zero, // Maximize viewing area
+              actions: [
+                TextButton(
+                    style: ButtonStyle(
+                      foregroundColor: MaterialStateProperty.all(Colors.white),
+                      backgroundColor: MaterialStateProperty.all(Colors.black38),
+                    ),
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text("Back")
+                ),
+              ],
+              content: Column(
+                children: [
+                  Expanded(
+                      child: InteractiveViewer(
+                          clipBehavior: Clip.none,
+                          minScale: 1,
+                          maxScale: 4,
+                          boundaryMargin: const EdgeInsets.all(double.infinity),
+                          child: Image.memory(imagePng)
+                      )
+                  )
+                ],
+              )
           );
         }
     );

@@ -53,10 +53,10 @@ class DeckViewerState extends State<DeckViewer> {
   Map groupedTokens = {};
   Uint8List? cachedShareImageBytes;
 
-  List<String> renderValues = ["type", "2"];
+  List<String> renderValues = ["type", "3"];
   // These are used for dropdown menus controlling how decklist is displayed
   TextEditingController displayController = TextEditingController(text: "Images");
-  TextEditingController numColumnsController = TextEditingController(text: "2");
+  TextEditingController numColumnsController = TextEditingController(text: "3");
 
   final myInputDecorationTheme = InputDecorationTheme(
     labelStyle: TextStyle(fontSize: 10),
@@ -493,7 +493,7 @@ class DeckViewerState extends State<DeckViewer> {
           },
         ),
         IconButton(
-            onPressed: () => deck.imagePath != null ? createInteractiveViewer(deck.imagePath!, context) : null,
+            onPressed: () => deck.imagePath != null ? createInteractiveImageViewer(deck.imagePath!, context) : null,
             icon: Icon(Icons.image)
         ),
         SizedBox(width: 0,)
@@ -812,7 +812,7 @@ class DeckViewerState extends State<DeckViewer> {
   }
 }
 
-void createInteractiveViewer(String imagePath, BuildContext context) {
+void createInteractiveImageViewer(String imagePath, BuildContext context) {
   // This is currently the best approach without knowing the images HxW
   // dimensions. Requires a background, and for
   showDialog(
