@@ -7,7 +7,6 @@ import 'package:image/image.dart' as img;
 import 'deck_viewer.dart';
 import '/models/detection.dart';
 import '/utils/deck_change_notifier.dart';
-import '/utils/interactive_image_viewer.dart';
 import '/data/models/card.dart';
 import '/data/repositories/card_repository.dart';
 import '/data/repositories/deck_repository.dart';
@@ -37,7 +36,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   List<Detection> detections;
   _detectionPreviewState(this.image, this.originalImage, this.detections);
 
-  late Uint8List imageBytes;
+  late Uint8List imagePng;
   List<Card> allCards = [];
   final ScrollController _scrollController = ScrollController();
   final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
@@ -47,7 +46,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     super.initState();
     detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
     cardRepository.getAllCards().then((value) => setState(() {allCards = value;}));
-    imageBytes = img.encodePng(image);
+    imagePng = img.encodePng(image);
   }
 
   @override
@@ -160,7 +159,16 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               icon: Icon(Icons.add)
             ),
             IconButton(
-              onPressed: () => createInteractiveImageViewer(imageBytes, image.width, image.height, context),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    return Dialog(
+                      child: createInteractiveViewer(image),
+                    );
+                  }
+                );
+              },
               icon: Icon(Icons.image)
             )
           ],
@@ -206,6 +214,28 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           builder: (context) => DeckViewer(deck: newDeck),
         ),
         ModalRoute.withName('/')
+    );
+  }
+
+  LayoutBuilder createInteractiveViewer(img.Image image) {
+    return LayoutBuilder(
+        builder: (context, constraints) {
+          double aspectRatio = image.width / image.height;
+          double translationY = 0.5*(constraints.maxHeight - (constraints.maxWidth / aspectRatio));
+          double minScale = constraints.maxWidth / image.width;
+          final scaleMatrix = Matrix4.identity()..scale(minScale);
+          scaleMatrix.setEntry(1, 3, translationY);
+          final viewTransformationController = TransformationController(scaleMatrix);
+          return InteractiveViewer(
+              constrained: false,
+              clipBehavior: Clip.none,
+              minScale: minScale,
+              maxScale: 1,
+              boundaryMargin: const EdgeInsets.all(double.infinity),
+              transformationController: viewTransformationController,
+              child: Image.memory(imagePng)
+          );
+        }
     );
   }
 
