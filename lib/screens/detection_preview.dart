@@ -226,6 +226,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           final scaleMatrix = Matrix4.identity()..scale(minScale);
           scaleMatrix.setEntry(1, 3, translationY);
           final viewTransformationController = TransformationController(scaleMatrix);
+
           return InteractiveViewer(
               constrained: false,
               clipBehavior: Clip.none,
@@ -233,7 +234,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               maxScale: 1,
               boundaryMargin: const EdgeInsets.all(double.infinity),
               transformationController: viewTransformationController,
-              child: Image.memory(imagePng)
+              child: Image.memory(imagePng),
           );
         }
     );

@@ -18,7 +18,6 @@ import 'package:snapdrafter/data/repositories/card_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
-import '/utils/interactive_image_viewer.dart';
 import '/widgets/display_token.dart';
 import '/data/repositories/card_repository.dart';
 import '/data/repositories/token_repository.dart';
@@ -814,21 +813,36 @@ class DeckViewerState extends State<DeckViewer> {
 }
 
 void createInteractiveViewer(String imagePath, BuildContext context) {
+  // This is currently the best approach without knowing the images HxW
+  // dimensions. Requires a background, and for
   showDialog(
     context: context,
     builder: (innerContext) {
-      return Dialog(
-        child: LayoutBuilder(
-            builder: (innerContext, constraints) {
-              return InteractiveViewer(
-                  constrained: false,
+      return AlertDialog(
+        insetPadding: EdgeInsets.zero, // Maximize viewing area
+        contentPadding: EdgeInsets.zero, // Maximize viewing area
+        actions: [
+          TextButton(
+            style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.all(Colors.white),
+                backgroundColor: MaterialStateProperty.all(Colors.black38),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Back")
+          ),
+        ],
+        content: Column(
+          children: [
+            Expanded(
+                child: InteractiveViewer(
                   clipBehavior: Clip.none,
-                  minScale: 0.1,
-                  maxScale: 1,
-                  boundaryMargin: const EdgeInsets.all(double.infinity),
-                  child: Image.file(File(imagePath))
-              );
-            }
+                    minScale: 1,
+                    maxScale: 4,
+                    boundaryMargin: const EdgeInsets.all(double.infinity),
+                    child: Image.file(File(imagePath))
+                )
+            )
+          ],
         )
       );
     }
