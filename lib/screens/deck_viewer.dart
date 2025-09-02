@@ -824,6 +824,20 @@ void createInteractiveImageViewer(String imagePath, BuildContext context) {
         actions: [
           TextButton(
             style: ButtonStyle(
+              foregroundColor: MaterialStateProperty.all(Colors.white),
+              backgroundColor: MaterialStateProperty.all(Colors.black38),
+            ),
+            child: const Text("Share"),
+            onPressed: () async {
+              final params = ShareParams(
+                files: [XFile(imagePath)]
+              );
+              await SharePlus.instance.share(params);
+              Navigator.of(context).pop();
+            },
+          ),
+          TextButton(
+            style: ButtonStyle(
                 foregroundColor: MaterialStateProperty.all(Colors.white),
                 backgroundColor: MaterialStateProperty.all(Colors.black38),
             ),
