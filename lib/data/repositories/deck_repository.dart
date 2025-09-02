@@ -159,7 +159,7 @@ class DeckRepository {
       final imagePath = '${directory.path}/deck_images/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
       final file = File(imagePath);
-      await file.writeAsBytes(encodeJpg(image));
+      await file.writeAsBytes(encodeJpg(image, quality: 60));
 
       return imagePath;
     } catch (e) {
