@@ -83,7 +83,7 @@ class DeckRepository {
       final setId = deck['set_id'] as String?;
       final cubecobraId = deck['cubecobra_id'] as String?;
       final ymd = deck['ymd'] as String;
-      final imagePath = deck['image_path'] as String?;
+      String? imagePath = deck['image_path'] as String?;
 
       final currentDecklist = cardsData
           .where((x) => x['deck_id'] == deckId)
@@ -95,6 +95,15 @@ class DeckRepository {
           .where((x) => x['deck_id'] == deckId)
           .map((x) => x['name'] as String)
           .toList();
+
+      // Transform image_path from partial to full path
+      final directory = await getApplicationDocumentsDirectory();
+      if (imagePath != null) {
+        final file = File('${directory.path}/$imagePath');
+        if (await file.exists()) {
+          imagePath = file.path;
+        }
+      }
 
       deckList.add(Deck(
           id: deckId,
@@ -172,9 +181,9 @@ class DeckRepository {
       final directory = await getApplicationDocumentsDirectory();
       // Create folder if it doesn't exist
       Directory('${directory.path}/deck_images').createSync(recursive: true);
-      final imagePath = '${directory.path}/deck_images/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final imagePath = 'deck_images/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
-      final file = File(imagePath);
+      final file = File("${directory.path}/$imagePath");
       await file.writeAsBytes(encodeJpg(image, quality: 60));
 
       return imagePath;
