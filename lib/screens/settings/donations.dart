@@ -10,7 +10,7 @@ class DonationScreen extends StatelessWidget {
   Widget build(BuildContext context) {
 
     String donationText = "If you are enjoying this app and want to support "
-      "it's continued maintenance and development, consider donating."
+      "it's continued development and maintenance, consider donating."
       "\n\n"
       "My aim is to keep SnapDrafter free, ad-free, and available to as many "
         "cube-lovers as possible. \n\nDonations like yours help make that happen.";
