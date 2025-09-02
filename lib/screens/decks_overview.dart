@@ -860,20 +860,37 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         TextButton(
             onPressed: () async {
               if (formKey.currentState!.validate()) {
-                // Since this is an existing deck_id, it should overwrite
-                // metadata in db.
-
+                // Build update map with only changed fields
+                final Map<String, Object?> updates = {};
+                
                 final name = nameController.text;
+                if (name != deck.name) {
+                  updates['name'] = name.isEmpty ? null : name;
+                }
+                
                 final String winLoss = "${3 - winController.selected}/${3 - lossController.selected}";
+                if (winLoss != deck.winLoss) {
+                  updates['win_loss'] = winLoss;
+                }
+                
                 final setId = draftType == "set" ? currentCubeSetId : null;
+                if (setId != deck.setId) {
+                  updates['set_id'] = setId;
+                }
+                
                 final cubecobraId = draftType == "cube" ? currentCubeSetId : null;
-                deckRepository.insertDeck({
-                  'id': deck.id,
-                  'name': name.isEmpty ? null : name,
-                  'win_loss': winLoss,
-                  'set_id': setId,
-                  'cubecobra_id': cubecobraId,
-                  'ymd': selectedDate});
+                if (cubecobraId != deck.cubecobraId) {
+                  updates['cubecobra_id'] = cubecobraId;
+                }
+                
+                if (selectedDate != deck.ymd) {
+                  updates['ymd'] = selectedDate;
+                }
+                
+                // Only update if there are changes
+                if (updates.isNotEmpty) {
+                  await deckRepository.updateDeck(deck.id, updates);
+                }
                 
                 // Update tags
                 final currentTags = deck.tags;

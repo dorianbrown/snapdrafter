@@ -43,6 +43,22 @@ class DeckRepository {
     );
   }
 
+  Future<int> updateDeck(int deckId, Map<String, Object?> updates) async {
+    final dbClient = await _db;
+    
+    // Remove null values to avoid overwriting with null
+    updates.removeWhere((key, value) => value == null);
+    
+    if (updates.isEmpty) return 0;
+    
+    return await dbClient.update(
+      'decks',
+      updates,
+      where: 'id = ?',
+      whereArgs: [deckId],
+    );
+  }
+
   Future<List<Deck>> getAllDecks() async {
     final dbClient = await _db;
     final decksData = await dbClient.query('decks');
