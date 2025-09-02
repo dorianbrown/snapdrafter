@@ -1,2 +1,3 @@
-Release 6.2:
-- Deck photo's can now be shared from other apps using the OS share system (iOS & Android).
+Release 1.0.0:
+- Images used for detection are now saved and viewable from the deck, and are included in any backups
+- With this final feature, the main functionality is covered and we're ready for a proper release!
