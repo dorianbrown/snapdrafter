@@ -253,7 +253,7 @@ class DeckViewerState extends State<DeckViewer> {
       if (update is DataInsert) {
         update as DataInsert<String>;
         debugPrint("Update at [${update.position}]: ${update.data}");
-        final regex = RegExp(r'^(\d)\s(.+)$');
+        final regex = RegExp(r'^(\d+)\s(.+)$');
         var regexMatch = regex.allMatches(update.data);
         int count = int.parse(regexMatch.first[1]!);
         String cardName = regexMatch.first[2]!;

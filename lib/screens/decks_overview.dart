@@ -343,7 +343,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                         List<Card> deckList = [];
 
                         List<String> text = controller.text.split("\n");
-                        final regex = RegExp(r'^(\d)\s(.+)$');
+                        final regex = RegExp(r'^(\d+)\s(.+)$');
                         for (String name in text) {
                           var regexMatch = regex.allMatches(name);
                           try {
