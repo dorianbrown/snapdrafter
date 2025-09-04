@@ -65,18 +65,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       setState(() {});
     });
     cardRepository = CardRepository();
-    cardRepository.getAllCards().then((cards) async {
-      // If scryfall data needs to be loaded, make sure that is clear to user
-      if (cards.isEmpty) {
-        final prefs = await SharedPreferences.getInstance();
-        bool hasSeenWelcomePopup = prefs.getBool("welcome_popup_seen") ?? false;
-        if (hasSeenWelcomePopup) {
-          Navigator.of(context).pushReplacement(MaterialPageRoute(
-              builder: (context) => DownloadScreen()
-          ));
-        }
-      }
-    });
+    cardRepository.getAllCards();
     _loadFirstDeckStatus();
     _loadTags();
 
