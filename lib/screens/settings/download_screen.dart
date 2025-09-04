@@ -6,7 +6,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' hide Card;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
-import 'package:snapdrafter/utils/deck_image_generator.dart';
 
 import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';
@@ -120,7 +119,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
                     isDownloading = true;
                     downloadFileFromServer();
                     setState(() {});
-                }, child: Text("Download?"))
+                }, child: Text("Download Scryfall Data"))
               ],
             );
           }),
@@ -290,7 +289,12 @@ class _DownloadScreenState extends State<DownloadScreen> {
     await cardRepository.populateCardsTable(cards, scryfallMetadata).then((val) async {
       _changeNotifier.markNeedsRefresh();
       if (context.mounted) {
-        Navigator.of(context).pop();
+        if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        } else {
+          // If first time downloading, this will be only way to go back
+          Navigator.of(context).pushNamedAndRemoveUntil("/", (route) => false);
+        }
       }
     });
   }

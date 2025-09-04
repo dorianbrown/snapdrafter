@@ -66,12 +66,15 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     });
     cardRepository = CardRepository();
     cardRepository.getAllCards().then((cards) async {
+      // If scryfall data needs to be loaded, make sure that is clear to user
       if (cards.isEmpty) {
-        Navigator.of(context).push(
-            MaterialPageRoute(
-                builder: (context) => DownloadScreen()
-            )
-        );
+        final prefs = await SharedPreferences.getInstance();
+        bool hasSeenWelcomePopup = prefs.getBool("welcome_popup_seen") ?? false;
+        if (hasSeenWelcomePopup) {
+          Navigator.of(context).pushReplacement(MaterialPageRoute(
+              builder: (context) => DownloadScreen()
+          ));
+        }
       }
     });
     _loadFirstDeckStatus();
@@ -1078,16 +1081,15 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             spacing: 10,
             children: [
               SizedBox(height: paragraphBreak,),
-              Text("Welcome to the Open Beta!", style: TextStyle(
+              Text("Welcome to SnapDrafter!", style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold
               )),
               SizedBox(height: paragraphBreak,),
-              Text("Thanks for being "
-                  "one of the first to try out our app and help make it great."
-                  " As a beta tester, you're getting an early preview. This"
-                  " means you might encounter some bugs or see features that"
-                  " are still being polished. "),
+              Text("Getting Started", style: titleStyle,),
+              Text("I try to make the interface as intuitive as possible, but "
+                  "if can't figure something out, you can find some additional "
+                  "information in 'Settings > Help'."),
               SizedBox(height: paragraphBreak,),
               Text("Feedback", style: titleStyle,),
               Text("In case you find a bug, have ideas for how things could "
@@ -1095,11 +1097,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   "your feedback."),
               Text("Clicking 'Settings > Feedback' will give you an invite to "
                   "the SnapDrafter Discord server."),
-              SizedBox(height: paragraphBreak,),
-              Text("Getting Started", style: titleStyle,),
-              Text("I try to make the interface as intuitive as possible, but "
-                  "if can't figure something out, you can find some additional "
-                  "information in 'Settings > Help'."),
               SizedBox(height: paragraphBreak,),
               Text("Support", style: titleStyle,),
               Text("My aim is to keep SnapDrafter free, ad-free, and available"
@@ -1110,7 +1107,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           ),
           actions: [
             TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pushReplacement(MaterialPageRoute(
+                      builder: (context) => DownloadScreen()
+                  ));
+                },
                 child: Text("Close")
             ),
           ],
