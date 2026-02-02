@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   static Database? _database;
   static const String _databaseName = "draftTracker.db";
-  static const int _databaseVersion = 4; // Latest db version after all upgrades
+  static const int _databaseVersion = 5; // Latest db version after all upgrades
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -132,7 +132,7 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     debugPrint("sqflite: Upgrading tables from $oldVersion to $newVersion");
-    if (oldVersion < 2) { // Example: Migrating from V1 to V2
+    if (oldVersion < 2) {
       await db.execute("""
         CREATE TABLE IF NOT EXISTS cards_to_tokens(
           card_oracle_id STRING NOT NULL,
@@ -183,8 +183,18 @@ class DatabaseHelper {
       debugPrint("sqflite: Added image_path column to decks table");
     }
 
+    if (oldVersion < 5) {  // Add support for sideboards in decks
+      await db.execute("""
+      CREATE TABLE sideboard_lists(
+        id INTEGER PRIMARY KEY,
+        deck_id INTEGER NOT NULL,
+        scryfall_id TEXT NOT NULL
+      )
+      """);
+    }
+
     // Add further migration steps for future versions here
-    // if (oldVersion < 3) { ... }
+
   }
 
   Future<int?> countRows(String tableName) async {

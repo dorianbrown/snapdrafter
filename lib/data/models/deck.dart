@@ -13,6 +13,7 @@ class Deck {
   final String ymd;
   final String? imagePath;
   List<Card> cards;
+  List<Card> sideboard;
   List<String> tags;
 
   Deck({
@@ -24,6 +25,7 @@ class Deck {
     required this.ymd,
     this.imagePath,
     required this.cards,
+    this.sideboard = const [],
     this.tags = const [],
   });
 
@@ -42,13 +44,27 @@ class Deck {
   }
 
   String generateTextExport() {
-    return (cards
+
+    String outputString = (cards
         .toList()..sort((a,b) => a.name.compareTo(b.name)))
         .map((card) => card.name)
         .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
         .entries.map((entry) => "${entry.value} ${entry.key}")
         .toList()
         .join("\n");
+
+    if (sideboard.isNotEmpty) {
+      outputString += "\nSIDEBOARD:\n";
+
+      outputString = (sideboard
+          .toList()..sort((a,b) => a.name.compareTo(b.name)))
+          .map((card) => card.name)
+          .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
+          .entries.map((entry) => "${entry.value} ${entry.key}")
+          .toList()
+          .join("\n");
+    }
+    return outputString;
   }
 
   @override

@@ -65,7 +65,15 @@ class DeckRepository {
     final cardsData = await dbClient.rawQuery("""
       SELECT decklists.deck_id, cards.*
       FROM decklists 
-      INNER JOIN cards ON decklists.scryfall_id = cards.scryfall_id 
+      INNER JOIN cards 
+      ON decklists.scryfall_id = cards.scryfall_id 
+    """);
+
+    final sideboardCardsData = await dbClient.rawQuery("""
+      SELECT sideboard_lists.deck_id, cards.*
+      FROM sideboard_lists
+      INNER JOIN cards 
+      ON sideboard_lists.scryfall_id = cards.scryfall_id 
     """);
     
     // Get tags for all decks
@@ -86,6 +94,11 @@ class DeckRepository {
       String? imagePath = deck['image_path'] as String?;
 
       final currentDecklist = cardsData
+          .where((x) => x['deck_id'] == deckId)
+          .map((x) => Card.fromMap(x))
+          .toList();
+
+      final sideboardCardlist = sideboardCardsData
           .where((x) => x['deck_id'] == deckId)
           .map((x) => Card.fromMap(x))
           .toList();
@@ -114,6 +127,7 @@ class DeckRepository {
           ymd: ymd,
           imagePath: imagePath,
           cards: currentDecklist,
+          sideboard: sideboardCardlist,
           tags: deckTags
       ));
     }
