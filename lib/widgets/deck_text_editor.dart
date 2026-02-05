@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Card;
 import 'package:collection/collection.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import '/data/models/card.dart';
 import '/data/repositories/deck_repository.dart';
