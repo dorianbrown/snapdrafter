@@ -15,6 +15,7 @@ import 'detection_preview.dart';
 import '/utils/utils.dart';
 
 import '/data/repositories/card_repository.dart';
+import '/data/repositories/deck_repository.dart';
 import '/data/models/card.dart';
 import '/models/detection.dart';
 
@@ -22,17 +23,21 @@ CardRepository cardRepository = CardRepository();
 
 class deckImageProcessing extends StatefulWidget {
   final String filePath;
-  const deckImageProcessing(
-      {super.key, required this.filePath});
+  final bool isSideboard;
+  final int? deckId;
+  
+  const deckImageProcessing({
+    super.key, 
+    required this.filePath,
+    this.isSideboard = false,
+    this.deckId,
+  });
 
   @override
-  _deckImageProcessingState createState() => _deckImageProcessingState(filePath);
+  _deckImageProcessingState createState() => _deckImageProcessingState();
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
-  // Class inputs
-  final String filePath;
-  _deckImageProcessingState(this.filePath);
 
   late TextRecognizer _textRecognizer;
   late Future<void> _loadModelsFuture;
@@ -321,15 +326,38 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       color: overlayColor
     );
 
-    await Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (context) => DetectionPreviewScreen(
-            image: outputImage,
-            originalImage: inputImageCopy,
-            detections: detectionOutput),
-      ),
-      ModalRoute.withName('/')
-    );
+    // Save or update deck based on mode
+    int? resultDeckId;
+    
+    if (widget.isSideboard && widget.deckId != null) {
+      // For sideboard, update existing deck
+      final deckRepository = DeckRepository();
+      final validCards = matchedCards.whereType<Card>().toList();
+      if (validCards.isNotEmpty) {
+        await deckRepository.addSideboardToDeck(widget.deckId!, validCards);
+      }
+      resultDeckId = widget.deckId;
+    } else {
+      // For mainboard, save new deck
+      final validCards = matchedCards.whereType<Card>().toList();
+      if (validCards.isNotEmpty) {
+        // Navigate to preview screen which will handle saving
+        resultDeckId = await Navigator.of(context).push<int>(
+          MaterialPageRoute(
+            builder: (context) => DetectionPreviewScreen(
+              image: outputImage,
+              originalImage: inputImageCopy,
+              detections: detectionOutput,
+            ),
+          ),
+        );
+      }
+    }
+    
+    // Return deckId to parent
+    if (mounted) {
+      Navigator.of(context).pop(resultDeckId);
+    }
   }
 
   Future<String> _transcribeDetection(List<int> detection, img.Image inputImage) async {

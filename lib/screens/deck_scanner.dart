@@ -5,7 +5,14 @@ import 'package:camerawesome/camerawesome_plugin.dart';
 import 'image_processing_screen.dart';
 
 class DeckScanner extends StatefulWidget {
-  const DeckScanner({super.key});
+  final bool isSideboard;
+  final int? deckId;
+  
+  const DeckScanner({
+    super.key,
+    this.isSideboard = false,
+    this.deckId,
+  });
 
   @override
   DeckScannerState createState() => DeckScannerState();
@@ -21,7 +28,10 @@ class DeckScannerState extends State<DeckScanner> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: const Text('Scan Deck'), backgroundColor: Color.fromARGB(150, 0, 0, 0)),
+        appBar: AppBar(
+          title: Text(widget.isSideboard ? 'Scan Sideboard' : 'Scan Deck'), 
+          backgroundColor: Color.fromARGB(150, 0, 0, 0)
+        ),
         extendBodyBehindAppBar: true,
         body: CameraAwesomeBuilder.awesome(
           saveConfig: SaveConfig.photo(),
@@ -56,11 +66,18 @@ class DeckScannerState extends State<DeckScanner> {
               single: (SingleCaptureRequest singeCaptureRequest) async {
                 if (mediaCapture.status == MediaCaptureStatus.capturing) {
                   String filePath = singeCaptureRequest.path!;
-                  Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (context) => deckImageProcessing(filePath: filePath)
+                  final deckId = await Navigator.of(context).push<int>(
+                    MaterialPageRoute(
+                      builder: (context) => deckImageProcessing(
+                        filePath: filePath,
+                        isSideboard: widget.isSideboard,
+                        deckId: widget.deckId,
                       )
+                    )
                   );
+                  if (deckId != null && mounted) {
+                    Navigator.of(context).pop(deckId);
+                  }
                 } else if (mediaCapture.status == MediaCaptureStatus.success) {
                   debugPrint("Finished writing image file");
                 }
