@@ -5,7 +5,6 @@ import 'dart:ffi' hide Size;
 
 import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
-import 'package:diffutil_dart/diffutil.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
@@ -18,6 +17,7 @@ import 'package:snapdrafter/data/repositories/card_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
+import '/widgets/deck_text_editor.dart';
 import '/widgets/display_token.dart';
 import '/data/repositories/card_repository.dart';
 import '/data/repositories/token_repository.dart';
@@ -244,58 +244,6 @@ class DeckViewerState extends State<DeckViewer> {
     SharePlus.instance.share(params);
   }
 
-  findChangesAndUpdate(String newText, String originalText, List<Card> allCards, Deck deck, BuildContext buildContext) {
-    // We want an exact match on card names. Notify user with snackbar if match not exact.
-    final textDiff = calculateListDiff(originalText.split("\n"), newText.split("\n"), detectMoves: false);
-    List<Card> cardsCopy = List.from(deck.cards);
-
-    for (var update in textDiff.getUpdatesWithData()) {
-      if (update is DataInsert) {
-        update as DataInsert<String>;
-        debugPrint("Update at [${update.position}]: ${update.data}");
-        final regex = RegExp(r'^(\d+)\s(.+)$');
-        var regexMatch = regex.allMatches(update.data);
-        int count = int.parse(regexMatch.first[1]!);
-        String cardName = regexMatch.first[2]!;
-        Card? matchedCard = allCards.firstWhereOrNull(
-          (card) {
-            if (card.name.contains(" // ")) {
-              return card.name.contains(" // ")
-                  ? card.name.split(" // ").any((name) => name.toLowerCase() == cardName.toLowerCase())
-                  : card.name.toLowerCase() == cardName.toLowerCase();
-            }
-            else {
-              return card.name.toLowerCase() == cardName.toLowerCase();
-            }
-          }
-        );
-        if (matchedCard == null) {
-          ScaffoldMessenger.of(buildContext).showSnackBar(SnackBar(content: Text("Card not found: '${update.data}'")));
-          debugPrint("Card not found: $update.data");
-          return;
-        }
-        for (int i = 0; i < count; i++) {
-          cardsCopy.add(matchedCard);
-        }
-      }
-      if (update is DataRemove) {
-        update as DataRemove<String>;
-        final regex = RegExp(r'^(\d)\s(.+)$');
-        var regexMatch = regex.allMatches(update.data);
-        String cardName = regexMatch.first[2]!;
-        cardsCopy.removeWhere((card) => card.name == cardName);
-      }
-    }
-    setState(() {
-      deck.cards = cardsCopy;
-      _notifier.markNeedsRefresh();
-    });
-    // Invalidate cache for share_image
-    cachedShareImageBytes = null;
-    deckRepository.updateDecklist(deck.id, cardsCopy).then((_) {
-      Navigator.of(context).pop();
-    });
-  }
 
   Future showBasicsEditor(Deck deck, List<Card> allCards) async {
     // Get current counts of each basic land type
@@ -574,45 +522,23 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   void showDeckEditor(Deck deck, List<Card> allCards) {
-    final controller = TextEditingController(text: deck.generateTextExport());
     showDialog(
       context: context,
-      builder: (dialogContext) => ScaffoldMessenger(
-        child: Builder(
-          builder: (builderContext) => Scaffold(
-            backgroundColor: Colors.transparent,
-            body: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop(),
-              child: AlertDialog(
-                content: TextFormField(
-                  expands: true,
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                  minLines: null,
-                  controller: controller,
-                ),
-                actions: [
-                  TextButton(
-                      onPressed: () async {
-                        await Clipboard.setData(ClipboardData(text: controller.text));
-                      },
-                      child: const Text("Copy All")
-                  ),
-                  TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text("Discard")
-                  ),
-                  TextButton(
-                      onPressed: () => findChangesAndUpdate(controller.text, deck.generateTextExport(), allCards, deck, builderContext),
-                      child: const Text("Save")
-                  )
-                ],
-              )
-            )
-          )
-        )
-      )
+      builder: (context) => DeckTextEditor(
+        initialText: deck.generateTextExport(),
+        deckRepository: deckRepository,
+        cardRepository: cardRepository,
+        isEditing: true,
+        deckId: deck.id,
+        onSave: (newCards) {
+          setState(() {
+            deck.cards = newCards;
+            _notifier.markNeedsRefresh();
+          });
+          cachedShareImageBytes = null;
+          deckRepository.updateDecklist(deck.id, newCards);
+        },
+      ),
     );
   }
 

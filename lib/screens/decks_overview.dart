@@ -301,84 +301,13 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   }
 
   void showTextDeckCreator() {
-    final controller = TextEditingController();
     showDialog(
       context: context,
-      builder: (dialogContext) => ScaffoldMessenger(
-        child: Builder(
-          builder: (builderContext) => Scaffold(
-            backgroundColor: Colors.transparent,
-            body: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => Navigator.of(context).pop(),
-              child: AlertDialog(
-                title: Text("Create Deck"),
-                content: TextFormField(
-                  expands: true,
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                  minLines: null,
-                  controller: controller,
-                  decoration: InputDecoration(
-                      hintText: "1 Mox Jet\n1 Black Lotus\n1 ...",
-                      hintStyle: TextStyle(color: Theme.of(context).hintColor)
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text("Discard")
-                  ),
-                  TextButton(
-                      onPressed: () async {
-                        List<Card> allCards = await cardRepository.getAllCards();
-                        List<Card> deckList = [];
-
-                        List<String> text = controller.text.split("\n");
-                        final regex = RegExp(r'^(\d+)\s(.+)$');
-                        for (String name in text) {
-                          var regexMatch = regex.allMatches(name);
-                          try {
-                            int count = int.parse(regexMatch.first[1]!);
-                            String cardName = regexMatch.first[2]!;
-                            Card? matchedCard = allCards.firstWhereOrNull(
-                                    (card) {
-                                  if (card.name.contains(" // ")) {
-                                    return card.name.contains(" // ")
-                                        ? card.name.split(" // ").any((name) => name.toLowerCase() == cardName.toLowerCase())
-                                        : card.name.toLowerCase() == cardName.toLowerCase();
-                                  }
-                                  else {
-                                    return card.name.toLowerCase() == cardName.toLowerCase();
-                                  }
-                                }
-                            );
-                            if (matchedCard == null) {
-                              ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text("Card not found: '$cardName'")));
-                              return;
-                            }
-                            for (int i = 0; i < count; i++) {
-                              deckList.add(matchedCard);
-                            }
-                          } catch (e) {
-                            ScaffoldMessenger.of(builderContext).showSnackBar(SnackBar(content: Text("Incorrect format for '$name'")));
-                            return;
-                          }
-                        }
-
-                        deckRepository.saveNewDeck(DateTime.now(), deckList).then((_) {
-                          refreshDecks();
-                          Navigator.of(context).pop();
-                        });
-                      },
-                      child: const Text("Save")
-                  )
-                ],
-              ),
-            )
-          )
-        )
-      )
+      builder: (context) => DeckTextEditor(
+        deckRepository: deckRepository,
+        cardRepository: cardRepository,
+        onSave: (_) => refreshDecks(),
+      ),
     );
   }
 
