@@ -21,6 +21,7 @@ import '/models/detection.dart';
 
 CardRepository cardRepository = CardRepository();
 
+
 class deckImageProcessing extends StatefulWidget {
   final String filePath;
   final bool isSideboard;
