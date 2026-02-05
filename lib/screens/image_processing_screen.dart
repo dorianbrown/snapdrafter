@@ -11,6 +11,7 @@ import 'package:tflite_flutter/tflite_flutter.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../data/models/deck.dart';
 import 'detection_preview.dart';
 import '/utils/utils.dart';
 
@@ -25,20 +26,31 @@ CardRepository cardRepository = CardRepository();
 class deckImageProcessing extends StatefulWidget {
   final String filePath;
   final bool isSideboard;
-  final int? deckId;
+  final Deck? deck;
   
   const deckImageProcessing({
     super.key, 
     required this.filePath,
     this.isSideboard = false,
-    this.deckId,
+    this.deck,
   });
 
   @override
-  _deckImageProcessingState createState() => _deckImageProcessingState();
+  _deckImageProcessingState createState() => _deckImageProcessingState(
+    filePath,
+    isSideboard,
+    deck
+  );
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
+
+  // Class inputs
+  final String filePath;
+  final bool isSideboard;
+  final Deck? deck;
+
+  _deckImageProcessingState(this.filePath, this.isSideboard, this.deck);
 
   late TextRecognizer _textRecognizer;
   late Future<void> _loadModelsFuture;
@@ -330,14 +342,12 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     // Save or update deck based on mode
     int? resultDeckId;
     
-    if (widget.isSideboard && widget.deckId != null) {
+    if (widget.isSideboard) {
       // For sideboard, update existing deck
-      final deckRepository = DeckRepository();
       final validCards = matchedCards.whereType<Card>().toList();
-      if (validCards.isNotEmpty) {
-        await deckRepository.addSideboardToDeck(widget.deckId!, validCards);
+      if (validCards.isNotEmpty && widget.deck != null) {
+        widget.deck!.sideboard = validCards;
       }
-      resultDeckId = widget.deckId;
     } else {
       // For mainboard, save new deck
       final validCards = matchedCards.whereType<Card>().toList();

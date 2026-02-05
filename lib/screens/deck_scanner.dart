@@ -2,16 +2,17 @@ import 'package:camerawesome/pigeon.dart';
 import 'package:flutter/material.dart' hide Orientation;
 import 'package:camerawesome/camerawesome_plugin.dart';
 
+import '../data/models/deck.dart';
 import 'image_processing_screen.dart';
 
 class DeckScanner extends StatefulWidget {
   final bool isSideboard;
-  final int? deckId;
+  final Deck? deck;
   
   const DeckScanner({
     super.key,
     this.isSideboard = false,
-    this.deckId,
+    this.deck,
   });
 
   @override
@@ -71,7 +72,7 @@ class DeckScannerState extends State<DeckScanner> {
                       builder: (context) => deckImageProcessing(
                         filePath: filePath,
                         isSideboard: widget.isSideboard,
-                        deckId: widget.deckId,
+                        deck: widget.deck,
                       )
                     )
                   );
