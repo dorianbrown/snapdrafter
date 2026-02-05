@@ -8,6 +8,7 @@ import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../widgets/deck_text_editor.dart';
 import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';
 import '/models/filter.dart';
