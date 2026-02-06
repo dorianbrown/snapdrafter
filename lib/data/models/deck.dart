@@ -53,15 +53,14 @@ class Deck {
         .join("\n");
     
     if (sideboard.isNotEmpty) {
-      String sideboardText = "\n\nSideboard\n" + (sideboard
+      String sideboardText = (sideboard
           .toList()..sort((a,b) => a.name.compareTo(b.name)))
           .map((card) => card.name)
           .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
           .entries.map((entry) => "${entry.value} ${entry.key}")
           .toList()
           .join("\n");
-      
-      return mainboard + sideboardText;
+      return "$mainboard\nSIDEBOARD\n$sideboardText";
     }
     
     return mainboard;

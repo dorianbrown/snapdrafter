@@ -9,21 +9,19 @@ import '/data/repositories/card_repository.dart';
 
 class DeckTextEditor extends StatefulWidget {
   final String? initialText;
-  final List<Card> initialSideboard;
   final DeckRepository deckRepository;
   final CardRepository cardRepository;
-  final Function(List<Card>)? onSave;
+  final Function(List<Card> mainboard, List<Card> sideboard)? onSave;
   final bool isEditing;
   final int? deckId; // Only for editing
 
   const DeckTextEditor({
     super.key,
     this.initialText,
-    this.initialSideboard = const [],
     required this.deckRepository,
     required this.cardRepository,
     this.onSave,
-    this.isEditing = false,
+    required this.isEditing,
     this.deckId,
   });
 
@@ -47,6 +45,27 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
     super.dispose();
   }
 
+  // Helper method to split text into mainboard and sideboard sections
+  (String, String) _splitTextBySideboard(String text) {
+    final lines = text.split('\n');
+    int sideboardIndex = -1;
+    
+    for (int i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toUpperCase() == 'SIDEBOARD') {
+        sideboardIndex = i;
+        break;
+      }
+    }
+    
+    if (sideboardIndex == -1) {
+      return (text, '');
+    }
+    
+    String mainboardText = lines.sublist(0, sideboardIndex).join('\n');
+    String sideboardText = lines.sublist(sideboardIndex + 1).join('\n');
+    return (mainboardText, sideboardText);
+  }
+
   Future<void> _parseAndSave(BuildContext context) async {
     if (_isLoading) return;
     
@@ -54,47 +73,14 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
     
     try {
       final allCards = await widget.cardRepository.getAllCards();
-      final List<Card> deckList = [];
       final List<String> errors = [];
       
-      final lines = _controller.text.split('\n');
-      final regex = RegExp(r'^(\d+)\s(.+)$');
+      // Split text into mainboard and sideboard sections
+      final (mainboardText, sideboardText) = _splitTextBySideboard(_controller.text);
       
-      for (String line in lines) {
-        final trimmedLine = line.trim();
-        if (trimmedLine.isEmpty) continue;
-        
-        final regexMatch = regex.allMatches(trimmedLine);
-        if (regexMatch.isEmpty) {
-          errors.add("Incorrect format for '$trimmedLine'");
-          continue;
-        }
-        
-        try {
-          final count = int.parse(regexMatch.first[1]!);
-          final cardName = regexMatch.first[2]!;
-          
-          final Card? matchedCard = allCards.firstWhereOrNull((card) {
-            if (card.name.contains(" // ")) {
-              return card.name.split(" // ").any(
-                (name) => name.toLowerCase() == cardName.toLowerCase()
-              );
-            }
-            return card.name.toLowerCase() == cardName.toLowerCase();
-          });
-          
-          if (matchedCard == null) {
-            errors.add("Card not found: '$cardName'");
-            continue;
-          }
-          
-          for (int i = 0; i < count; i++) {
-            deckList.add(matchedCard);
-          }
-        } catch (e) {
-          errors.add("Error parsing '$trimmedLine': $e");
-        }
-      }
+      // Parse both sections
+      final List<Card> mainboard = _parseCardList(mainboardText, allCards, errors);
+      final List<Card> sideboard = _parseCardList(sideboardText, allCards, errors);
       
       if (errors.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -110,22 +96,70 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
         // Update existing deck
         await widget.deckRepository.updateDeck(DeckUpsert(
           id: widget.deckId!,
-          cards: deckList,
-          sideboard: widget.initialSideboard,
+          cards: mainboard,
+          sideboard: sideboard,
         ));
       } else {
         // Create new deck
-        await widget.deckRepository.saveNewDeck(DeckUpsert(cards: deckList));
+        await widget.deckRepository.saveNewDeck(DeckUpsert(
+          cards: mainboard,
+          sideboard: sideboard,
+        ));
       }
       
       if (widget.onSave != null) {
-        widget.onSave!(deckList);
+        widget.onSave!(mainboard, sideboard);
       }
       
       Navigator.of(context).pop();
     } finally {
       setState(() => _isLoading = false);
     }
+  }
+
+  List<Card> _parseCardList(String text, List<Card> allCards, List<String> errors) {
+    List<Card> result = [];
+    final lines = text.split('\n');
+    final regex = RegExp(r'^(\d+)\s(.+)$');
+    
+    for (String line in lines) {
+      final trimmedLine = line.trim();
+      if (trimmedLine.isEmpty) continue;
+      
+      final regexMatch = regex.allMatches(trimmedLine);
+      if (regexMatch.isEmpty) {
+        errors.add("Incorrect format for '$trimmedLine'");
+        continue;
+      }
+      
+      try {
+        final count = int.parse(regexMatch.first[1]!);
+        final cardName = regexMatch.first[2]!;
+        
+        // Find matching card
+        final Card? matchedCard = allCards.firstWhereOrNull((card) {
+          if (card.name.contains(" // ")) {
+            return card.name.split(" // ").any(
+              (name) => name.toLowerCase() == cardName.toLowerCase()
+            );
+          }
+          return card.name.toLowerCase() == cardName.toLowerCase();
+        });
+        
+        if (matchedCard == null) {
+          errors.add("Card not found: '$cardName'");
+          continue;
+        }
+        
+        for (int i = 0; i < count; i++) {
+          result.add(matchedCard);
+        }
+      } catch (e) {
+        errors.add("Error parsing '$trimmedLine': $e");
+      }
+    }
+    
+    return result;
   }
 
   @override
@@ -143,7 +177,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
           decoration: InputDecoration(
             hintText: widget.isEditing 
               ? null 
-              : "1 Mox Jet\n1 Black Lotus\n1 ...",
+              : "1 Mox Jet\n1 Black Lotus\nSIDEBOARD\n1 Sideboard Card",
             hintStyle: TextStyle(color: Theme.of(context).hintColor),
           ),
         ),

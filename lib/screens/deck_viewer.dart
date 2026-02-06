@@ -537,21 +537,21 @@ class DeckViewerState extends State<DeckViewer> {
       context: context,
       builder: (context) => DeckTextEditor(
         initialText: deck.generateTextExport(),
-        initialSideboard: deck.sideboard,
         deckRepository: deckRepository,
         cardRepository: cardRepository,
         isEditing: true,
         deckId: deck.id,
-        onSave: (newCards) {
+        onSave: (newMainboard, newSideboard) {
           setState(() {
-            deck.cards = newCards;
+            deck.cards = newMainboard;
+            deck.sideboard = newSideboard;
             _notifier.markNeedsRefresh();
           });
           cachedShareImageBytes = null;
           deckRepository.updateDeck(DeckUpsert(
             id: deck.id,
-            cards: newCards,
-            sideboard: deck.sideboard,
+            cards: newMainboard,
+            sideboard: newSideboard,
           ));
         },
       ),
