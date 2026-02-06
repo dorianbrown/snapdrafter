@@ -40,7 +40,7 @@ class DetectionPreviewScreen extends StatefulWidget {
   });
 
   @override
-  _detectionPreviewState createState() => _detectionPreviewState(image, originalImage, detections);
+  _detectionPreviewState createState() => _detectionPreviewState();
 }
 
 class _detectionPreviewState extends State<DetectionPreviewScreen> {
@@ -57,7 +57,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     super.initState();
     image = widget.image;
     originalImage = widget.originalImage;
-    detections = widget.detections;
+    detections = List.from(widget.detections);
     detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
     cardRepository.getAllCards().then((value) => setState(() {allCards = value;}));
     imagePng = img.encodePng(image);
