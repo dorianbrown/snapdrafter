@@ -329,7 +329,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     );
 
     if (widget.isSideboardStep) {
-      await Navigator.of(context).push(
+      await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => DetectionPreviewScreen(
             image: outputImage,
@@ -343,7 +343,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         ),
       );
     } else {
-      await Navigator.of(context).pushAndRemoveUntil(
+      await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => DetectionPreviewScreen(
             image: outputImage,
@@ -355,7 +355,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
             isSideboardStep: widget.isSideboardStep,
           ),
         ),
-        ModalRoute.withName('/')
       );
     }
   }

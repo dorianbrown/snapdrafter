@@ -91,7 +91,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         final ImagePicker picker = ImagePicker();
         final XFile? image = await picker.pickImage(source: ImageSource.gallery);
         if (image != null) {
-          await Navigator.of(context).push(
+          await Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => deckImageProcessing(
                 filePath: image.path,
@@ -108,7 +108,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         final ImagePicker picker = ImagePicker();
         final XFile? image = await picker.pickImage(source: ImageSource.camera);
         if (image != null) {
-          await Navigator.of(context).push(
+          await Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => deckImageProcessing(
                 filePath: image.path,
