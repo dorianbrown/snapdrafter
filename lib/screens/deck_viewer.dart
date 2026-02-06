@@ -34,6 +34,12 @@ const _headerStyle = TextStyle(
     decoration: TextDecoration.underline
 );
 
+const _sideboardHeaderStyle = TextStyle(
+    fontSize: 24,  // Larger than the regular header
+    fontWeight: FontWeight.bold,
+    decoration: TextDecoration.underline
+);
+
 class DeckViewer extends StatefulWidget {
   final Deck deck;
   const DeckViewer({super.key, required this.deck});
@@ -398,7 +404,7 @@ class DeckViewerState extends State<DeckViewer> {
                     deckRepository.updateDeck(DeckUpsert(
                       id: deck.id,
                       cards: newCards,
-                      sideboard: deck.sideboard,
+                      sideboard: deck.sideboard,  // Make sure to preserve sideboard
                     )).then((_) {
                       Navigator.of(context).pop();
                     });
@@ -660,6 +666,42 @@ class DeckViewerState extends State<DeckViewer> {
         );
       }
     }
+
+    // Add sideboard section if sideboard has cards
+    if (deck.sideboard.isNotEmpty) {
+        // Add sideboard header
+        deckView.add(
+            Container(
+                padding: const EdgeInsets.fromLTRB(0, 30, 0, 10),
+                child: Text("Sideboard (${deck.sideboard.length})", style: _sideboardHeaderStyle)
+            )
+        );
+
+        // Sort sideboard by mana cost from low to high
+        deck.sideboard.sort((a, b) => a.manaValue.compareTo(b.manaValue));
+        
+        // Generate sideboard widgets (ungrouped, just a flat list)
+        List<Widget> sideboardWidgets = deck.sideboard
+            .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
+            .entries.map((entry) => renderCard(entry.key, entry.value))
+            .toList();
+
+        // Add sideboard widgets to the view
+        if (renderValues[0] == "text") {
+            deckView.addAll(sideboardWidgets);
+        } else {
+            deckView.add(
+                GridView.count(
+                    physics: NeverScrollableScrollPhysics(),
+                    childAspectRatio: 0.72,
+                    crossAxisCount: int.parse(renderValues[1]),
+                    shrinkWrap: true,
+                    children: sideboardWidgets,
+                )
+            );
+        }
+    }
+
     return deckView;
   }
 
