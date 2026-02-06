@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Card;
 import 'package:image/image.dart' as img;
+import 'package:image_picker/image_picker.dart';
 
 import 'deck_viewer.dart';
+import 'image_processing_screen.dart';
 import '/models/detection.dart';
 import '/utils/deck_change_notifier.dart';
 import '/data/models/card.dart';
@@ -44,16 +46,6 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   late img.Image image;
   late img.Image originalImage;
   late List<Detection> detections;
-
-  @override
-  void initState() {
-    super.initState();
-    image = widget.image;
-    originalImage = widget.originalImage;
-    detections = widget.detections;
-    detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
-  }
-
   late Uint8List imagePng;
   List<Card> allCards = [];
   final ScrollController _scrollController = ScrollController();
@@ -62,9 +54,73 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   @override
   void initState() {
     super.initState();
+    image = widget.image;
+    originalImage = widget.originalImage;
+    detections = widget.detections;
     detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
     cardRepository.getAllCards().then((value) => setState(() {allCards = value;}));
     imagePng = img.encodePng(image);
+  }
+
+  void _onAddSideboard() async {
+    // Validate all cards are defined
+    if (detections.any((det) => det.card == null)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Please define all cards before adding sideboard'),
+        ),
+      );
+      return;
+    }
+    final matchedCards = detections
+        .where((det) => det.card != null)
+        .map((det) => det.card!)
+        .toList();
+    
+    // Build baseDeck with mainboard
+    final baseDeck = DeckUpsert(
+      cards: matchedCards,
+      sideboard: const [],
+    );
+    final img.Image? baseDeckImage = originalImage;
+
+    switch (widget.captureSource) {
+      case CaptureSource.gallery:
+      case CaptureSource.share:
+        final ImagePicker picker = ImagePicker();
+        final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+        if (image != null) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => deckImageProcessing(
+                filePath: image.path,
+                captureSource: widget.captureSource,
+                baseDeck: baseDeck,
+                baseDeckImage: baseDeckImage,
+                isSideboardStep: true,
+              ),
+            ),
+          );
+        }
+        break;
+      case CaptureSource.camera:
+        final ImagePicker picker = ImagePicker();
+        final XFile? image = await picker.pickImage(source: ImageSource.camera);
+        if (image != null) {
+          await Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => deckImageProcessing(
+                filePath: image.path,
+                captureSource: widget.captureSource,
+                baseDeck: baseDeck,
+                baseDeckImage: baseDeckImage,
+                isSideboardStep: true,
+              ),
+            ),
+          );
+        }
+        break;
+    }
   }
 
   @override
@@ -73,7 +129,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       onWillPop: () async {
         if (widget.isSideboardStep) {
           // Pop back to the mainboard preview
-          Navigator.of(context).popUntil((route) => route.settings.name == 'mainboardPreview');
+          Navigator.of(context).pop();
           return false;
         }
         return true;
@@ -206,10 +262,8 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   }
 
   void saveDetectionsToDeck() async {
-
     // Check that all cards are defined
-    if (detections.map((x) => x.card).any((x) => x == null)) {
-      // Communicate problem to user
+    if (detections.any((x) => x.card == null)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('You have undefined cards, remove them first'),
@@ -220,8 +274,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (context) =>
-            Center(child: CircularProgressIndicator()),
+        builder: (context) => Center(child: CircularProgressIndicator()),
       ),
     );
     
@@ -230,7 +283,36 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         .map((detection) => detection.card!)
         .toList();
     
-    final newDeck = await createDeckAndSave(matchedCards, originalImage);
+    final DeckUpsert upsert;
+    final img.Image imageToUse;
+    
+    if (widget.isSideboardStep && widget.baseDeck != null) {
+      // Sideboard step: combine mainboard from baseDeck with sideboard from matchedCards
+      upsert = DeckUpsert(
+        cards: widget.baseDeck!.cards,
+        sideboard: matchedCards,
+        name: widget.baseDeck!.name,
+        winLoss: widget.baseDeck!.winLoss,
+        setId: widget.baseDeck!.setId,
+        cubecobraId: widget.baseDeck!.cubecobraId,
+        ymd: widget.baseDeck!.ymd,
+      );
+      imageToUse = widget.baseDeckImage ?? originalImage;
+    } else {
+      // Main step (no sideboard) or baseDeck is null
+      upsert = DeckUpsert(
+        cards: matchedCards,
+        sideboard: const [],
+        name: null,
+        winLoss: null,
+        setId: null,
+        cubecobraId: null,
+        ymd: null,
+      );
+      imageToUse = originalImage;
+    }
+    
+    final newDeck = await deckRepository.saveNewDeck(upsert, image: imageToUse);
     debugPrint("Deck saved with id: ${newDeck.id}");
 
     _changeNotifier.markNeedsRefresh();
@@ -280,7 +362,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
 
   Future<Deck> createDeckAndSave(List<Card> matchedCards, img.Image image) async {
     return await deckRepository.saveNewDeck(
-      DeckUpsert(cards: matchedCards),
+      DeckUpsert(cards: matchedCards, sideboard: const []),
       image: image,
     );
   }
