@@ -172,7 +172,10 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               if (image != null) {
                 await Navigator.of(context).push(
                     MaterialPageRoute(
-                        builder: (context) => deckImageProcessing(filePath: image.path)
+                        builder: (context) => deckImageProcessing(
+                          filePath: image.path,
+                          captureSource: CaptureSource.gallery,
+                        )
                     )
                 );
               }

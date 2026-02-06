@@ -81,7 +81,10 @@ class MainAppState extends State<MainApp> {
     if (mounted && navigatorKey.currentState != null) {
       navigatorKey.currentState!.pushAndRemoveUntil(
         MaterialPageRoute(
-          builder: (context) => deckImageProcessing(filePath: imagePath),
+          builder: (context) => deckImageProcessing(
+                filePath: imagePath,
+                captureSource: CaptureSource.share,
+              ),
         ),
         ModalRoute.withName('/'),
       );

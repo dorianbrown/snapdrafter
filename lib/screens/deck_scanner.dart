@@ -58,7 +58,10 @@ class DeckScannerState extends State<DeckScanner> {
                   String filePath = singeCaptureRequest.path!;
                   Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (context) => deckImageProcessing(filePath: filePath)
+                          builder: (context) => deckImageProcessing(
+                            filePath: filePath,
+                            captureSource: CaptureSource.camera,
+                          )
                       )
                   );
                 } else if (mediaCapture.status == MediaCaptureStatus.success) {

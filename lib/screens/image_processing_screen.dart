@@ -16,23 +16,30 @@ import '/utils/utils.dart';
 
 import '/data/repositories/card_repository.dart';
 import '/data/models/card.dart';
+import '/data/models/deck_upsert.dart';
 import '/models/detection.dart';
 
 CardRepository cardRepository = CardRepository();
 
 class deckImageProcessing extends StatefulWidget {
   final String filePath;
+  final CaptureSource captureSource;
+  final DeckUpsert? baseDeck;
+  final img.Image? baseDeckImage;
+  final bool isSideboardStep;
   const deckImageProcessing(
-      {super.key, required this.filePath});
+      {super.key,
+      required this.filePath,
+      this.captureSource = CaptureSource.gallery,
+      this.baseDeck,
+      this.baseDeckImage,
+      this.isSideboardStep = false});
 
   @override
-  _deckImageProcessingState createState() => _deckImageProcessingState(filePath);
+  _deckImageProcessingState createState() => _deckImageProcessingState();
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
-  // Class inputs
-  final String filePath;
-  _deckImageProcessingState(this.filePath);
 
   late TextRecognizer _textRecognizer;
   late Future<void> _loadModelsFuture;
@@ -150,7 +157,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     // we run title detection on all 4 orientations and take the one with the most
     // detections.
 
-    img.Image inputImage = await compute(processInputImage, filePath);
+    img.Image inputImage = await compute(processInputImage, widget.filePath);
 
     setState(() {
       currentTask = "Running title detection on image";
@@ -321,15 +328,36 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       color: overlayColor
     );
 
-    await Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (context) => DetectionPreviewScreen(
+    if (widget.isSideboardStep) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => DetectionPreviewScreen(
             image: outputImage,
             originalImage: inputImageCopy,
-            detections: detectionOutput),
-      ),
-      ModalRoute.withName('/')
-    );
+            detections: detectionOutput,
+            captureSource: widget.captureSource,
+            baseDeck: widget.baseDeck,
+            baseDeckImage: widget.baseDeckImage,
+            isSideboardStep: widget.isSideboardStep,
+          ),
+        ),
+      );
+    } else {
+      await Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (context) => DetectionPreviewScreen(
+            image: outputImage,
+            originalImage: inputImageCopy,
+            detections: detectionOutput,
+            captureSource: widget.captureSource,
+            baseDeck: widget.baseDeck,
+            baseDeckImage: widget.baseDeckImage,
+            isSideboardStep: widget.isSideboardStep,
+          ),
+        ),
+        ModalRoute.withName('/')
+      );
+    }
   }
 
   Future<String> _transcribeDetection(List<int> detection, img.Image inputImage) async {

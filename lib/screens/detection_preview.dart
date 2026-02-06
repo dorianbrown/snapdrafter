@@ -20,12 +20,20 @@ class DetectionPreviewScreen extends StatefulWidget {
   final img.Image image;
   final img.Image originalImage;
   final List<Detection> detections;
+  final CaptureSource captureSource;
+  final DeckUpsert? baseDeck;
+  final img.Image? baseDeckImage;
+  final bool isSideboardStep;
 
   const DetectionPreviewScreen({
       super.key, 
       required this.image,
       required this.originalImage,
       required this.detections,
+      this.captureSource = CaptureSource.gallery,
+      this.baseDeck,
+      this.baseDeckImage,
+      this.isSideboardStep = false,
   });
 
   @override
@@ -33,10 +41,18 @@ class DetectionPreviewScreen extends StatefulWidget {
 }
 
 class _detectionPreviewState extends State<DetectionPreviewScreen> {
-  final img.Image image;
-  final img.Image originalImage;
-  List<Detection> detections;
-  _detectionPreviewState(this.image, this.originalImage, this.detections);
+  late img.Image image;
+  late img.Image originalImage;
+  late List<Detection> detections;
+
+  @override
+  void initState() {
+    super.initState();
+    image = widget.image;
+    originalImage = widget.originalImage;
+    detections = widget.detections;
+    detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
+  }
 
   late Uint8List imagePng;
   List<Card> allCards = [];
@@ -53,118 +69,137 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Detection Preview')),
-      body: detections.isEmpty ?
-        Container(
-          padding: EdgeInsets.all(50),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Spacer(flex: 7),
-              Text("No card titles detected", style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
-              Spacer(flex: 1),
-              Text("Make sure the cards are oriented in the upwards direction",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontStyle: FontStyle.italic,
-                  color: Colors.white38,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              Spacer(flex: 5)
-            ],
-          )
-        )
-      :
-      ListView.separated(
-        controller: _scrollController,
-        separatorBuilder: (context, index) => Divider(indent: 10, endIndent: 10,),
-        padding: EdgeInsets.all(5),
-        itemCount: detections.length,
-        itemBuilder: (context, index) {
-          return Dismissible(
-            confirmDismiss: confirmDeletion,
-            key: UniqueKey(),
-            background: Container(color: Colors.red,),
-            onDismissed: (direction) {
-              setState(() {
-                detections.removeAt(index);
-              });
-            },
-            child: Row(
-              spacing: 15,
+    return WillPopScope(
+      onWillPop: () async {
+        if (widget.isSideboardStep) {
+          // Pop back to the mainboard preview
+          Navigator.of(context).popUntil((route) => route.settings.name == 'mainboardPreview');
+          return false;
+        }
+        return true;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text(widget.isSideboardStep ? 'Sideboard Preview' : 'Detection Preview'),
+          actions: widget.isSideboardStep ? null : [
+            IconButton(
+              icon: Icon(Icons.add_box_outlined),
+              tooltip: 'Add Sideboard',
+              onPressed: _onAddSideboard,
+            ),
+          ],
+        ),
+        body: detections.isEmpty ?
+          Container(
+            padding: EdgeInsets.all(50),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text("${index + 1}"),
-                Expanded(
-                  flex: 1,
-                    child: ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: 30),
-                      child: detections[index].textImage != null
-                          ? Image.memory(img.encodePng(detections[index].textImage!))
-                          : Text(""),
-                    )
+                Spacer(flex: 7),
+                Text("No card titles detected", style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
+                Spacer(flex: 1),
+                Text("Make sure the cards are oriented in the upwards direction",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.white38,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                Expanded(
-                  flex: 1,
-                  child: Autocomplete(
-                    initialValue: TextEditingValue(text: detections[index].card?.name ?? ""),
-                    optionsViewOpenDirection: OptionsViewOpenDirection.down,
-                    optionsBuilder: (val) {
-                      if (val.text == "") {
-                        return const Iterable<String>.empty();
-                      }
-                      return allCards
-                          .where((el) => el.name.toLowerCase().contains(val.text.toLowerCase()))
-                          .map((el) => el.name)
-                          .toList();
-                    },
-                    onSelected: (option) {
-                      Card newCard = allCards.firstWhere((x) => x.name == option);
-                      setState(() {
-                        detections[index].card = newCard;
-                      });
-                      debugPrint(detections.map((x) => x.card?.name ?? "").toList().toString());
-                    },
-                  )
-                ),
+                Spacer(flex: 5)
               ],
             )
-          );
-        }
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
-        label: Text("Save Deck"),
-        icon: Icon(Icons.save)
-      ),
-      bottomNavigationBar: BottomAppBar(
-        child: Row(
-          children: [
-            IconButton(
-              onPressed: () async {
-                detections = [Detection(
-                    card: null,
-                    ocrText: ""
-                )] + detections;
-                setState(() {});
-                _scrollController
-                    .animateTo(
-                    _scrollController.position.minScrollExtent,
-                      duration: const Duration(milliseconds: 500
-                    ),
-                  curve: Curves.easeOut
-                );
+          )
+        :
+        ListView.separated(
+          controller: _scrollController,
+          separatorBuilder: (context, index) => Divider(indent: 10, endIndent: 10,),
+          padding: EdgeInsets.all(5),
+          itemCount: detections.length,
+          itemBuilder: (context, index) {
+            return Dismissible(
+              confirmDismiss: confirmDeletion,
+              key: UniqueKey(),
+              background: Container(color: Colors.red,),
+              onDismissed: (direction) {
+                setState(() {
+                  detections.removeAt(index);
+                });
               },
-              icon: Icon(Icons.add)
-            ),
-            IconButton(
-              onPressed: () => createInteractiveViewer(imagePng),
-              icon: Icon(Icons.image)
-            )
-          ],
+              child: Row(
+                spacing: 15,
+                children: [
+                  Text("${index + 1}"),
+                  Expanded(
+                    flex: 1,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: 30),
+                        child: detections[index].textImage != null
+                            ? Image.memory(img.encodePng(detections[index].textImage!))
+                            : Text(""),
+                      )
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Autocomplete(
+                      initialValue: TextEditingValue(text: detections[index].card?.name ?? ""),
+                      optionsViewOpenDirection: OptionsViewOpenDirection.down,
+                      optionsBuilder: (val) {
+                        if (val.text == "") {
+                          return const Iterable<String>.empty();
+                        }
+                        return allCards
+                            .where((el) => el.name.toLowerCase().contains(val.text.toLowerCase()))
+                            .map((el) => el.name)
+                            .toList();
+                      },
+                      onSelected: (option) {
+                        Card newCard = allCards.firstWhere((x) => x.name == option);
+                        setState(() {
+                          detections[index].card = newCard;
+                        });
+                        debugPrint(detections.map((x) => x.card?.name ?? "").toList().toString());
+                      },
+                    )
+                  ),
+                ],
+              )
+            );
+          }
+        ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
+          label: Text(widget.isSideboardStep ? "Save Deck with Sideboard" : "Save Deck"),
+          icon: Icon(Icons.save)
+        ),
+        bottomNavigationBar: BottomAppBar(
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () async {
+                  detections = [Detection(
+                      card: null,
+                      ocrText: ""
+                  )] + detections;
+                  setState(() {});
+                  _scrollController
+                      .animateTo(
+                      _scrollController.position.minScrollExtent,
+                        duration: const Duration(milliseconds: 500
+                      ),
+                    curve: Curves.easeOut
+                  );
+                },
+                icon: Icon(Icons.add)
+              ),
+              IconButton(
+                onPressed: () => createInteractiveViewer(imagePng),
+                icon: Icon(Icons.image)
+              )
+            ],
+          ),
         ),
       ),
     );
