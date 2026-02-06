@@ -133,7 +133,9 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           Navigator.of(context).pop();
           return false;
         }
-        return true;
+        // For non-sideboard steps, navigate back to home
+        Navigator.of(context).popUntil(ModalRoute.withName('/'));
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
