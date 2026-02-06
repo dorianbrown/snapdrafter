@@ -44,27 +44,27 @@ class Deck {
   }
 
   String generateTextExport() {
-
-    String outputString = (cards
+    String mainboard = (cards
         .toList()..sort((a,b) => a.name.compareTo(b.name)))
         .map((card) => card.name)
         .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
         .entries.map((entry) => "${entry.value} ${entry.key}")
         .toList()
         .join("\n");
-
+    
     if (sideboard.isNotEmpty) {
-      outputString += "\nSIDEBOARD:\n";
-
-      outputString = (sideboard
+      String sideboardText = "\n\nSideboard\n" + (sideboard
           .toList()..sort((a,b) => a.name.compareTo(b.name)))
           .map((card) => card.name)
           .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
           .entries.map((entry) => "${entry.value} ${entry.key}")
           .toList()
           .join("\n");
+      
+      return mainboard + sideboardText;
     }
-    return outputString;
+    
+    return mainboard;
   }
 
   @override
