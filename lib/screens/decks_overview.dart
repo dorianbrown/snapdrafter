@@ -311,7 +311,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       builder: (context) => DeckTextEditor(
         deckRepository: deckRepository,
         cardRepository: cardRepository,
-        onSave: (_) => refreshDecks(),
+        onSave: (mainboard, sideboard) => refreshDecks(),
         isEditing: false,
       ),
     );
