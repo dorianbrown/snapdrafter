@@ -312,6 +312,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         deckRepository: deckRepository,
         cardRepository: cardRepository,
         onSave: (_) => refreshDecks(),
+        isEditing: false,
       ),
     );
   }
