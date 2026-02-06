@@ -5,6 +5,7 @@ import 'package:flutter_sharing_intent/model/sharing_file.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
+import 'package:snapdrafter/utils/utils.dart';
 
 import '/data/database/database_helper.dart';
 import '/screens/decks_overview.dart';

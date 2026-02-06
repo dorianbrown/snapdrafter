@@ -2,6 +2,7 @@ import 'package:camerawesome/pigeon.dart';
 import 'package:flutter/material.dart' hide Orientation;
 import 'package:camerawesome/camerawesome_plugin.dart';
 
+import '../utils/utils.dart';
 import 'image_processing_screen.dart';
 
 class DeckScanner extends StatefulWidget {

@@ -229,14 +229,14 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                 child: FloatingActionButton.extended(
                   heroTag: 'add_sideboard',
                   onPressed: _onAddSideboard,
-                  label: const Text('Add Sideboard'),
-                  icon: const Icon(Icons.add_box_outlined),
+                  label: const Text('Sideboard'),
+                  icon: const Icon(Icons.add_box_rounded),
                 ),
               ),
             FloatingActionButton.extended(
               heroTag: 'save_deck',
               onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
-              label: Text(widget.isSideboardStep ? "Save Deck with Sideboard" : "Save Deck"),
+              label: Text(widget.isSideboardStep ? "Save Deck + Sideboard" : "Save Deck"),
               icon: const Icon(Icons.save),
             ),
           ],
