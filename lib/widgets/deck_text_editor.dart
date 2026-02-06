@@ -3,11 +3,13 @@ import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import '/data/models/card.dart';
+import '/data/models/deck_upsert.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/repositories/card_repository.dart';
 
 class DeckTextEditor extends StatefulWidget {
   final String? initialText;
+  final List<Card> initialSideboard;
   final DeckRepository deckRepository;
   final CardRepository cardRepository;
   final Function(List<Card>)? onSave;
@@ -17,6 +19,7 @@ class DeckTextEditor extends StatefulWidget {
   const DeckTextEditor({
     super.key,
     this.initialText,
+    this.initialSideboard = const [],
     required this.deckRepository,
     required this.cardRepository,
     this.onSave,
@@ -105,10 +108,14 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
       
       if (widget.isEditing && widget.deckId != null) {
         // Update existing deck
-        await widget.deckRepository.updateDecklist(widget.deckId!, deckList);
+        await widget.deckRepository.updateDeck(DeckUpsert(
+          id: widget.deckId!,
+          cards: deckList,
+          sideboard: widget.initialSideboard,
+        ));
       } else {
         // Create new deck
-        await widget.deckRepository.saveNewDeck(DateTime.now(), deckList);
+        await widget.deckRepository.saveNewDeck(DeckUpsert(cards: deckList));
       }
       
       if (widget.onSave != null) {

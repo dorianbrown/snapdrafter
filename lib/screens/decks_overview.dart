@@ -23,6 +23,7 @@ import '/data/models/deck.dart';
 import '/data/models/card.dart';
 import '/data/models/cube.dart';
 import '/data/models/set.dart';
+import '/data/models/deck_upsert.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/repositories/set_repository.dart';
 import '/data/repositories/cube_repository.dart';
@@ -811,7 +812,16 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 
                 // Only update if there are changes
                 if (updates.isNotEmpty) {
-                  await deckRepository.updateDeck(deck.id, updates);
+                  await deckRepository.updateDeck(DeckUpsert(
+                    id: deck.id,
+                    name: updates['name'] as String?,
+                    winLoss: updates['win_loss'] as String?,
+                    setId: updates['set_id'] as String?,
+                    cubecobraId: updates['cubecobra_id'] as String?,
+                    ymd: updates['ymd'] as String?,
+                    cards: deck.cards,
+                    sideboard: deck.sideboard,
+                  ));
                 }
                 
                 // Update tags

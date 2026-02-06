@@ -24,6 +24,7 @@ import '/data/repositories/token_repository.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/models/card.dart';
 import '/data/models/deck.dart';
+import '/data/models/deck_upsert.dart';
 import '/utils/constants.dart';
 import '/utils/deck_change_notifier.dart';
 
@@ -394,7 +395,11 @@ class DeckViewerState extends State<DeckViewer> {
                       _notifier.markNeedsRefresh();
                     });
                     // Force refresh the FutureBuilder by creating a new future
-                    deckRepository.updateDecklist(deck.id, newCards).then((_) {
+                    deckRepository.updateDeck(DeckUpsert(
+                      id: deck.id,
+                      cards: newCards,
+                      sideboard: deck.sideboard,
+                    )).then((_) {
                       Navigator.of(context).pop();
                     });
                   },
@@ -526,6 +531,7 @@ class DeckViewerState extends State<DeckViewer> {
       context: context,
       builder: (context) => DeckTextEditor(
         initialText: deck.generateTextExport(),
+        initialSideboard: deck.sideboard,
         deckRepository: deckRepository,
         cardRepository: cardRepository,
         isEditing: true,
@@ -536,7 +542,11 @@ class DeckViewerState extends State<DeckViewer> {
             _notifier.markNeedsRefresh();
           });
           cachedShareImageBytes = null;
-          deckRepository.updateDecklist(deck.id, newCards);
+          deckRepository.updateDeck(DeckUpsert(
+            id: deck.id,
+            cards: newCards,
+            sideboard: deck.sideboard,
+          ));
         },
       ),
     );

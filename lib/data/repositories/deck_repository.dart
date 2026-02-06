@@ -10,7 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import '../database/database_helper.dart';
 import '../models/deck.dart';
 import '../models/card.dart';
-import '../models/decklist.dart';
+import '../models/deck_upsert.dart';
 
 import '/utils/utils.dart';
 
@@ -43,20 +43,62 @@ class DeckRepository {
     );
   }
 
-  Future<int> updateDeck(int deckId, Map<String, Object?> updates) async {
+  Future<void> _replaceDeckCardList(
+    Transaction txn,
+    String tableName,
+    int deckId,
+    List<Card> cards,
+  ) async {
+    final batch = txn.batch();
+    batch.delete(tableName, where: 'deck_id = ?', whereArgs: [deckId]);
+    for (final card in cards) {
+      batch.insert(
+        tableName,
+        {'deck_id': deckId, 'scryfall_id': card.scryfallId},
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Updates a deck's metadata and/or lists.
+  ///
+  /// This is the single entry point for updating:
+  /// - the `decks` row (metadata)
+  /// - mainboard (`decklists`)
+  /// - sideboard (`sideboard_lists`)
+  Future<void> updateDeck(DeckUpsert deck) async {
+    if (deck.id == null) {
+      throw ArgumentError('DeckUpsert.id must be set for updateDeck()');
+    }
+
+    final deckId = deck.id!;
     final dbClient = await _db;
-    
-    // Remove null values to avoid overwriting with null
-    updates.removeWhere((key, value) => value == null);
-    
-    if (updates.isEmpty) return 0;
-    
-    return await dbClient.update(
-      'decks',
-      updates,
-      where: 'id = ?',
-      whereArgs: [deckId],
-    );
+
+    await dbClient.transaction((txn) async {
+      final Map<String, Object?> updates = {
+        'name': deck.name,
+        'win_loss': deck.winLoss,
+        'set_id': deck.setId,
+        'cubecobra_id': deck.cubecobraId,
+        'ymd': deck.ymd,
+      };
+
+      // Remove null values to avoid overwriting with null
+      updates.removeWhere((key, value) => value == null);
+
+      if (updates.isNotEmpty) {
+        await txn.update(
+          'decks',
+          updates,
+          where: 'id = ?',
+          whereArgs: [deckId],
+        );
+      }
+
+      await _replaceDeckCardList(txn, 'decklists', deckId, deck.cards);
+      await _replaceDeckCardList(txn, 'sideboard_lists', deckId, deck.sideboard);
+    });
   }
 
   Future<List<Deck>> getAllDecks() async {
@@ -149,6 +191,7 @@ class DeckRepository {
     await dbClient.transaction((txn) async {
       await txn.delete('decks', where: 'id = ?', whereArgs: [id]);
       await txn.delete('decklists', where: 'deck_id = ?', whereArgs: [id]);
+      await txn.delete('sideboard_lists', where: 'deck_id = ?', whereArgs: [id]);
       await txn.delete('deck_tags', where: 'deck_id = ?', whereArgs: [id]);
 
       // Delete image file if exists
@@ -161,33 +204,59 @@ class DeckRepository {
     });
   }
 
-  Future<void> updateDecklist(int deckId, List<Card> cards) async {
+  /// Creates a new deck and returns the persisted `Deck` (with a real id).
+  ///
+  /// This is the single entry point for creating:
+  /// - the `decks` row (metadata)
+  /// - mainboard (`decklists`)
+  /// - sideboard (`sideboard_lists`)
+  Future<Deck> saveNewDeck(DeckUpsert deck, {Image? image}) async {
     final dbClient = await _db;
-    await dbClient.transaction((txn) async {
-      var batch = txn.batch();
-      batch.delete('decklists', where: 'deck_id = ?', whereArgs: [deckId]);
-      for (final card in cards) {
-        batch.insert(
-          'decklists',
-          Decklist(deckId: deckId, scryfallId: card.scryfallId).toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-      await batch.commit();
-    });
-  }
 
-  Future<int> saveNewDeck(DateTime dateTime, List<Card> cards, {Image? image}) async {
-    String ymd = convertDatetimeToYMD(dateTime);
-    String? imagePath = image != null ? await _saveDeckImage(image) : null;
-    int deckId = await insertDeck({
-      'ymd': ymd,
-      'image_path': imagePath,
+    final String ymd = deck.ymd ?? convertDatetimeToYMD(DateTime.now());
+    final String? storedImagePath = image != null ? await _saveDeckImage(image) : null;
+
+    late final int deckId;
+    await dbClient.transaction((txn) async {
+      deckId = await txn.insert(
+        'decks',
+        {
+          'name': deck.name,
+          'win_loss': deck.winLoss,
+          'set_id': deck.setId,
+          'cubecobra_id': deck.cubecobraId,
+          'ymd': ymd,
+          'image_path': storedImagePath,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+
+      await _replaceDeckCardList(txn, 'decklists', deckId, deck.cards);
+      await _replaceDeckCardList(txn, 'sideboard_lists', deckId, deck.sideboard);
     });
-    
-    await updateDecklist(deckId, cards);
-    debugPrint("Deck inserted successfully, deck_id: $deckId");
-    return deckId;
+
+    // Match the "loaded deck" shape: imagePath should be a full path if it exists.
+    String? fullImagePath;
+    if (storedImagePath != null) {
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/$storedImagePath');
+      if (await file.exists()) {
+        fullImagePath = file.path;
+      }
+    }
+
+    return Deck(
+      id: deckId,
+      name: deck.name,
+      winLoss: deck.winLoss,
+      setId: deck.setId,
+      cubecobraId: deck.cubecobraId,
+      ymd: ymd,
+      imagePath: fullImagePath,
+      cards: deck.cards,
+      sideboard: deck.sideboard,
+      tags: const [],
+    );
   }
 
   Future<String?> _saveDeckImage(Image image) async {

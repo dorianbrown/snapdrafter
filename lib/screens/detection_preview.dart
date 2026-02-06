@@ -8,6 +8,8 @@ import 'deck_viewer.dart';
 import '/models/detection.dart';
 import '/utils/deck_change_notifier.dart';
 import '/data/models/card.dart';
+import '/data/models/deck.dart';
+import '/data/models/deck_upsert.dart';
 import '/data/repositories/card_repository.dart';
 import '/data/repositories/deck_repository.dart';
 
@@ -193,10 +195,8 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         .map((detection) => detection.card!)
         .toList();
     
-    final deckId = await createDeckAndSave(matchedCards, originalImage);
-    debugPrint("Deck saved with id: $deckId");
-    final allDecks = await deckRepository.getAllDecks();
-    final newDeck = allDecks.where((x) => x.id == deckId).first;
+    final newDeck = await createDeckAndSave(matchedCards, originalImage);
+    debugPrint("Deck saved with id: ${newDeck.id}");
 
     _changeNotifier.markNeedsRefresh();
 
@@ -243,9 +243,11 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     );
   }
 
-  Future<int> createDeckAndSave(List<Card> matchedCards, img.Image image) async {
-    final DateTime dateTime = DateTime.now();
-    return await deckRepository.saveNewDeck(dateTime, matchedCards, image: image);
+  Future<Deck> createDeckAndSave(List<Card> matchedCards, img.Image image) async {
+    return await deckRepository.saveNewDeck(
+      DeckUpsert(cards: matchedCards),
+      image: image,
+    );
   }
 
   Future<bool> confirmDeletion(direction) async {
