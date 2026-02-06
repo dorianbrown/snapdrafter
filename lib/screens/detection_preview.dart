@@ -5,6 +5,7 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
+import '../utils/utils.dart';
 import 'deck_viewer.dart';
 import 'image_processing_screen.dart';
 import '/models/detection.dart';
