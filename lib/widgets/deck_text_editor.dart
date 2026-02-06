@@ -49,18 +49,18 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
   (String, String) _splitTextBySideboard(String text) {
     final lines = text.split('\n');
     int sideboardIndex = -1;
-    
+
     for (int i = 0; i < lines.length; i++) {
       if (lines[i].trim().toUpperCase() == 'SIDEBOARD') {
         sideboardIndex = i;
         break;
       }
     }
-    
+
     if (sideboardIndex == -1) {
       return (text, '');
     }
-    
+
     String mainboardText = lines.sublist(0, sideboardIndex).join('\n');
     String sideboardText = lines.sublist(sideboardIndex + 1).join('\n');
     return (mainboardText, sideboardText);
@@ -68,20 +68,20 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
 
   Future<void> _parseAndSave(BuildContext context) async {
     if (_isLoading) return;
-    
+
     setState(() => _isLoading = true);
-    
+
     try {
       final allCards = await widget.cardRepository.getAllCards();
       final List<String> errors = [];
-      
+
       // Split text into mainboard and sideboard sections
       final (mainboardText, sideboardText) = _splitTextBySideboard(_controller.text);
-      
+
       // Parse both sections
       final List<Card> mainboard = _parseCardList(mainboardText, allCards, errors);
       final List<Card> sideboard = _parseCardList(sideboardText, allCards, errors);
-      
+
       if (errors.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -91,7 +91,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
         );
         return;
       }
-      
+
       if (widget.isEditing && widget.deckId != null) {
         // Update existing deck
         await widget.deckRepository.updateDeck(DeckUpsert(
@@ -106,11 +106,11 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
           sideboard: sideboard,
         ));
       }
-      
+
       if (widget.onSave != null) {
         widget.onSave!(mainboard, sideboard);
       }
-      
+
       Navigator.of(context).pop();
     } finally {
       setState(() => _isLoading = false);
@@ -121,36 +121,40 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
     List<Card> result = [];
     final lines = text.split('\n');
     final regex = RegExp(r'^(\d+)\s(.+)$');
-    
+
     for (String line in lines) {
       final trimmedLine = line.trim();
       if (trimmedLine.isEmpty) continue;
-      
+
       final regexMatch = regex.allMatches(trimmedLine);
       if (regexMatch.isEmpty) {
         errors.add("Incorrect format for '$trimmedLine'");
         continue;
       }
-      
+
       try {
         final count = int.parse(regexMatch.first[1]!);
         final cardName = regexMatch.first[2]!;
-        
+
+        print(cardName.split(" // "));
+
         // Find matching card
-        final Card? matchedCard = allCards.firstWhereOrNull((card) {
+        Card? matchedCard = allCards.firstWhereOrNull((card) {
           if (card.name.contains(" // ")) {
-            return card.name.split(" // ").any(
-              (name) => name.toLowerCase() == cardName.toLowerCase()
-            );
+            return card.name.contains(" // ")
+                ? card.name.split(" // ").any((name) => name.toLowerCase() == cardName.split(" // ")[0].toLowerCase())
+                : card.name.toLowerCase() == cardName.toLowerCase();
           }
-          return card.name.toLowerCase() == cardName.toLowerCase();
+          else {
+            return card.name.toLowerCase() == cardName.toLowerCase();
+          }
         });
-        
+
         if (matchedCard == null) {
           errors.add("Card not found: '$cardName'");
           continue;
         }
-        
+
         for (int i = 0; i < count; i++) {
           result.add(matchedCard);
         }
@@ -158,7 +162,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
         errors.add("Error parsing '$trimmedLine': $e");
       }
     }
-    
+
     return result;
   }
 
@@ -175,8 +179,8 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
           maxLines: null,
           minLines: null,
           decoration: InputDecoration(
-            hintText: widget.isEditing 
-              ? null 
+            hintText: widget.isEditing
+              ? null
               : "1 Mox Jet\n1 Black Lotus\nSIDEBOARD\n1 Sideboard Card",
             hintStyle: TextStyle(color: Theme.of(context).hintColor),
           ),
@@ -199,7 +203,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
         ),
         ElevatedButton(
           onPressed: _isLoading ? null : () => _parseAndSave(context),
-          child: _isLoading 
+          child: _isLoading
             ? SizedBox(
                 width: 16,
                 height: 16,
