@@ -138,13 +138,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: Text(widget.isSideboardStep ? 'Sideboard Preview' : 'Detection Preview'),
-          actions: widget.isSideboardStep ? null : [
-            IconButton(
-              icon: Icon(Icons.add_box_outlined),
-              tooltip: 'Add Sideboard',
-              onPressed: _onAddSideboard,
-            ),
-          ],
+          actions: widget.isSideboardStep ? null : [],
         ),
         body: detections.isEmpty ?
           Container(
@@ -226,10 +220,26 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           }
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
-          label: Text(widget.isSideboardStep ? "Save Deck with Sideboard" : "Save Deck"),
-          icon: Icon(Icons.save)
+        floatingActionButton: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (!widget.isSideboardStep)
+              Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: FloatingActionButton.extended(
+                  heroTag: 'add_sideboard',
+                  onPressed: _onAddSideboard,
+                  label: const Text('Add Sideboard'),
+                  icon: const Icon(Icons.add_box_outlined),
+                ),
+              ),
+            FloatingActionButton.extended(
+              heroTag: 'save_deck',
+              onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
+              label: Text(widget.isSideboardStep ? "Save Deck with Sideboard" : "Save Deck"),
+              icon: const Icon(Icons.save),
+            ),
+          ],
         ),
         bottomNavigationBar: BottomAppBar(
           child: Row(
