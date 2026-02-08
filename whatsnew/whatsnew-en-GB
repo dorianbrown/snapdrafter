@@ -1,3 +1,6 @@
+Release 1.1.0
+- You can now add a sideboard to your draft deck. Uploads to cubecobra should also include this sideboard, and deck imports/exports should work with the standard text formats for decklists with sideboards.
+
 Release 1.0.0:
 - Images used for detection are now saved and viewable from the deck, and are included in any backups
 - With this final feature, the main functionality is covered and we're ready for a proper release!
