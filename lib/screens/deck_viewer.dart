@@ -165,17 +165,7 @@ class DeckViewerState extends State<DeckViewer> {
                       BlendMode.srcIn
                     ),
                   ),
-                  onPressed: () {
-                    Uri cubecobraUri = Uri(
-                      scheme: "https",
-                      host: "cubecobra.com",
-                      path: "cube/records/import",
-                      queryParameters: {
-                        "o": deck.cards.map((card) => card.oracleId).toList()
-                      }
-                    );
-                    launchUrl(cubecobraUri);
-                  },
+                  onPressed: () => shareWithCubeCobra(deck),
                 ),
                 IconButton(
                   tooltip: "Edit",
@@ -788,6 +778,25 @@ class DeckViewerState extends State<DeckViewer> {
       )
     );
   }
+}
+
+void shareWithCubeCobra(Deck deck) {
+  // Construct query parameters containing list of cards
+  Map<String, dynamic?> queryParams = {
+    "o": deck.cards.map((card) => card.oracleId).toList()
+  };
+  // If no sideboard, we omit the "s" key
+  if (deck.sideboard.isNotEmpty) {
+    queryParams["s"] = deck.sideboard.map((card) => card.oracleId).toList();
+  }
+  // Launch URL to CubeCobra for importing deck
+  Uri cubecobraUri = Uri(
+      scheme: "https",
+      host: "cubecobra.com",
+      path: "cube/records/import",
+      queryParameters: queryParams
+  );
+  launchUrl(cubecobraUri);
 }
 
 void createInteractiveImageViewer(String imagePath, BuildContext context) {
