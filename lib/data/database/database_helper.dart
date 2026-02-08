@@ -66,6 +66,15 @@ class DatabaseHelper {
         deck_id INTEGER NOT NULL, 
         scryfall_id TEXT NOT NULL)
     """);
+    // Sideboard table
+    await db.execute("""
+      CREATE TABLE sideboard_lists(
+        id INTEGER PRIMARY KEY,
+        deck_id INTEGER NOT NULL,
+        scryfall_id TEXT NOT NULL,
+        FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
+      )
+    """);
     // Token related tables
     await db.execute("""
       CREATE TABLE cards_to_tokens(
