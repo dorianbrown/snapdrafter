@@ -31,7 +31,7 @@ jobs:
           flutter build appbundle --build-number $BUILD_NUM
 
       - name: Sign App Bundle
-        uses: r0adkll/sign-android-release@v1
+        uses: r0adkll/sign-android-release@v1  # filippoLeporati93/android-release-signer@v1 to fix set-output warning
         id: sign_app
         with:
           releaseDirectory: build/app/outputs/bundle/release/
