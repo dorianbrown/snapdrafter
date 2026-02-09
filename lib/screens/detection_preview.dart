@@ -238,7 +238,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
             FloatingActionButton.extended(
               heroTag: 'save_deck',
               onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
-              label: Text(widget.isSideboardStep ? "Save Deck + Sideboard" : "Save Deck"),
+              label: Text(widget.isSideboardStep ? "Save Deck + Sideboard" : "Save"),
               icon: const Icon(Icons.save),
             ),
           ],
