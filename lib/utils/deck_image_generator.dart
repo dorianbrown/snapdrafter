@@ -315,23 +315,14 @@ Future<Image> getCardImage(Card card) async {
 }
 
 Future<Image> getImageFromUri(String uri) async {
-  try {
-    final data = await NetworkAssetBundle(Uri.parse(uri)).load(uri);
-    Uint8List imageBytes = data.buffer.asUint8List();
-    Image? img = decodeJpg(imageBytes);
-    if (img == null) {
-      throw Exception('Failed to decode JPEG image');
-    }
-    return img.convert(format: img.format, numChannels: 4);
-  } catch (e, stack) {
-    // Return a solid white placeholder to avoid crashing
-    int w = cardWidth;
-    int h = cardHeight;
-    if (w <= 0) w = 200;
-    if (h <= 0) h = (200 / cardAspectRatio).round();
-    final placeholderBytes = Uint8List.fromList(List.filled(w * h * 4, 255));
-    return Image.fromBytes(width: w, height: h, bytes: placeholderBytes.buffer, numChannels: 4);
-  }
+  Uint8List imageBytes = (await NetworkAssetBundle(Uri.parse(uri))
+      .load(uri))
+      .buffer
+      .asUint8List();
+
+  Image img = decodeJpg(imageBytes)!;
+
+  return img.convert(format: img.format, numChannels: 4);
 }
 
 Future<List<Object>> getManaCurveImages(List<Card> cards) async {
