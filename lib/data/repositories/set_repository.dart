@@ -50,6 +50,40 @@ class SetRepository {
     }
   }
 
+  Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
+    final response = await http.get(Uri.parse('https://api.scryfall.com/sets'));
+
+    final validSetTypes = ["expansion", "core", "masters"];
+
+    if (response.statusCode == 200) {
+      final values = json.decode(response.body);
+      final now = DateTime.now();
+      final upcomingDates = <String, DateTime>{};
+      
+      for (final setData in values['data'] as List) {
+        final releasedAt = setData["released_at"];
+        final setType = setData["set_type"];
+        if (
+          releasedAt != null &&
+          validSetTypes.contains(setType) &&
+          (setData["digital"] == false)
+        ) {
+          final releaseDate = DateTime.parse(releasedAt);
+          // Only store future dates (add 8 days buffer like in download_screen)
+          final bufferDate = releaseDate.add(const Duration(days: 8));
+          if (bufferDate.isAfter(now)) {
+            upcomingDates[setData["code"]] = releaseDate;
+          }
+        }
+      }
+      
+      debugPrint("Fetched ${upcomingDates.length} upcoming release dates");
+      return upcomingDates;
+    } else {
+      throw Exception('Failed to load sets from Scryfall API');
+    }
+  }
+
   Future<List<Set>> getAllSets() async {
     final dbClient = await _db;
     final result = await dbClient.query('sets');

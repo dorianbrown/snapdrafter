@@ -8,10 +8,14 @@ import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:snapdrafter/utils/utils.dart';
 
 import '/data/database/database_helper.dart';
+import '/data/repositories/set_repository.dart';
 import '/screens/decks_overview.dart';
 import '/screens/image_processing_screen.dart';
+import '/screens/settings/download_screen.dart';
+import '/utils/release_date_helper.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
+import '/widgets/update_prompt_dialog.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -53,10 +57,18 @@ class MainApp extends StatefulWidget {
 class MainAppState extends State<MainApp> {
   late StreamSubscription _intentDataStreamSubscription;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
+  final ReleaseDateHelper _releaseDateHelper = ReleaseDateHelper();
+  late SetRepository _setRepository;
+  
   @override
   void initState() {
     super.initState();
+    _setRepository = SetRepository();
+    
+    // Run the release date check after the app is initialized
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForNewReleases();
+    });
 
     _intentDataStreamSubscription = FlutterSharingIntent.instance.getMediaStream()
       .listen((List<SharedFile> val) {
@@ -90,6 +102,70 @@ class MainAppState extends State<MainApp> {
         ModalRoute.withName('/'),
       );
     }
+  }
+  
+  Future<void> _checkForNewReleases() async {
+    try {
+
+      //Debugging
+      await _releaseDateHelper.clearPassedDates();
+
+      // Check if we need to fetch new dates
+      if (await _releaseDateHelper.shouldFetchNewDates()) {
+        final newDates = await _setRepository.fetchUpcomingReleaseDates();
+        await _releaseDateHelper.saveUpcomingReleaseDates(newDates);
+      }
+      
+      // Get stored dates and check for passed ones
+      final upcomingDates = await _releaseDateHelper.getUpcomingReleaseDates();
+      final promptedDates = await _releaseDateHelper.getPromptedDates();
+      final now = DateTime.now();
+
+      final passedDates = upcomingDates.entries
+          .where((entry) => 
+              entry.value.isBefore(now) && 
+              !promptedDates.contains(entry.key))
+          .toList();
+      
+      if (passedDates.isNotEmpty && mounted) {
+        // Show the update prompt
+        _showUpdatePrompt(passedDates);
+        
+        // Mark these as prompted so we don't show again
+        for (final entry in passedDates) {
+          await _releaseDateHelper.addToPromptedDates(entry.key);
+        }
+      }
+    } catch (e) {
+      // Don't block app if there's an error
+      debugPrint('Error checking for new releases: $e');
+    }
+  }
+  
+  void _showUpdatePrompt(List<MapEntry<String, DateTime>> passedDates) {
+    if (navigatorKey.currentState == null) return;
+    
+    showDialog(
+      context: navigatorKey.currentContext!,
+      barrierDismissible: false,
+      builder: (context) => UpdatePromptDialog(
+        numberOfSets: passedDates.length,
+        onUpdateNow: () {
+          // Navigate to download screen
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DownloadScreen(),
+            ),
+          );
+        },
+        onRemindLater: () {
+          // User chose to be reminded later
+          // Could schedule a reminder for tomorrow
+          // For now, just close the dialog
+        },
+      ),
+    );
   }
 
   @override
