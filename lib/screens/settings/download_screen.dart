@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 
 import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';
+import '/utils/release_date_helper.dart';
 import '/data/models/card.dart';
 import '/data/models/token.dart';
 import '/data/repositories/card_repository.dart';
@@ -30,6 +31,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
   late CardRepository cardRepository;
   late SetRepository setRepository;
   late TokenRepository tokenRepository;
+  late ReleaseDateHelper _releaseDateHelper;
   Map<String, dynamic>? scryfallMetadata;
 
   @override
@@ -38,6 +40,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     cardRepository = CardRepository();
     setRepository = SetRepository();
     tokenRepository = TokenRepository();
+    _releaseDateHelper = ReleaseDateHelper(); // Add this
 
     setRepository.populateSetsTable();
     setRepository.getScryfallMetadata().then((value) {
@@ -287,6 +290,9 @@ class _DownloadScreenState extends State<DownloadScreen> {
     tokenRepository.saveTokenList(tokens, cardTokenMapping);
 
     await cardRepository.populateCardsTable(cards, scryfallMetadata).then((val) async {
+      // Clear prompted dates since we just updated
+      await _releaseDateHelper.clearPassedDates();
+      
       _changeNotifier.markNeedsRefresh();
       if (context.mounted) {
         if (Navigator.of(context).canPop()) {
