@@ -78,7 +78,9 @@ class DeckRepository {
     await dbClient.transaction((txn) async {
       final Map<String, Object?> updates = {
         'name': deck.name,
-        'win_loss': deck.winLoss,
+        'wins': deck.wins,
+        'losses': deck.losses,
+        'draws': deck.draws,
         'set_id': deck.setId,
         'cubecobra_id': deck.cubecobraId,
         'ymd': deck.ymd,
@@ -129,7 +131,9 @@ class DeckRepository {
     for (final deck in decksData) {
       final deckId = deck['id'] as int;
       final name = deck['name'] as String?;
-      final winLoss = deck['win_loss'] as String?;
+      final wins = deck['wins'] as int?;
+      final losses = deck['losses'] as int?;
+      final draws = deck['draws'] as int?;
       final setId = deck['set_id'] as String?;
       final cubecobraId = deck['cubecobra_id'] as String?;
       final ymd = deck['ymd'] as String;
@@ -163,7 +167,9 @@ class DeckRepository {
       deckList.add(Deck(
           id: deckId,
           name: name,
-          winLoss: winLoss,
+          wins: wins,
+          losses: losses,
+          draws: draws,
           setId: setId,
           cubecobraId: cubecobraId,
           ymd: ymd,
@@ -222,7 +228,9 @@ class DeckRepository {
         'decks',
         {
           'name': deck.name,
-          'win_loss': deck.winLoss,
+          'wins': deck.wins,
+          'losses': deck.losses,
+          'draws': deck.draws,
           'set_id': deck.setId,
           'cubecobra_id': deck.cubecobraId,
           'ymd': ymd,
@@ -248,7 +256,9 @@ class DeckRepository {
     return Deck(
       id: deckId,
       name: deck.name,
-      winLoss: deck.winLoss,
+      wins: deck.wins,
+      losses: deck.losses,
+      draws: deck.draws,
       setId: deck.setId,
       cubecobraId: deck.cubecobraId,
       ymd: ymd,

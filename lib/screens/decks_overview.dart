@@ -591,14 +591,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     String selectedDate = deck.ymd;
     final nameController = TextEditingController(text: deck.name);
     // Determining Win/Loss for initial wheel picker values
-    int initialWins = 0;
-    int initialLosses = 0;
-    if (deck.winLoss != null) {
-      initialWins = int.parse(deck.winLoss!.split("/")[0]);
-      initialLosses = int.parse(deck.winLoss!.split("/")[1]);
-    }
-    final winController = WheelPickerController(itemCount: 4, initialIndex: 3 - initialWins);
-    final lossController = WheelPickerController(itemCount: 4, initialIndex: 3 - initialLosses);
+    final winController = WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.wins ?? 0));
+    final lossController = WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.losses ?? 0));
+    final drawController = WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.draws ?? 0));
     final setCubeController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     String? currentCubeSetId = deck.cubecobraId ?? deck.setId;
@@ -634,7 +629,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     hintText: "Enter name here"
                   ),
                 ),
-                createPaddedText("Win - Loss"),
+                createPaddedText("Win - Loss - Draw"),
                 Container(
                   padding: EdgeInsets.symmetric(vertical: 7, horizontal: 0),
                   child: Row(
@@ -644,6 +639,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       generateWinLossPicker(winController),
                       Text("-", style: TextStyle(fontSize: 24)),
                       generateWinLossPicker(lossController),
+                      Text("-", style: TextStyle(fontSize: 24)),
+                      generateWinLossPicker(drawController)
                     ],
                   ),
                 ),
@@ -794,11 +791,16 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 if (name != deck.name) {
                   updates['name'] = name.isEmpty ? null : name;
                 }
-                
-                final String winLoss = "${3 - winController.selected}/${3 - lossController.selected}";
-                if (winLoss != deck.winLoss) {
-                  updates['win_loss'] = winLoss;
+
+                final int newWins = 3 - winController.selected;
+                final int newLosses = 3 - lossController.selected;
+                final int newDraws = 3 - drawController.selected;
+                if (newWins != deck.wins || newLosses != deck.losses || newDraws != deck.draws) {
+                  updates['wins'] = newWins;
+                  updates['losses'] = newLosses;
+                  updates['draws'] = newDraws;
                 }
+                // Keep existing draws unchanged
                 
                 final setId = draftType == "set" ? currentCubeSetId : null;
                 if (setId != deck.setId) {
@@ -819,7 +821,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   await deckRepository.updateDeck(DeckUpsert(
                     id: deck.id,
                     name: updates['name'] as String?,
-                    winLoss: updates['win_loss'] as String?,
+                    wins: updates.containsKey('wins') ? updates['wins'] as int? : deck.wins,
+                    losses: updates.containsKey('losses') ? updates['losses'] as int? : deck.losses,
+                    draws: updates.containsKey('draws') ? updates['draws'] as int? : deck.draws,
                     setId: updates['set_id'] as String?,
                     cubecobraId: updates['cubecobra_id'] as String?,
                     ymd: updates['ymd'] as String?,

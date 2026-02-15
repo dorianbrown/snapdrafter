@@ -175,17 +175,13 @@ class Filter {
       }
     }
 
-    if (deck.winLoss == null) {
+    final wins = deck.wins;
+    if (wins == null) {
       // If we're filtering for non-zero wins but deck has no win data, exclude it
       if (minWins > 0 || maxWins < 3) return false;
     } else {
-      final parts = deck.winLoss!.split('/');
-      final wins = int.tryParse(parts[0]);
-
-      if (wins != null) {
-        if (wins < minWins) return false;
-        if (wins > maxWins) return false;
-      }
+      if (wins < minWins) return false;
+      if (wins > maxWins) return false;
     }
 
     return true;

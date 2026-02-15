@@ -7,7 +7,9 @@ import "card.dart";
 class Deck {
   final int id;
   final String? name;
-  final String? winLoss;
+  final int? wins;
+  final int? losses;
+  final int? draws;
   final String? setId;
   final String? cubecobraId;
   final String ymd;
@@ -19,7 +21,9 @@ class Deck {
   Deck({
     required this.id,
     this.name,
-    this.winLoss,
+    this.wins,
+    this.losses,
+    this.draws,
     this.setId,
     this.cubecobraId,
     required this.ymd,
@@ -28,6 +32,15 @@ class Deck {
     this.sideboard = const [],
     this.tags = const [],
   });
+
+  String? get winLoss {
+    if (wins == null && losses == null && draws == null) return null;
+    final w = wins ?? 0;
+    final l = losses ?? 0;
+    final d = draws ?? 0;
+    if (d == 0) return '$w-$l';
+    return '$w-$l-$d';
+  }
 
   String get colors {
     String colors = cards.map(
@@ -68,6 +81,6 @@ class Deck {
 
   @override
   String toString() {
-    return "Deck{id: $id, name: $name, win/loss: $winLoss, set: $setId, cube: $cubecobraId, ymd: $ymd}";
+    return "Deck{id: $id, name: $name, wins: $wins, losses: $losses, draws: $draws, set: $setId, cube: $cubecobraId, ymd: $ymd}";
   }
 }

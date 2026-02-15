@@ -11,7 +11,9 @@ class DeckUpsert {
   final int? id;
 
   final String? name;
-  final String? winLoss;
+  final int? wins;
+  final int? losses;
+  final int? draws;
   final String? setId;
   final String? cubecobraId;
   final String? ymd;
@@ -22,7 +24,9 @@ class DeckUpsert {
   const DeckUpsert({
     this.id,
     this.name,
-    this.winLoss,
+    this.wins,
+    this.losses,
+    this.draws,
     this.setId,
     this.cubecobraId,
     this.ymd,

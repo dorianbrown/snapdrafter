@@ -98,7 +98,25 @@ class BackupHelper {
       List<dynamic>? decks = dbData['decks'];
       if (decks != null) {
         for (final deck in decks) {
-          batch.insert('decks', deck as Map<String, Object?>);
+          Map<String, Object?> deckMap = Map.from(deck as Map<String, Object?>);
+          // Convert old win_loss column to wins/losses/draws
+          if (deckMap.containsKey('win_loss')) {
+            final winLoss = deckMap['win_loss'] as String?;
+            deckMap.remove('win_loss');
+            int? wins, losses, draws;
+            if (winLoss != null) {
+              final parts = winLoss.split('/');
+              if (parts.length >= 2) {
+                wins = int.tryParse(parts[0]);
+                losses = int.tryParse(parts[1]);
+                draws = parts.length >= 3 ? int.tryParse(parts[2]) : 0;
+              }
+            }
+            deckMap['wins'] = wins;
+            deckMap['losses'] = losses;
+            deckMap['draws'] = draws;
+          }
+          batch.insert('decks', deckMap);
         }
       }
 

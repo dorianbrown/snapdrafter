@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   static Database? _database;
   static const String _databaseName = "draftTracker.db";
-  static const int _databaseVersion = 5; // Latest db version after all upgrades
+  static const int _databaseVersion = 6; // Latest db version after all upgrades
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -54,7 +54,9 @@ class DatabaseHelper {
       CREATE TABLE decks(
         id INTEGER PRIMARY KEY, 
         name TEXT,
-        win_loss TEXT,
+        wins INTEGER,
+        losses INTEGER,
+        draws INTEGER,
         set_id TEXT,
         cubecobra_id STRING,
         image_path TEXT,
@@ -200,6 +202,68 @@ class DatabaseHelper {
         scryfall_id TEXT NOT NULL
       )
       """);
+    }
+
+    if (oldVersion < 6) {
+      // Add wins, losses, draws columns
+      await db.execute("""
+        ALTER TABLE decks ADD COLUMN wins INTEGER
+      """);
+      await db.execute("""
+        ALTER TABLE decks ADD COLUMN losses INTEGER
+      """);
+      await db.execute("""
+        ALTER TABLE decks ADD COLUMN draws INTEGER
+      """);
+      // Migrate data from win_loss column
+      final rows = await db.rawQuery('SELECT id, win_loss FROM decks WHERE win_loss IS NOT NULL');
+      for (final row in rows) {
+        final id = row['id'] as int;
+        final winLoss = row['win_loss'] as String?;
+        int? wins, losses, draws;
+        if (winLoss != null) {
+          final parts = winLoss.split('/');
+          if (parts.length >= 2) {
+            wins = int.tryParse(parts[0]);
+            losses = int.tryParse(parts[1]);
+            draws = parts.length >= 3 ? int.tryParse(parts[2]) : 0;
+          }
+        }
+        // Update with parsed values (null if parsing fails)
+        await db.rawUpdate(
+          'UPDATE decks SET wins = ?, losses = ?, draws = ? WHERE id = ?',
+          [wins, losses, draws, id],
+        );
+      }
+
+      // Remove the old win_loss column by creating a new table without it
+      // Step 1: Create a new table with the current schema (without win_loss)
+      await db.execute("""
+        CREATE TABLE decks_new (
+          id INTEGER PRIMARY KEY, 
+          name TEXT,
+          wins INTEGER,
+          losses INTEGER,
+          draws INTEGER,
+          set_id TEXT,
+          cubecobra_id STRING,
+          image_path TEXT,
+          ymd TEXT NOT NULL
+        )
+      """);
+
+      // Step 2: Copy data from the old table to the new table
+      await db.execute("""
+        INSERT INTO decks_new (id, name, wins, losses, draws, set_id, cubecobra_id, image_path, ymd)
+        SELECT id, name, wins, losses, draws, set_id, cubecobra_id, image_path, ymd
+        FROM decks
+      """);
+
+      // Step 3: Drop the old table
+      await db.execute("DROP TABLE decks");
+
+      // Step 4: Rename the new table to the original name
+      await db.execute("ALTER TABLE decks_new RENAME TO decks");
     }
 
     // Add further migration steps for future versions here
