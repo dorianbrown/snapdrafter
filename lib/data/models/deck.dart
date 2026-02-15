@@ -53,6 +53,9 @@ class Deck {
         outputString += symbol;
       }
     }
+    if (outputString.isEmpty) {
+        return "C";
+    }
     return outputString;
   }
 
