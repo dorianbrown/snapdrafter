@@ -19,7 +19,7 @@ class UpdatePromptDialog extends StatelessWidget {
       content: Text(
         '$numberOfSets new Magic set(s) have been released '
         'since you last updated your card database.\n\n'
-        'Would you like to update now to include these new cards?',
+        'Would you like to update now to include these new sets?',
       ),
       actions: [
         TextButton(
@@ -27,7 +27,7 @@ class UpdatePromptDialog extends StatelessWidget {
             Navigator.of(context).pop();
             onRemindLater();
           },
-          child: const Text('Remind Me Later'),
+          child: const Text('Later'),
         ),
         ElevatedButton(
           onPressed: () {
@@ -37,6 +37,7 @@ class UpdatePromptDialog extends StatelessWidget {
           child: const Text('Update Now'),
         ),
       ],
+      actionsAlignment: MainAxisAlignment.spaceEvenly,
     );
   }
 }

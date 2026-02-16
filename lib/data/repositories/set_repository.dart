@@ -53,6 +53,8 @@ class SetRepository {
   Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
     final response = await http.get(Uri.parse('https://api.scryfall.com/sets'));
 
+    final validSetTypes = ["expansion", "core", "masters"];
+
     if (response.statusCode == 200) {
       final values = json.decode(response.body);
       final now = DateTime.now();
@@ -60,7 +62,12 @@ class SetRepository {
       
       for (final setData in values['data'] as List) {
         final releasedAt = setData["released_at"];
-        if (releasedAt != null) {
+        final setType = setData["set_type"];
+        if (
+          releasedAt != null &&
+          validSetTypes.contains(setType) &&
+          (setData["digital"] == false)
+        ) {
           final releaseDate = DateTime.parse(releasedAt);
           // Only store future dates (add 8 days buffer like in download_screen)
           final bufferDate = releaseDate.add(const Duration(days: 8));

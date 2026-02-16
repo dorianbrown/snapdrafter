@@ -5,7 +5,7 @@ class ReleaseDateHelper {
   static const String _upcomingReleaseDatesKey = 'upcoming_release_dates';
   static const String _lastFetchedKey = 'last_fetched_timestamp';
   static const String _promptedDatesKey = 'prompted_release_dates';
-  static const Duration _cacheDuration = Duration(days: 1);
+  static const Duration _cacheDuration = Duration(days: 0);
   
   Future<Map<String, DateTime>> getUpcomingReleaseDates() async {
     final prefs = await SharedPreferences.getInstance();
