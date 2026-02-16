@@ -1,3 +1,8 @@
+Release 1.1.7
+- You can now specify a deck's W/L/D instead of just W/L
+- Decks without a color identity now show the colorless mana symbol in the overview
+- We now get a list of set release dates from scryfall, and send you a notification when there's a new one available for download.
+
 Release 1.1.0
 - You can now add a sideboard to your draft deck. Uploads to cubecobra should also include this sideboard, and deck imports/exports should work with the standard text formats for decklists with sideboards.
 
