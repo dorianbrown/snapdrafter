@@ -1,4 +1,3 @@
-import 'package:camerawesome/pigeon.dart';
 import 'package:flutter/material.dart' hide Orientation;
 import 'package:camerawesome/camerawesome_plugin.dart';
 
@@ -13,7 +12,6 @@ class DeckScanner extends StatefulWidget {
 }
 
 class DeckScannerState extends State<DeckScanner> {
-
   @override
   void initState() {
     super.initState();
@@ -22,7 +20,9 @@ class DeckScannerState extends State<DeckScanner> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: const Text('Scan Deck'), backgroundColor: Color.fromARGB(150, 0, 0, 0)),
+        appBar: AppBar(
+            title: const Text('Scan Deck'),
+            backgroundColor: Color.fromARGB(150, 0, 0, 0)),
         extendBodyBehindAppBar: true,
         body: CameraAwesomeBuilder.awesome(
           saveConfig: SaveConfig.photo(),
@@ -34,13 +34,11 @@ class DeckScannerState extends State<DeckScanner> {
             return AwesomeTopActions(
               state: state,
               children: state is PhotoCameraState
-              ? [
-                AwesomeFlashButton(state: state),
-                AwesomeAspectRatioButton(state: state)
-              ]
-              : [
-                AwesomeFlashButton(state: state)
-              ],
+                  ? [
+                      AwesomeFlashButton(state: state),
+                      AwesomeAspectRatioButton(state: state)
+                    ]
+                  : [AwesomeFlashButton(state: state)],
             );
           },
           bottomActionsBuilder: (state) {
@@ -57,21 +55,17 @@ class DeckScannerState extends State<DeckScanner> {
               single: (SingleCaptureRequest singeCaptureRequest) async {
                 if (mediaCapture.status == MediaCaptureStatus.capturing) {
                   String filePath = singeCaptureRequest.path!;
-                  Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (context) => deckImageProcessing(
+                  Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => deckImageProcessing(
                             filePath: filePath,
                             captureSource: CaptureSource.camera,
-                          )
-                      )
-                  );
+                          )));
                 } else if (mediaCapture.status == MediaCaptureStatus.success) {
                   debugPrint("Finished writing image file");
                 }
               },
             );
           },
-        )
-    );
+        ));
   }
 }

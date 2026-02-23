@@ -4,7 +4,6 @@ import 'package:flutter/material.dart' hide Card, Orientation;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:wheel_picker/wheel_picker.dart';
-import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -20,7 +19,6 @@ import 'image_processing_screen.dart';
 import 'settings.dart';
 
 import '/data/models/deck.dart';
-import '/data/models/card.dart';
 import '/data/models/cube.dart';
 import '/data/models/set.dart';
 import '/data/models/deck_upsert.dart';
@@ -50,7 +48,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   Filter? currentFilter;
   bool _hasSeenOverviewTutorial = false;
   List<String> allTags = [];
-  final TextEditingController _tagController = TextEditingController();
 
   @override
   void initState() {
@@ -72,7 +69,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     _loadTags();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
-
   }
 
   Future<void> _loadTags() async {
@@ -118,191 +114,184 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("My Decks"),
-      ),
-      floatingActionButtonLocation: ExpandableFab.location,
-      floatingActionButton: ExpandableFab(
-        key: _expandableFabKey,
-        type: ExpandableFabType.fan,
-        pos: ExpandableFabPos.center,
-        fanAngle: 120,
-        overlayStyle: ExpandableFabOverlayStyle(color: Colors.black87.withAlpha(0)),
-        distance: 90,
-        openButtonBuilder: FloatingActionButtonBuilder(
-          size: 56,
-          builder: (BuildContext context, void Function()? onPressed,
-              Animation<double> progress) {
-            return FloatingActionButton(
-              heroTag: null,
-              onPressed: null,
-              shape: CircleBorder(),
-              child: const Icon(Icons.add),
-            );
-          },
+        appBar: AppBar(
+          title: Text("My Decks"),
         ),
-        closeButtonBuilder: FloatingActionButtonBuilder(
-          size: 56,
-          builder: (BuildContext context, void Function()? onPressed,
-              Animation<double> progress) {
-            return FloatingActionButton(
-              mini: true,
-              backgroundColor: Colors.grey,
-              foregroundColor: Colors.black87,
-              heroTag: null,
-              onPressed: null,
-              shape: CircleBorder(),
-              splashColor: Colors.white38,
-              child: const Icon(Icons.close),
-            );
-          },
-        ),
-        children: [
-          FloatingActionButton(
-            heroTag: null,
-            shape: CircleBorder(),
-            child: const Icon(Icons.image),
-            onPressed: () async {
-              final state = _expandableFabKey.currentState;
-              if (state != null) {
-                state.toggle();
-              }
-              final ImagePicker picker = ImagePicker();
-              final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-              if (image != null) {
-                await Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (context) => deckImageProcessing(
-                          filePath: image.path,
-                          captureSource: CaptureSource.gallery,
-                        )
-                    )
-                );
-              }
-            },
-          ),
-          FloatingActionButton(
-            heroTag: null,
-            shape: CircleBorder(),
-            child: const Icon(Icons.camera),
-            onPressed: () async {
-              final state = _expandableFabKey.currentState;
-              if (state != null) {
-                state.toggle();
-              }
-              await Navigator.of(context).push(
-                  MaterialPageRoute(
-                      builder: (context) => DeckScanner()
-                  )
+        floatingActionButtonLocation: ExpandableFab.location,
+        floatingActionButton: ExpandableFab(
+          key: _expandableFabKey,
+          type: ExpandableFabType.fan,
+          pos: ExpandableFabPos.center,
+          fanAngle: 120,
+          overlayStyle:
+              ExpandableFabOverlayStyle(color: Colors.black87.withAlpha(0)),
+          distance: 90,
+          openButtonBuilder: FloatingActionButtonBuilder(
+            size: 56,
+            builder: (BuildContext context, void Function()? onPressed,
+                Animation<double> progress) {
+              return FloatingActionButton(
+                heroTag: null,
+                onPressed: null,
+                shape: CircleBorder(),
+                child: const Icon(Icons.add),
               );
             },
           ),
-          FloatingActionButton(
-            heroTag: null,
-            shape: CircleBorder(),
-            onPressed: () async {
-              showTextDeckCreator();
+          closeButtonBuilder: FloatingActionButtonBuilder(
+            size: 56,
+            builder: (BuildContext context, void Function()? onPressed,
+                Animation<double> progress) {
+              return FloatingActionButton(
+                mini: true,
+                backgroundColor: Colors.grey,
+                foregroundColor: Colors.black87,
+                heroTag: null,
+                onPressed: null,
+                shape: CircleBorder(),
+                splashColor: Colors.white38,
+                child: const Icon(Icons.close),
+              );
             },
-            child: const Icon(Icons.text_fields_outlined),
-          )
-        ],
-      ),
-      bottomNavigationBar: BottomAppBar(
-        height: 65,
-        child: Row(
+          ),
           children: [
-            IconButton(
-              icon: Icon(currentFilter != null 
-                ? Icons.filter_alt_off 
-                : Icons.filter_alt),
-              onPressed: () {
-                if (currentFilter != null) {
-                  setState(() => currentFilter = null);
-                } else {
-                  showDialog<Filter>(
-                    context: context,
-                    builder: (context) => createFilterDialog(),
-                  ).then((filter) {
-                    if (filter != null) {
-                      setState(() => currentFilter = filter);
-                    }
-                  });
+            FloatingActionButton(
+              heroTag: null,
+              shape: CircleBorder(),
+              child: const Icon(Icons.image),
+              onPressed: () async {
+                final state = _expandableFabKey.currentState;
+                if (state != null) {
+                  state.toggle();
                 }
-              }
+                final ImagePicker picker = ImagePicker();
+                final XFile? image =
+                    await picker.pickImage(source: ImageSource.gallery);
+                if (image != null) {
+                  await Navigator.of(context).push(MaterialPageRoute(
+                      builder: (context) => deckImageProcessing(
+                            filePath: image.path,
+                            captureSource: CaptureSource.gallery,
+                          )));
+                }
+              },
             ),
+            FloatingActionButton(
+              heroTag: null,
+              shape: CircleBorder(),
+              child: const Icon(Icons.camera),
+              onPressed: () async {
+                final state = _expandableFabKey.currentState;
+                if (state != null) {
+                  state.toggle();
+                }
+                await Navigator.of(context).push(
+                    MaterialPageRoute(builder: (context) => DeckScanner()));
+              },
+            ),
+            FloatingActionButton(
+              heroTag: null,
+              shape: CircleBorder(),
+              onPressed: () async {
+                showTextDeckCreator();
+              },
+              child: const Icon(Icons.text_fields_outlined),
+            )
+          ],
+        ),
+        bottomNavigationBar: BottomAppBar(
+          height: 65,
+          child: Row(children: [
+            IconButton(
+                icon: Icon(currentFilter != null
+                    ? Icons.filter_alt_off
+                    : Icons.filter_alt),
+                onPressed: () {
+                  if (currentFilter != null) {
+                    setState(() => currentFilter = null);
+                  } else {
+                    showDialog<Filter>(
+                      context: context,
+                      builder: (context) => createFilterDialog(),
+                    ).then((filter) {
+                      if (filter != null) {
+                        setState(() => currentFilter = filter);
+                      }
+                    });
+                  }
+                }),
             Spacer(),
             IconButton(
                 tooltip: "Settings Menu",
                 icon: Icon(Icons.settings),
-                onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (context) => Settings()
-                    )
-                )
-            ),
-          ]
+                onPressed: () => Navigator.of(context)
+                    .push(MaterialPageRoute(builder: (context) => Settings()))),
+          ]),
         ),
-      ),
-      body: FutureBuilder(
-        future: Future.wait([decksFuture, setsFuture, cubesFuture]),
-        builder: (context, snapshot) {
-          Widget widget;
-          if (snapshot.connectionState != ConnectionState.done || snapshot.data == null) {
-            widget = Center(child: CircularProgressIndicator());
-          } else {
-            // Getting state
-            final decks = snapshot.data![0] as List<Deck>;
-            final sets = snapshot.data![1] as List<Set>;
-            final cubes = snapshot.data![2] as List<Cube>;
+        body: FutureBuilder(
+            future: Future.wait([decksFuture, setsFuture, cubesFuture]),
+            builder: (context, snapshot) {
+              Widget widget;
+              if (snapshot.connectionState != ConnectionState.done ||
+                  snapshot.data == null) {
+                widget = Center(child: CircularProgressIndicator());
+              } else {
+                // Getting state
+                final decks = snapshot.data![0] as List<Deck>;
+                final sets = snapshot.data![1] as List<Set>;
+                final cubes = snapshot.data![2] as List<Cube>;
 
-            if (decks.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  spacing: 20,
+                if (decks.isEmpty) {
+                  return Center(
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          spacing: 20,
+                          children: [
+                        Spacer(flex: 4),
+                        Text("No decks found", style: TextStyle(fontSize: 20)),
+                        Spacer(flex: 3),
+                        Text('Use the "+" button below to add a deck',
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontStyle: FontStyle.italic,
+                                color: Theme.of(context).hintColor)),
+                        Spacer(flex: 3)
+                      ]));
+                }
+
+                List<Deck> filteredDecks = currentFilter != null
+                    ? decks
+                        .where((deck) => currentFilter!.matchesDeck(deck))
+                        .toList()
+                    : decks;
+                filteredDecks.sort((a, b) => b.ymd.compareTo(a.ymd));
+
+                widget = Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Spacer(flex: 4),
-                    Text("No decks found", style: TextStyle(fontSize: 20)),
-                    Spacer(flex: 3),
-                    Text('Use the "+" button below to add a deck', style: TextStyle(fontSize: 16, fontStyle: FontStyle.italic, color: Theme.of(context).hintColor)),
-                    Spacer(flex: 3)
-                  ]
-                )
-              );
-            }
-
-            List<Deck> filteredDecks = currentFilter != null
-              ? decks.where((deck) => currentFilter!.matchesDeck(deck)).toList()
-              : decks;
-            filteredDecks.sort((a, b) => b.ymd.compareTo(a.ymd));
-
-            widget = Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (currentFilter != null) Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                  child: createFilterChips(currentFilter!, sets, cubes),
-                ),
-                Expanded(
-                  child: ListView.separated(
-                    itemCount: filteredDecks.length,
-                    separatorBuilder: (context, index) => Divider(indent: 20, endIndent: 20),
-                    itemBuilder: (context, index) {
-                      return generateSlidableDeckTile(filteredDecks, sets, cubes, index);
-                    },
-                  )
-                )
-              ],
-            );
-          }
-          // return widget;
-          return AnimatedSwitcher(
-            duration: Duration(milliseconds: 500),
-            child: widget
-          );
-        }
-      )
-    );
+                    if (currentFilter != null)
+                      Padding(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                        child: createFilterChips(currentFilter!, sets, cubes),
+                      ),
+                    Expanded(
+                        child: ListView.separated(
+                      itemCount: filteredDecks.length,
+                      separatorBuilder: (context, index) =>
+                          Divider(indent: 20, endIndent: 20),
+                      itemBuilder: (context, index) {
+                        return generateSlidableDeckTile(
+                            filteredDecks, sets, cubes, index);
+                      },
+                    ))
+                  ],
+                );
+              }
+              // return widget;
+              return AnimatedSwitcher(
+                  duration: Duration(milliseconds: 500), child: widget);
+            }));
   }
 
   void showTextDeckCreator() {
@@ -317,7 +306,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     );
   }
 
-  Widget generateSlidableDeckTile(List<Deck> decks, List<Set> sets, List<Cube> cubes, int index) {
+  Widget generateSlidableDeckTile(
+      List<Deck> decks, List<Set> sets, List<Cube> cubes, int index) {
     return DeckTile(
       deck: decks[index],
       sets: sets,
@@ -389,10 +379,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
               final cubesData = snapshot.data![2] as List<Cube>;
 
               final availableSets = setsData
-                  .where((set) => decksData.any((deck) => deck.setId == set.code))
+                  .where(
+                      (set) => decksData.any((deck) => deck.setId == set.code))
                   .toList();
               final availableCubes = cubesData
-                  .where((cube) => decksData.any((deck) => deck.cubecobraId == cube.cubecobraId))
+                  .where((cube) => decksData
+                      .any((deck) => deck.cubecobraId == cube.cubecobraId))
                   .toList();
 
               return Column(
@@ -415,14 +407,14 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                         setDialogState(() => dateRange = range);
                       }
                     },
-                    child: Text(dateRange != null 
-                      ? "${convertDatetimeToYMD(dateRange!.start)} - ${convertDatetimeToYMD(dateRange!.end)}"
-                      : "Choose Date Range"
-                    ),
+                    child: Text(dateRange != null
+                        ? "${convertDatetimeToYMD(dateRange!.start)} - ${convertDatetimeToYMD(dateRange!.end)}"
+                        : "Choose Date Range"),
                   ),
                   Padding(
                     padding: EdgeInsets.only(top: 16),
-                    child: Text("Wins Range: ${winRange.start.round()} - ${winRange.end.round()}"),
+                    child: Text(
+                        "Wins Range: ${winRange.start.round()} - ${winRange.end.round()}"),
                   ),
                   RangeSlider(
                     values: winRange,
@@ -451,18 +443,18 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                       });
                     },
                   ),
-                  SizedBox(
-                    height: 5
-                  ),
+                  SizedBox(height: 5),
                   DropdownMenu(
                     hintText: "Select $draftType",
                     dropdownMenuEntries: draftType == "set"
-                      ? availableSets.map((set) => 
-                          DropdownMenuEntry(value: set.code, label: set.name))
-                          .toList()
-                      : availableCubes.map((cube) =>
-                          DropdownMenuEntry(value: cube.cubecobraId, label: cube.name))
-                          .toList(),
+                        ? availableSets
+                            .map((set) => DropdownMenuEntry(
+                                value: set.code, label: set.name))
+                            .toList()
+                        : availableCubes
+                            .map((cube) => DropdownMenuEntry(
+                                value: cube.cubecobraId, label: cube.name))
+                            .toList(),
                     onSelected: (value) {
                       setDialogState(() {
                         if (draftType == "set") {
@@ -517,8 +509,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                             ),
                             child: SvgPicture.asset(
                               "assets/svg_icons/$color.svg",
-                              colorFilter: (includedColors.contains(color) || 
-                                           excludedColors.contains(color))
+                              colorFilter: (includedColors.contains(color) ||
+                                      excludedColors.contains(color))
                                   ? null
                                   : ColorFilter.mode(
                                       Colors.grey.withAlpha(150),
@@ -585,15 +577,18 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     );
   }
 
-  Widget createEditDialog(int index, List<Deck> decks, List<Set> sets, List<Cube> cubes) {
-
+  Widget createEditDialog(
+      int index, List<Deck> decks, List<Set> sets, List<Cube> cubes) {
     Deck deck = decks[index];
     String selectedDate = deck.ymd;
     final nameController = TextEditingController(text: deck.name);
     // Determining Win/Loss for initial wheel picker values
-    final winController = WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.wins ?? 0));
-    final lossController = WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.losses ?? 0));
-    final drawController = WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.draws ?? 0));
+    final winController =
+        WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.wins ?? 0));
+    final lossController = WheelPickerController(
+        itemCount: 4, initialIndex: 3 - (deck.losses ?? 0));
+    final drawController = WheelPickerController(
+        itemCount: 4, initialIndex: 3 - (deck.draws ?? 0));
     final setCubeController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     String? currentCubeSetId = deck.cubecobraId ?? deck.setId;
@@ -612,9 +607,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       title: Text('Edit Deck'),
       scrollable: true,
       contentPadding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-      content: StatefulBuilder(
-        builder: (context, setDialogState) {
-          return Form(
+      content: StatefulBuilder(builder: (context, setDialogState) {
+        return Form(
             key: formKey,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -625,9 +619,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   controller: nameController,
                   style: TextStyle(fontSize: 14),
                   decoration: InputDecoration(
-                    border: OutlineInputBorder(),
-                    hintText: "Enter name here"
-                  ),
+                      border: OutlineInputBorder(),
+                      hintText: "Enter name here"),
                 ),
                 createPaddedText("Win - Loss - Draw"),
                 Container(
@@ -680,8 +673,11 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 DropdownMenu(
                   hintText: "Select $draftType",
                   controller: setCubeController,
-                  initialSelection: draftType == "set" ? decks[index].setId : decks[index].cubecobraId,
-                  dropdownMenuEntries: generateDraftMenuItems(sets, cubes, draftType),
+                  initialSelection: draftType == "set"
+                      ? decks[index].setId
+                      : decks[index].cubecobraId,
+                  dropdownMenuEntries:
+                      generateDraftMenuItems(sets, cubes, draftType),
                   onSelected: (value) {
                     setDialogState(() {
                       currentCubeSetId = value;
@@ -693,21 +689,19 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     OutlinedButton(
-                      onPressed: () async {
-                        DateTime? date = await showDatePicker(
-                            context: context,
-                            initialDate: DateTime.tryParse(selectedDate),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2100)
-                        );
-                        if (date != null) {
-                          setDialogState(() {
-                            selectedDate = convertDatetimeToYMD(date);
-                          });
-                        }
-                      },
-                      child: Text(selectedDate)
-                    )
+                        onPressed: () async {
+                          DateTime? date = await showDatePicker(
+                              context: context,
+                              initialDate: DateTime.tryParse(selectedDate),
+                              firstDate: DateTime(2000),
+                              lastDate: DateTime(2100));
+                          if (date != null) {
+                            setDialogState(() {
+                              selectedDate = convertDatetimeToYMD(date);
+                            });
+                          }
+                        },
+                        child: Text(selectedDate))
                   ],
                 ),
                 createPaddedText("Tags"),
@@ -715,7 +709,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 if (allTags.isNotEmpty) ...[
                   Padding(
                     padding: EdgeInsets.only(bottom: 8),
-                    child: Text("Available Tags:", style: TextStyle(fontWeight: FontWeight.bold)),
+                    child: Text("Available Tags:",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   Wrap(
                     spacing: 6,
@@ -769,24 +764,21 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ],
                 ),
               ],
-            )
-          );
-        }
-      ),
+            ));
+      }),
       actions: [
         TextButton(
             onPressed: () {
               _loadTags();
               Navigator.of(context).pop();
             },
-            child: Text("Dismiss")
-        ),
+            child: Text("Dismiss")),
         TextButton(
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 // Build update map with only changed fields
                 final Map<String, Object?> updates = {};
-                
+
                 final name = nameController.text;
                 if (name != deck.name) {
                   updates['name'] = name.isEmpty ? null : name;
@@ -795,35 +787,44 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 final int newWins = 3 - winController.selected;
                 final int newLosses = 3 - lossController.selected;
                 final int newDraws = 3 - drawController.selected;
-                if (newWins != deck.wins || newLosses != deck.losses || newDraws != deck.draws) {
+                if (newWins != deck.wins ||
+                    newLosses != deck.losses ||
+                    newDraws != deck.draws) {
                   updates['wins'] = newWins;
                   updates['losses'] = newLosses;
                   updates['draws'] = newDraws;
                 }
                 // Keep existing draws unchanged
-                
+
                 final setId = draftType == "set" ? currentCubeSetId : null;
                 if (setId != deck.setId) {
                   updates['set_id'] = setId;
                 }
-                
-                final cubecobraId = draftType == "cube" ? currentCubeSetId : null;
+
+                final cubecobraId =
+                    draftType == "cube" ? currentCubeSetId : null;
                 if (cubecobraId != deck.cubecobraId) {
                   updates['cubecobra_id'] = cubecobraId;
                 }
-                
+
                 if (selectedDate != deck.ymd) {
                   updates['ymd'] = selectedDate;
                 }
-                
+
                 // Only update if there are changes
                 if (updates.isNotEmpty) {
                   await deckRepository.updateDeck(DeckUpsert(
                     id: deck.id,
                     name: updates['name'] as String?,
-                    wins: updates.containsKey('wins') ? updates['wins'] as int? : deck.wins,
-                    losses: updates.containsKey('losses') ? updates['losses'] as int? : deck.losses,
-                    draws: updates.containsKey('draws') ? updates['draws'] as int? : deck.draws,
+                    wins: updates.containsKey('wins')
+                        ? updates['wins'] as int?
+                        : deck.wins,
+                    losses: updates.containsKey('losses')
+                        ? updates['losses'] as int?
+                        : deck.losses,
+                    draws: updates.containsKey('draws')
+                        ? updates['draws'] as int?
+                        : deck.draws,
                     setId: updates['set_id'] as String?,
                     cubecobraId: updates['cubecobra_id'] as String?,
                     ymd: updates['ymd'] as String?,
@@ -831,7 +832,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     sideboard: deck.sideboard,
                   ));
                 }
-                
+
                 // Update tags
                 final currentTags = deck.tags;
                 for (final tag in currentTags) {
@@ -844,30 +845,32 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     await deckRepository.addTagToDeck(deck.id, tag);
                   }
                 }
-                
+
                 refreshDecks();
                 _loadTags(); // Reload tags to include any newly added ones
                 Navigator.of(context).pop();
               }
             },
-            child: Text("Save")
-        )
+            child: Text("Save"))
       ],
     );
   }
 
-  List<DropdownMenuEntry<String>> generateDraftMenuItems(List<Set> sets, List<Cube> cubes, String draftType) {
+  List<DropdownMenuEntry<String>> generateDraftMenuItems(
+      List<Set> sets, List<Cube> cubes, String draftType) {
     if (draftType == "set") {
-      return (sets
-        ..sort((a, b) => (b.releasedAt.compareTo(a.releasedAt))))
-          .map((set) => DropdownMenuEntry(value: set.code, label: set.name)).toList();
+      return (sets..sort((a, b) => (b.releasedAt.compareTo(a.releasedAt))))
+          .map((set) => DropdownMenuEntry(value: set.code, label: set.name))
+          .toList();
     } else {
-      return cubes.map((cube) => DropdownMenuEntry(value: cube.cubecobraId, label: cube.name)).toList();
+      return cubes
+          .map((cube) =>
+              DropdownMenuEntry(value: cube.cubecobraId, label: cube.name))
+          .toList();
     }
   }
 
   Widget generateWinLossPicker(WheelPickerController controller) {
-
     return SizedBox(
       height: 80,
       width: 50,
@@ -875,16 +878,15 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
         controller: controller,
         selectedIndexColor: Theme.of(context).hintColor,
         looping: false,
-        builder: (context, index) => Text((3 - index).toString(), style: TextStyle(fontSize: 24),),
-        style: WheelPickerStyle(
-            itemExtent: 25,
-            diameterRatio: 1.2,
-            surroundingOpacity: 0.3
+        builder: (context, index) => Text(
+          (3 - index).toString(),
+          style: TextStyle(fontSize: 24),
         ),
+        style: WheelPickerStyle(
+            itemExtent: 25, diameterRatio: 1.2, surroundingOpacity: 0.3),
       ),
     );
   }
-
 
   Widget createFilterChips(Filter filter, List<Set> sets, List<Cube> cubes) {
     return Wrap(
@@ -893,7 +895,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       children: [
         if (filter.setId != null)
           Chip(
-            label: Text("Set: ${sets.firstWhere((set) => set.code == filter.setId).name}"),
+            label: Text(
+                "Set: ${sets.firstWhere((set) => set.code == filter.setId).name}"),
             onDeleted: () => setState(() {
               currentFilter = filter.clearSetId();
               if (currentFilter!.isEmpty()) {
@@ -905,7 +908,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           ),
         if (filter.cubecobraId != null)
           Chip(
-            label: Text("Cube: ${cubes.firstWhere((cube) => cube.cubecobraId == filter.cubecobraId).name}"),
+            label: Text(
+                "Cube: ${cubes.firstWhere((cube) => cube.cubecobraId == filter.cubecobraId).name}"),
             onDeleted: () => setState(() {
               currentFilter = filter.clearCubecobraId();
               if (currentFilter!.isEmpty()) {
@@ -929,7 +933,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
           ),
         if (filter.minWins != 0 || filter.maxWins != 3)
           Chip(
-            label: Text("Wins: ${filter.minWins == filter.maxWins ? filter.minWins : '${filter.minWins}-${filter.maxWins}'}"),
+            label: Text(
+                "Wins: ${filter.minWins == filter.maxWins ? filter.minWins : '${filter.minWins}-${filter.maxWins}'}"),
             onDeleted: () => setState(() {
               currentFilter = filter.clearWinRange();
               if (currentFilter!.isEmpty()) {
@@ -940,48 +945,67 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             padding: EdgeInsets.all(6),
           ),
         if (filter.includedColors.isNotEmpty)
-          ...filter.includedColors.map((color) => Chip(
-            label: Text(""),
-            avatar: SvgPicture.asset("assets/svg_icons/$color.svg", height: 18,),
-            side: BorderSide(color: Colors.blue.shade200),
-            onDeleted: () => setState(() {
-              final newIncludedColors = List<String>.from(filter.includedColors)..remove(color);
-              currentFilter = filter.copyWith(includedColors: newIncludedColors);
-              if (currentFilter!.isEmpty()) {
-                currentFilter = null;
-              }
-            }),
-            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-            padding: EdgeInsets.all(6),
-          )).toList(),
+          ...filter.includedColors
+              .map((color) => Chip(
+                    label: Text(""),
+                    avatar: SvgPicture.asset(
+                      "assets/svg_icons/$color.svg",
+                      height: 18,
+                    ),
+                    side: BorderSide(color: Colors.blue.shade200),
+                    onDeleted: () => setState(() {
+                      final newIncludedColors =
+                          List<String>.from(filter.includedColors)
+                            ..remove(color);
+                      currentFilter =
+                          filter.copyWith(includedColors: newIncludedColors);
+                      if (currentFilter!.isEmpty()) {
+                        currentFilter = null;
+                      }
+                    }),
+                    labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                    padding: EdgeInsets.all(6),
+                  ))
+              .toList(),
         if (filter.excludedColors.isNotEmpty)
-          ...filter.excludedColors.map((color) => Chip(
-            label: Text(""),
-            avatar: SvgPicture.asset("assets/svg_icons/$color.svg", height: 18,),
-            side: BorderSide(color: Colors.red.shade200),
-            onDeleted: () => setState(() {
-              final newExcludedColors = List<String>.from(filter.excludedColors)..remove(color);
-              currentFilter = filter.copyWith(excludedColors: newExcludedColors);
-              if (currentFilter!.isEmpty()) {
-                currentFilter = null;
-              }
-            }),
-            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-            padding: EdgeInsets.all(6),
-          )).toList(),
+          ...filter.excludedColors
+              .map((color) => Chip(
+                    label: Text(""),
+                    avatar: SvgPicture.asset(
+                      "assets/svg_icons/$color.svg",
+                      height: 18,
+                    ),
+                    side: BorderSide(color: Colors.red.shade200),
+                    onDeleted: () => setState(() {
+                      final newExcludedColors =
+                          List<String>.from(filter.excludedColors)
+                            ..remove(color);
+                      currentFilter =
+                          filter.copyWith(excludedColors: newExcludedColors);
+                      if (currentFilter!.isEmpty()) {
+                        currentFilter = null;
+                      }
+                    }),
+                    labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                    padding: EdgeInsets.all(6),
+                  ))
+              .toList(),
         if (filter.tags.isNotEmpty)
-          ...filter.tags.map((tag) => Chip(
-            label: Text("Tag: $tag"),
-            onDeleted: () => setState(() {
-              final newTags = List<String>.from(filter.tags)..remove(tag);
-              currentFilter = filter.copyWith(tags: newTags);
-              if (currentFilter!.isEmpty()) {
-                currentFilter = null;
-              }
-            }),
-            labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
-            padding: EdgeInsets.all(6),
-          )).toList(),
+          ...filter.tags
+              .map((tag) => Chip(
+                    label: Text("Tag: $tag"),
+                    onDeleted: () => setState(() {
+                      final newTags = List<String>.from(filter.tags)
+                        ..remove(tag);
+                      currentFilter = filter.copyWith(tags: newTags);
+                      if (currentFilter!.isEmpty()) {
+                        currentFilter = null;
+                      }
+                    }),
+                    labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
+                    padding: EdgeInsets.all(6),
+                  ))
+              .toList(),
         ActionChip(
           label: Text("Clear Filters"),
           onPressed: () => setState(() => currentFilter = null),
@@ -994,18 +1018,14 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   }
 
   Future launchWelcomeDialog() async {
-
     final prefs = await SharedPreferences.getInstance();
     bool hasSeenWelcomePopup = prefs.getBool("welcome_popup_seen") ?? false;
 
     if (!hasSeenWelcomePopup) {
-
       prefs.setBool("welcome_popup_seen", true);
 
-      TextStyle titleStyle = TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold
-      );
+      TextStyle titleStyle =
+          TextStyle(fontSize: 16, fontWeight: FontWeight.bold);
       double paragraphBreak = 4;
 
       showDialog(
@@ -1017,25 +1037,40 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 10,
             children: [
-              SizedBox(height: paragraphBreak,),
-              Text("Welcome to SnapDrafter!", style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold
-              )),
-              SizedBox(height: paragraphBreak,),
-              Text("Getting Started", style: titleStyle,),
+              SizedBox(
+                height: paragraphBreak,
+              ),
+              Text("Welcome to SnapDrafter!",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              SizedBox(
+                height: paragraphBreak,
+              ),
+              Text(
+                "Getting Started",
+                style: titleStyle,
+              ),
               Text("I try to make the interface as intuitive as possible, but "
                   "if can't figure something out, you can find some additional "
                   "information in 'Settings > Help'."),
-              SizedBox(height: paragraphBreak,),
-              Text("Feedback", style: titleStyle,),
+              SizedBox(
+                height: paragraphBreak,
+              ),
+              Text(
+                "Feedback",
+                style: titleStyle,
+              ),
               Text("In case you find a bug, have ideas for how things could "
-                "be improved, or features that are missing, I'd love to hear "
+                  "be improved, or features that are missing, I'd love to hear "
                   "your feedback."),
               Text("Clicking 'Settings > Feedback' will give you an invite to "
                   "the SnapDrafter Discord server."),
-              SizedBox(height: paragraphBreak,),
-              Text("Support", style: titleStyle,),
+              SizedBox(
+                height: paragraphBreak,
+              ),
+              Text(
+                "Support",
+                style: titleStyle,
+              ),
               Text("My aim is to keep SnapDrafter free, ad-free, and available"
                   " to as many cube-lovers as possible. Donations make that "
                   "possible."),
@@ -1047,15 +1082,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                 onPressed: () {
                   Navigator.of(context).pop();
                   Navigator.of(context).pushReplacement(MaterialPageRoute(
-                      builder: (context) => DownloadScreen()
-                  ));
+                      builder: (context) => DownloadScreen()));
                 },
-                child: Text("Close")
-            ),
+                child: Text("Close")),
           ],
         ),
       );
     }
   }
-
 }

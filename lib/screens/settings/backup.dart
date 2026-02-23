@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:snapdrafter/data/database/database_helper.dart';
 
 import '/utils/deck_change_notifier.dart';
 import '/data/repositories/deck_repository.dart';
@@ -62,11 +61,14 @@ class _BackupSettingsState extends State<BackupSettings> {
         directory = await getApplicationDocumentsDirectory();
       } else {
         directory = Directory('/storage/emulated/0/Download');
-        if (!await directory.exists()) directory = await getExternalStorageDirectory();
+        if (!await directory.exists())
+          directory = await getExternalStorageDirectory();
       }
       DateTime timestamp = DateTime.now();
-      String datetimeString = "${timestamp.year}${timestamp.month}${timestamp.day}_${timestamp.hour}${timestamp.minute}${timestamp.second}";
-      final file = File('${directory!.path}/snapdrafter_backup_$datetimeString.json');
+      String datetimeString =
+          "${timestamp.year}${timestamp.month}${timestamp.day}_${timestamp.hour}${timestamp.minute}${timestamp.second}";
+      final file =
+          File('${directory!.path}/snapdrafter_backup_$datetimeString.json');
       await file.writeAsString(jsonString);
 
       setState(() {
@@ -82,8 +84,7 @@ class _BackupSettingsState extends State<BackupSettings> {
   }
 
   Future<void> _restoreBackup() async {
-    final result = await FilePicker.platform.pickFiles(
-    );
+    final result = await FilePicker.platform.pickFiles();
 
     if (result == null) return;
 
@@ -125,24 +126,24 @@ class _BackupSettingsState extends State<BackupSettings> {
           children: [
             const SizedBox(height: 20),
             if (deckCount != null)
-              Text('Current decks: $deckCount\nCurrent cubes: $cubeCount', style: Theme.of(context).textTheme.titleMedium),
+              Text('Current decks: $deckCount\nCurrent cubes: $cubeCount',
+                  style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 20),
             Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              spacing: 15,
-              children: [
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.backup),
-                  label: const Text('Create Backup'),
-                  onPressed: isBackingUp ? null : _createBackup,
-                ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.restore),
-                  label: const Text('Restore Backup'),
-                  onPressed: isRestoring ? null : _restoreBackup,
-                )
-              ]
-            ),
+                mainAxisAlignment: MainAxisAlignment.center,
+                spacing: 15,
+                children: [
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.backup),
+                    label: const Text('Create Backup'),
+                    onPressed: isBackingUp ? null : _createBackup,
+                  ),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.restore),
+                    label: const Text('Restore Backup'),
+                    onPressed: isRestoring ? null : _restoreBackup,
+                  )
+                ]),
             const SizedBox(height: 20),
             if (backupStatus != null)
               Container(
