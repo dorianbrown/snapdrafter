@@ -8,7 +8,6 @@ import '/data/database/database_helper.dart';
 import '/data/models/set.dart';
 import '/utils/utils.dart';
 
-
 class SetRepository {
   late final DatabaseHelper _dbHelper;
 
@@ -19,7 +18,10 @@ class SetRepository {
   Future<Database> get _db async => await _dbHelper.database;
 
   Future<void> populateSetsTable() async {
-    final response = await http.get(Uri.parse('https://api.scryfall.com/sets'));
+    final response = await http.get(
+      Uri.parse('https://api.scryfall.com/sets'),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
 
     if (response.statusCode == 200) {
       final values = json.decode(response.body);
@@ -46,12 +48,16 @@ class SetRepository {
       });
       debugPrint("Added ${setsData.length} sets to sets table");
     } else {
+      debugPrint(utf8.decode(response.bodyBytes));
       throw Exception('Failed to load sets from Scryfall API');
     }
   }
 
   Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
-    final response = await http.get(Uri.parse('https://api.scryfall.com/sets'));
+    final response = await http.get(
+      Uri.parse('https://api.scryfall.com/sets'),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
 
     final validSetTypes = ["expansion", "core", "masters"];
 

@@ -133,8 +133,10 @@ class _DownloadScreenState extends State<DownloadScreen> {
       directory = (await getApplicationDocumentsDirectory());
     }
 
-    final getResponse =
-        await http.get(Uri.parse("https://api.scryfall.com/bulk-data"));
+    final getResponse = await http.get(
+      Uri.parse("https://api.scryfall.com/bulk-data"),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
     String downloadUri;
     if (getResponse.statusCode == 200) {
       var responseMap = jsonDecode(getResponse.body);

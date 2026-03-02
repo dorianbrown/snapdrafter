@@ -931,8 +931,10 @@ class _CardPopupState extends State<CardPopup> {
   }
 
   Future getCardData(String scryfallId) async {
-    final response =
-        await http.get(Uri.parse("https://api.scryfall.com/cards/$scryfallId"));
+    final response = await http.get(
+      Uri.parse("https://api.scryfall.com/cards/$scryfallId"),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
       return payload;
@@ -942,8 +944,10 @@ class _CardPopupState extends State<CardPopup> {
   }
 
   Future getRulingsData(String scryfallId) async {
-    final response = await http
-        .get(Uri.parse("https://api.scryfall.com/cards/$scryfallId/rulings"));
+    final response = await http.get(
+      Uri.parse("https://api.scryfall.com/cards/$scryfallId/rulings"),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
       final rulings = payload["data"];
