@@ -74,10 +74,9 @@ class SetRepository {
           validSetTypes.contains(setType) &&
           (setData["digital"] == false)
         ) {
-          final releaseDate = DateTime.parse(releasedAt);
-          // Only store future dates (add 8 days buffer like in download_screen)
-          final bufferDate = releaseDate.add(const Duration(days: 8));
-          if (bufferDate.isAfter(now)) {
+          // Reduce the release date by 8 days, to account for prereleases
+          final releaseDate = DateTime.parse(releasedAt).subtract(const Duration(days: 8));
+          if (releaseDate.isAfter(now)) {
             upcomingDates[setData["code"]] = releaseDate;
           }
         }

@@ -107,24 +107,21 @@ class MainAppState extends State<MainApp> {
   Future<void> _checkForNewReleases() async {
     try {
 
-      //Debugging
-      await _releaseDateHelper.clearPassedDates();
-
-      // Check if we need to fetch new dates
+      // Check if we need to fetch new dates (done every 7 days)
       if (await _releaseDateHelper.shouldFetchNewDates()) {
         final newDates = await _setRepository.fetchUpcomingReleaseDates();
         await _releaseDateHelper.saveUpcomingReleaseDates(newDates);
       }
       
-      // Get stored dates and check for passed ones
+      // Get stored set release dates and check for ones we've already prompted for
       final upcomingDates = await _releaseDateHelper.getUpcomingReleaseDates();
-      final promptedDates = await _releaseDateHelper.getPromptedDates();
+      final promptedSets = await _releaseDateHelper.getPromptedSets();
       final now = DateTime.now();
 
       final passedDates = upcomingDates.entries
           .where((entry) => 
               entry.value.isBefore(now) && 
-              !promptedDates.contains(entry.key))
+              !promptedSets.contains(entry.key))
           .toList();
       
       if (passedDates.isNotEmpty && mounted) {
