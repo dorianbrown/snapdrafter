@@ -174,7 +174,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
       "flip",
       "mutate",
       "case",
-      "leveler"
+      "leveler",
+      "prepare"
     ];
     List<String> validTypes = [
       "Creature",
