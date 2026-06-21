@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert'; // For json.decode
+import 'dart:io';
 import 'package:http/http.dart' as http; // For network requests
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:sqflite/sqflite.dart';
@@ -51,7 +52,13 @@ class SetRepository {
   }
 
   Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
-    final response = await http.get(Uri.parse('https://api.scryfall.com/sets'));
+    final response = await http.get(
+      Uri.parse('https://api.scryfall.com/sets'),
+      headers: {
+        HttpHeaders.acceptHeader: "application/json;q=0.9,*/*;q=0.8",
+        HttpHeaders.userAgentHeader: "SnapDrafter (https://play.google.com/store/apps/details?id=com.dbrown.mtg_draft_tracker&hl=en)"
+      }
+    );
 
     final validSetTypes = ["expansion", "core", "masters"];
 

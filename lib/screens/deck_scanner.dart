@@ -1,4 +1,3 @@
-import 'package:camerawesome/pigeon.dart';
 import 'package:flutter/material.dart' hide Orientation;
 import 'package:camerawesome/camerawesome_plugin.dart';
 

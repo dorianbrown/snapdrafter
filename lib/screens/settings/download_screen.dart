@@ -17,7 +17,7 @@ import '/data/repositories/set_repository.dart';
 import '/data/repositories/token_repository.dart';
 
 class DownloadScreen extends StatefulWidget {
-  const DownloadScreen({Key? key}) : super(key: key);
+  const DownloadScreen({super.key});
 
   @override
   State<DownloadScreen> createState() => _DownloadScreenState();

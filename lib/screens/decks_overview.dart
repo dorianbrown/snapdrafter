@@ -4,7 +4,6 @@ import 'package:flutter/material.dart' hide Card, Orientation;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
 import 'package:wheel_picker/wheel_picker.dart';
-import 'package:collection/collection.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -20,7 +19,6 @@ import 'image_processing_screen.dart';
 import 'settings.dart';
 
 import '/data/models/deck.dart';
-import '/data/models/card.dart';
 import '/data/models/cube.dart';
 import '/data/models/set.dart';
 import '/data/models/deck_upsert.dart';
@@ -953,7 +951,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             }),
             labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
             padding: EdgeInsets.all(6),
-          )).toList(),
+          )),
         if (filter.excludedColors.isNotEmpty)
           ...filter.excludedColors.map((color) => Chip(
             label: Text(""),
@@ -968,7 +966,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             }),
             labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
             padding: EdgeInsets.all(6),
-          )).toList(),
+          )),
         if (filter.tags.isNotEmpty)
           ...filter.tags.map((tag) => Chip(
             label: Text("Tag: $tag"),
@@ -981,7 +979,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
             }),
             labelPadding: EdgeInsets.fromLTRB(4, 0, 4, 0),
             padding: EdgeInsets.all(6),
-          )).toList(),
+          )),
         ActionChip(
           label: Text("Clear Filters"),
           onPressed: () => setState(() => currentFilter = null),

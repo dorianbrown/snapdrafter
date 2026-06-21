@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' hide Card, Orientation;
@@ -383,7 +382,7 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     // Convert img.Image to MLKit inputImage
     // TODO: Figure out how to do this in memory
     Directory tmpDir = await getTemporaryDirectory();
-    File tmpFile = File('${tmpDir.path}/thumbnail_${x1}_${x2}_${y1}_${y2}.png');
+    File tmpFile = File('${tmpDir.path}/thumbnail_${x1}_${x2}_${y1}_$y2.png');
     await img.encodeImageFile(tmpFile.path, detectionImg);
     final detectionImage = InputImage.fromFilePath(tmpFile.path);
     // final detectionImage = InputImage.fromBytes(

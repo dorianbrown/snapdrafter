@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ffi' hide Size;
 
 import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
@@ -19,7 +18,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '/utils/deck_image_generator.dart';
 import '/widgets/deck_text_editor.dart';
 import '/widgets/display_token.dart';
-import '/data/repositories/card_repository.dart';
 import '/data/repositories/token_repository.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/models/card.dart';
@@ -198,7 +196,7 @@ class DeckViewerState extends State<DeckViewer> {
           // title: Text("Tokens"),
           insetPadding: EdgeInsets.all(30),
           contentPadding: EdgeInsets.all(10),
-          content: Container(
+          content: SizedBox(
             width: double.maxFinite,
             child: MasonryGridView.count(
               itemCount: groupedTokens.keys.length,
@@ -782,7 +780,7 @@ class DeckViewerState extends State<DeckViewer> {
 
 void shareWithCubeCobra(Deck deck) {
   // Construct query parameters containing list of cards
-  Map<String, dynamic?> queryParams = {
+  Map<String, dynamic> queryParams = {
     "o": deck.cards.map((card) => card.oracleId).toList()
   };
   // If no sideboard, we omit the "s" key
@@ -811,8 +809,8 @@ void createInteractiveImageViewer(String imagePath, BuildContext context) {
         actions: [
           TextButton(
             style: ButtonStyle(
-              foregroundColor: MaterialStateProperty.all(Colors.white),
-              backgroundColor: MaterialStateProperty.all(Colors.black38),
+              foregroundColor: WidgetStateProperty.all(Colors.white),
+              backgroundColor: WidgetStateProperty.all(Colors.black38),
             ),
             child: const Text("Share"),
             onPressed: () async {
@@ -825,8 +823,8 @@ void createInteractiveImageViewer(String imagePath, BuildContext context) {
           ),
           TextButton(
             style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.all(Colors.white),
-                backgroundColor: MaterialStateProperty.all(Colors.black38),
+                foregroundColor: WidgetStateProperty.all(Colors.white),
+                backgroundColor: WidgetStateProperty.all(Colors.black38),
             ),
             onPressed: () => Navigator.of(context).pop(),
             child: const Text("Back")

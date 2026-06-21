@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:snapdrafter/data/database/database_helper.dart';
 
 import '/utils/deck_change_notifier.dart';
 import '/data/repositories/deck_repository.dart';
@@ -12,7 +11,7 @@ import '/data/repositories/cube_repository.dart';
 import '/data/database/backup_helper.dart';
 
 class BackupSettings extends StatefulWidget {
-  const BackupSettings({Key? key}) : super(key: key);
+  const BackupSettings({super.key});
 
   @override
   State<BackupSettings> createState() => _BackupSettingsState();
@@ -148,7 +147,7 @@ class _BackupSettingsState extends State<BackupSettings> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
