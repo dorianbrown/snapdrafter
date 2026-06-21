@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert'; // For json.decode
-import 'dart:io';
-import 'package:http/http.dart' as http; // For network requests
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:sqflite/sqflite.dart';
 
 import '/data/database/database_helper.dart';
 import '/data/models/set.dart';
 import '/utils/utils.dart';
+import '/utils/scryfall_api.dart';
 
 
 class SetRepository {
@@ -20,7 +19,7 @@ class SetRepository {
   Future<Database> get _db async => await _dbHelper.database;
 
   Future<void> populateSetsTable() async {
-    final response = await http.get(Uri.parse('https://api.scryfall.com/sets'));
+    final response = await scryfallGet('/sets');
 
     if (response.statusCode == 200) {
       final values = json.decode(response.body);
@@ -52,13 +51,7 @@ class SetRepository {
   }
 
   Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
-    final response = await http.get(
-      Uri.parse('https://api.scryfall.com/sets'),
-      headers: {
-        HttpHeaders.acceptHeader: "application/json;q=0.9,*/*;q=0.8",
-        HttpHeaders.userAgentHeader: "SnapDrafter (https://play.google.com/store/apps/details?id=com.dbrown.mtg_draft_tracker&hl=en)"
-      }
-    );
+    final response = await scryfallGet('/sets');
 
     final validSetTypes = ["expansion", "core", "masters"];
 

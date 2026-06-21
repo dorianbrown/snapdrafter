@@ -6,7 +6,6 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
 import 'package:collection/collection.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
@@ -16,6 +15,7 @@ import 'package:snapdrafter/data/repositories/card_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
+import '/utils/scryfall_api.dart';
 import '/widgets/deck_text_editor.dart';
 import '/widgets/display_token.dart';
 import '/data/repositories/token_repository.dart';
@@ -921,7 +921,7 @@ class _CardPopupState extends State<CardPopup> {
   }
 
   Future getCardData(String scryfallId) async {
-    final response = await http.get(Uri.parse("https://api.scryfall.com/cards/$scryfallId"));
+    final response = await scryfallGet('/cards/$scryfallId');
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
       return payload;
@@ -931,7 +931,7 @@ class _CardPopupState extends State<CardPopup> {
   }
 
   Future getRulingsData(String scryfallId) async {
-    final response = await http.get(Uri.parse("https://api.scryfall.com/cards/$scryfallId/rulings"));
+    final response = await scryfallGet('/cards/$scryfallId/rulings');
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
       final rulings = payload["data"];

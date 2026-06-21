@@ -5,9 +5,8 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' hide Card;
 import 'package:path_provider/path_provider.dart';
-import 'package:http/http.dart' as http;
-
 import '/utils/utils.dart';
+import '/utils/scryfall_api.dart';
 import '/utils/deck_change_notifier.dart';
 import '/utils/release_date_helper.dart';
 import '/data/models/card.dart';
@@ -139,7 +138,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
       directory = (await getApplicationDocumentsDirectory());
     }
 
-    final getResponse = await http.get(Uri.parse("https://api.scryfall.com/bulk-data"));
+    final getResponse = await scryfallGet('/bulk-data');
     String downloadUri;
     if (getResponse.statusCode == 200) {
       var responseMap = jsonDecode(getResponse.body);

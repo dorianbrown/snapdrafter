@@ -15,11 +15,12 @@ class UpdatePromptDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('New Sets Available!'),
+      title: Text('New Set${(numberOfSets > 1) ? "s" : ""} Available!'),
       content: Text(
-        '$numberOfSets new Magic set(s) have been released '
-        'since you last updated your card database.\n\n'
-        'Would you like to update now to include these new sets?',
+        '$numberOfSets new Magic set${(numberOfSets > 1) ? "s" : ""} '
+        '${(numberOfSets > 1) ? "have" : "has"} been released since you '
+        'last updated your card database.\n\nWould you like to update '
+        'now to include these new sets?',
       ),
       actions: [
         TextButton(

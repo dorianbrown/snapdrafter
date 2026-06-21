@@ -123,10 +123,11 @@ class MainAppState extends State<MainApp> {
 
       final passedDates = upcomingDates.entries
           .where((entry) => 
-              entry.value.isBefore(now) && 
+              entry.value.subtract(Duration(days: 14)).isBefore(now) &&
               !promptedDates.contains(entry.key))
           .toList();
-      
+
+      // TODO: Currently not working, but also not an issue
       if (passedDates.isNotEmpty && mounted) {
         // Show the update prompt
         _showUpdatePrompt(passedDates);
