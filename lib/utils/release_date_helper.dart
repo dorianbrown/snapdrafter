@@ -5,7 +5,7 @@ class ReleaseDateHelper {
   static const String _upcomingReleaseDatesKey = 'upcoming_release_dates';
   static const String _lastFetchedKey = 'last_fetched_timestamp';
   static const String _promptedDatesKey = 'prompted_release_dates';
-  static const Duration _cacheDuration = Duration(days: 0);
+  static const Duration _cacheDuration = Duration(days: 7);
   
   Future<Map<String, DateTime>> getUpcomingReleaseDates() async {
     final prefs = await SharedPreferences.getInstance();
@@ -30,7 +30,7 @@ class ReleaseDateHelper {
     await prefs.setInt(_lastFetchedKey, DateTime.now().millisecondsSinceEpoch);
   }
   
-  Future<Set<String>> getPromptedDates() async {
+  Future<Set<String>> getPromptedSets() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_promptedDatesKey);
     if (jsonString == null) return {};
@@ -45,7 +45,7 @@ class ReleaseDateHelper {
   
   Future<void> addToPromptedDates(String setCode) async {
     final prefs = await SharedPreferences.getInstance();
-    final current = await getPromptedDates();
+    final current = await getPromptedSets();
     current.add(setCode);
     await prefs.setString(_promptedDatesKey, jsonEncode(current.toList()));
   }

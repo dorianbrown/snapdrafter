@@ -77,11 +77,12 @@ ExtractedResult<String> runFuzzyMatch(MatchParams params) {
 }
 
 Future<List<Card>> fetchCubecobraList(String cubecobraId) async {
-
   CardRepository cardRepository = CardRepository();
 
-  String uri = "https://cubecobra.com/cube/api/cubecardnames/$cubecobraId/mainboard";
-  final response = await http.get(Uri.parse(uri));
+  final response = await http.get(
+    Uri.parse("https://cubecobra.com/cube/api/cubecardnames/$cubecobraId/mainboard"),
+    headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+  );
   if (response.statusCode == 200) {
     final body = jsonDecode(response.body);
     List<String> cubeList = unpackCubeMap(body["cardnames"]);
@@ -95,7 +96,6 @@ Future<List<Card>> fetchCubecobraList(String cubecobraId) async {
 }
 
 List<String> unpackCubeMap(Map<String, dynamic> map) {
-
   List<String> tailList = [];
 
   for (String key in map.keys) {

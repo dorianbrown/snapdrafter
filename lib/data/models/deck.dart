@@ -1,4 +1,3 @@
-
 import 'package:collection/collection.dart';
 
 import "card.dart";
@@ -42,9 +41,7 @@ class Deck {
   }
 
   String get colors {
-    String colors = cards.map(
-            (card) => card.colors ?? ""
-    ).toList().join("");
+    String colors = cards.map((card) => card.colors ?? "").toList().join("");
 
     String outputString = "";
     for (var symbol in ["W", "U", "B", "R", "G"]) {
@@ -53,31 +50,33 @@ class Deck {
       }
     }
     if (outputString.isEmpty) {
-        return "C";
+      return "C";
     }
     return outputString;
   }
 
   String generateTextExport() {
-    String mainboard = (cards
-        .toList()..sort((a,b) => a.name.compareTo(b.name)))
+    String mainboard = (cards.toList()
+          ..sort((a, b) => a.name.compareTo(b.name)))
         .map((card) => card.name)
         .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
-        .entries.map((entry) => "${entry.value} ${entry.key}")
+        .entries
+        .map((entry) => "${entry.value} ${entry.key}")
         .toList()
         .join("\n");
-    
+
     if (sideboard.isNotEmpty) {
-      String sideboardText = (sideboard
-          .toList()..sort((a,b) => a.name.compareTo(b.name)))
+      String sideboardText = (sideboard.toList()
+            ..sort((a, b) => a.name.compareTo(b.name)))
           .map((card) => card.name)
           .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
-          .entries.map((entry) => "${entry.value} ${entry.key}")
+          .entries
+          .map((entry) => "${entry.value} ${entry.key}")
           .toList()
           .join("\n");
       return "$mainboard\nSIDEBOARD\n$sideboardText";
     }
-    
+
     return mainboard;
   }
 

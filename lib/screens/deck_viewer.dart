@@ -3,9 +3,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart' hide Card;
-import 'package:community_charts_flutter/community_charts_flutter.dart' as charts;
+import 'package:community_charts_flutter/community_charts_flutter.dart'
+    as charts;
 import 'package:collection/collection.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import 'package:loader_overlay/loader_overlay.dart';
@@ -15,7 +17,6 @@ import 'package:snapdrafter/data/repositories/card_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
-import '/utils/scryfall_api.dart';
 import '/widgets/deck_text_editor.dart';
 import '/widgets/display_token.dart';
 import '/data/repositories/token_repository.dart';
@@ -29,14 +30,12 @@ import '/utils/deck_change_notifier.dart';
 const _headerStyle = TextStyle(
     fontSize: 20,
     fontWeight: FontWeight.bold,
-    decoration: TextDecoration.underline
-);
+    decoration: TextDecoration.underline);
 
 const _sideboardHeaderStyle = TextStyle(
-    fontSize: 24,  // Larger than the regular header
+    fontSize: 24, // Larger than the regular header
     fontWeight: FontWeight.bold,
-    decoration: TextDecoration.underline
-);
+    decoration: TextDecoration.underline);
 
 class DeckViewer extends StatefulWidget {
   final Deck deck;
@@ -60,7 +59,8 @@ class DeckViewerState extends State<DeckViewer> {
 
   List<String> renderValues = ["type", "3"];
   // These are used for dropdown menus controlling how decklist is displayed
-  TextEditingController displayController = TextEditingController(text: "Images");
+  TextEditingController displayController =
+      TextEditingController(text: "Images");
   TextEditingController numColumnsController = TextEditingController(text: "3");
 
   final myInputDecorationTheme = InputDecorationTheme(
@@ -69,7 +69,7 @@ class DeckViewerState extends State<DeckViewer> {
     contentPadding: const EdgeInsets.symmetric(horizontal: 16),
     constraints: BoxConstraints.tight(const Size.fromHeight(40)),
     border: OutlineInputBorder(
-    borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(8),
     ),
   );
 
@@ -95,19 +95,22 @@ class DeckViewerState extends State<DeckViewer> {
   @override
   Widget build(BuildContext context) {
     return LoaderOverlay(
-        overlayWidgetBuilder: (_) { //ignored progress for the moment
+        overlayWidgetBuilder: (_) {
+          //ignored progress for the moment
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(
-                  color: Colors.deepPurpleAccent,
-                ),
-                SizedBox(height: 50,),
-                Text("Creating Decklist Image...", style: TextStyle(fontSize: 16, color: Colors.white)),
-              ],
-            )
-          );
+              child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: Colors.deepPurpleAccent,
+              ),
+              SizedBox(
+                height: 50,
+              ),
+              Text("Creating Decklist Image...",
+                  style: TextStyle(fontSize: 16, color: Colors.white)),
+            ],
+          ));
         },
         overlayColor: Colors.black38.withAlpha(200),
         child: Scaffold(
@@ -125,10 +128,10 @@ class DeckViewerState extends State<DeckViewer> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
-                        Text("${deck.cards.length} cards", style: TextStyle(fontSize: 16, height: 1.5))
+                        Text("${deck.cards.length} cards",
+                            style: TextStyle(fontSize: 16, height: 1.5))
                       ],
-                    )
-                ),
+                    )),
                 ...generateDeckView(deck, renderValues)
               ],
             ),
@@ -143,32 +146,35 @@ class DeckViewerState extends State<DeckViewer> {
                   onPressed: () => showRandomHand(deck),
                 ),
                 IconButton(
-                  tooltip: "Add basics",
-                  icon: Icon(Icons.landscape),
-                  onPressed: () => allCards != null ? showBasicsEditor(deck, allCards!) : null
-                ),
+                    tooltip: "Add basics",
+                    icon: Icon(Icons.landscape),
+                    onPressed: () => allCards != null
+                        ? showBasicsEditor(deck, allCards!)
+                        : null),
                 IconButton(
                     tooltip: "Show Deck Tokens",
                     icon: Icon(Icons.cruelty_free),
-                    onPressed: groupedTokens.isNotEmpty ? () => showDeckTokens(deck.id) : null
-                ),
+                    onPressed: groupedTokens.isNotEmpty
+                        ? () => showDeckTokens(deck.id)
+                        : null),
                 Spacer(),
                 IconButton(
                   tooltip: "Share to CubeCobra",
-                  icon: SvgPicture.asset("assets/app_icons/monochrome_cubecobra.svg",
+                  icon: SvgPicture.asset(
+                    "assets/app_icons/monochrome_cubecobra.svg",
                     height: 28,
                     colorFilter: ColorFilter.mode(
-                      // Theme.of(context).iconTheme.color!,
-                      Theme.of(context).unselectedWidgetColor,
-                      BlendMode.srcIn
-                    ),
+                        // Theme.of(context).iconTheme.color!,
+                        Theme.of(context).unselectedWidgetColor,
+                        BlendMode.srcIn),
                   ),
                   onPressed: () => shareWithCubeCobra(deck),
                 ),
                 IconButton(
                   tooltip: "Edit",
                   icon: Icon(Icons.edit),
-                  onPressed: () => allCards != null ? showDeckEditor(deck, allCards!) : null,
+                  onPressed: () =>
+                      allCards != null ? showDeckEditor(deck, allCards!) : null,
                 ),
                 IconButton(
                   tooltip: "Share",
@@ -182,46 +188,40 @@ class DeckViewerState extends State<DeckViewer> {
               ],
             ),
           ),
-      )
-    );
+        ));
   }
 
   Future showDeckTokens(int deckId) async {
-
     // Create Dialog window to display tokens and associated cards
     showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          // title: Text("Tokens"),
-          insetPadding: EdgeInsets.all(30),
-          contentPadding: EdgeInsets.all(10),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: MasonryGridView.count(
-              itemCount: groupedTokens.keys.length,
-              shrinkWrap: true,
-              crossAxisCount: 2,
-              itemBuilder: (context, index) => DisplayToken(
-                imageUri: groupedTokens.keys.toList()[index],
-                cards: groupedTokens.values.toList()[index]["cards"]
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            // title: Text("Tokens"),
+            insetPadding: EdgeInsets.all(30),
+            contentPadding: EdgeInsets.all(10),
+            content: Container(
+              width: double.maxFinite,
+              child: MasonryGridView.count(
+                itemCount: groupedTokens.keys.length,
+                shrinkWrap: true,
+                crossAxisCount: 2,
+                itemBuilder: (context, index) => DisplayToken(
+                    imageUri: groupedTokens.keys.toList()[index],
+                    cards: groupedTokens.values.toList()[index]["cards"]),
               ),
             ),
-          ),
-          actionsAlignment: MainAxisAlignment.end,
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text("Back")
-            ),
-          ],
-        );
-      }
-    );
+            actionsAlignment: MainAxisAlignment.end,
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Back")),
+            ],
+          );
+        });
   }
 
   Future shareDeck(Deck deck) async {
-
     Uint8List? imageBytes;
     if (cachedShareImageBytes != null) {
       imageBytes = cachedShareImageBytes;
@@ -233,12 +233,10 @@ class DeckViewerState extends State<DeckViewer> {
     }
 
     final params = ShareParams(
-      files: [XFile.fromData(imageBytes!, mimeType: 'image/png')]
-    );
+        files: [XFile.fromData(imageBytes!, mimeType: 'image/png')]);
 
     SharePlus.instance.share(params);
   }
-
 
   Future showBasicsEditor(Deck deck, List<Card> allCards) async {
     // Get current counts of each basic land type
@@ -269,7 +267,8 @@ class DeckViewerState extends State<DeckViewer> {
                 children: [
                   Text('Deck colors: ${deck.colors}'),
                   SizedBox(height: 20),
-                  ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((name) {
+                  ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+                      .map((name) {
                     return Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -314,45 +313,61 @@ class DeckViewerState extends State<DeckViewer> {
                       'R': 0,
                       'G': 0
                     };
-                    
+
                     // Count colored symbols in each card's mana cost
                     for (var card in deck.cards) {
                       if (card.manaCost != null) {
                         for (var symbol in ['W', 'U', 'B', 'R', 'G']) {
-                          colorCounts[symbol] = colorCounts[symbol]! + 
-                            RegExp(symbol).allMatches(card.manaCost!).length;
+                          colorCounts[symbol] = colorCounts[symbol]! +
+                              RegExp(symbol).allMatches(card.manaCost!).length;
                         }
                       }
                     }
-                    
+
                     // Count non-basic lands
-                    int nonBasicLands = deck.cards.where((card) => 
-                      card.type == 'Land' && 
-                      !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].contains(card.name)
-                    ).length;
-                    
+                    int nonBasicLands = deck.cards
+                        .where((card) =>
+                            card.type == 'Land' &&
+                            !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
+                                .contains(card.name))
+                        .length;
+
                     // Calculate total basics needed (17 - non-basic lands)
                     int totalBasics = 17 - nonBasicLands;
-                    
+
                     // Calculate total colored symbols
-                    int totalSymbols = colorCounts.values.reduce((a, b) => a + b);
+                    int totalSymbols =
+                        colorCounts.values.reduce((a, b) => a + b);
 
                     // TODO: Take into account the mana production of non-basic lands
 
                     setDialogState(() {
                       // Calculate basic land distribution based on color requirements
-                      basicCounts['Plains'] = (colorCounts['W']! / totalSymbols * totalBasics).round();
-                      basicCounts['Island'] = (colorCounts['U']! / totalSymbols * totalBasics).round();
-                      basicCounts['Swamp'] = (colorCounts['B']! / totalSymbols * totalBasics).round();
-                      basicCounts['Mountain'] = (colorCounts['R']! / totalSymbols * totalBasics).round();
-                      basicCounts['Forest'] = (colorCounts['G']! / totalSymbols * totalBasics).round();
-                      
+                      basicCounts['Plains'] =
+                          (colorCounts['W']! / totalSymbols * totalBasics)
+                              .round();
+                      basicCounts['Island'] =
+                          (colorCounts['U']! / totalSymbols * totalBasics)
+                              .round();
+                      basicCounts['Swamp'] =
+                          (colorCounts['B']! / totalSymbols * totalBasics)
+                              .round();
+                      basicCounts['Mountain'] =
+                          (colorCounts['R']! / totalSymbols * totalBasics)
+                              .round();
+                      basicCounts['Forest'] =
+                          (colorCounts['G']! / totalSymbols * totalBasics)
+                              .round();
+
                       // Ensure we don't exceed total basics
-                      int currentTotal = basicCounts.values.reduce((a, b) => a + b);
+                      int currentTotal =
+                          basicCounts.values.reduce((a, b) => a + b);
                       if (currentTotal > totalBasics) {
                         // Reduce largest count to match
-                        var maxEntry = basicCounts.entries.reduce((a, b) => a.value > b.value ? a : b);
-                        basicCounts[maxEntry.key] = maxEntry.value - (currentTotal - totalBasics);
+                        var maxEntry = basicCounts.entries
+                            .reduce((a, b) => a.value > b.value ? a : b);
+                        basicCounts[maxEntry.key] =
+                            maxEntry.value - (currentTotal - totalBasics);
                       }
                     });
                   },
@@ -365,20 +380,37 @@ class DeckViewerState extends State<DeckViewer> {
                   child: Text('Save'),
                   onPressed: () async {
                     // Update deck with new basic land counts
-                    List<Card> newCards = deck.cards.where((c) =>
-                      !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].contains(c.name)
-                    ).toList();
+                    List<Card> newCards = deck.cards
+                        .where((c) => ![
+                              'Plains',
+                              'Island',
+                              'Swamp',
+                              'Mountain',
+                              'Forest'
+                            ].contains(c.name))
+                        .toList();
 
                     // Add new basic lands
                     for (var entry in basicCounts.entries) {
                       Card basicLand;
                       switch (entry.key) {
-                        case 'Plains': basicLand = plains; break;
-                        case 'Island': basicLand = island; break;
-                        case 'Swamp': basicLand = swamp; break;
-                        case 'Mountain': basicLand = mountain; break;
-                        case 'Forest': basicLand = forest; break;
-                        default: continue;
+                        case 'Plains':
+                          basicLand = plains;
+                          break;
+                        case 'Island':
+                          basicLand = island;
+                          break;
+                        case 'Swamp':
+                          basicLand = swamp;
+                          break;
+                        case 'Mountain':
+                          basicLand = mountain;
+                          break;
+                        case 'Forest':
+                          basicLand = forest;
+                          break;
+                        default:
+                          continue;
                       }
                       newCards.addAll(List.filled(entry.value, basicLand));
                     }
@@ -389,11 +421,14 @@ class DeckViewerState extends State<DeckViewer> {
                       _notifier.markNeedsRefresh();
                     });
                     // Force refresh the FutureBuilder by creating a new future
-                    deckRepository.updateDeck(DeckUpsert(
+                    deckRepository
+                        .updateDeck(DeckUpsert(
                       id: deck.id,
                       cards: newCards,
-                      sideboard: deck.sideboard,  // Make sure to preserve sideboard
-                    )).then((_) {
+                      sideboard:
+                          deck.sideboard, // Make sure to preserve sideboard
+                    ))
+                        .then((_) {
                       Navigator.of(context).pop();
                     });
                   },
@@ -407,49 +442,53 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   List<Widget> generateControls() {
-    return [Row(
-      spacing: 8,
-      children: [
-        DropdownMenu(
-          label: const Text("Display"),
-          controller: displayController,
-          inputDecorationTheme: myInputDecorationTheme,
-          textStyle: const TextStyle(fontSize: 12),
-          dropdownMenuEntries: [
-            DropdownMenuEntry(value: "image", label: "Images"),
-            DropdownMenuEntry(value: "text", label: "Text")
-          ],
-          onSelected: (value) {
-            renderValues[0] = value!;
-            setState(() {});
-          },
-        ),
-        DropdownMenu(
-          label: const Text("Columns"),
-          controller: numColumnsController,
-          inputDecorationTheme: myInputDecorationTheme,
-          textStyle: const TextStyle(fontSize: 12),
-          dropdownMenuEntries: [
-            DropdownMenuEntry(value: "2", label: "2"),
-            DropdownMenuEntry(value: "3", label: "3"),
-            DropdownMenuEntry(value: "4", label: "4"),
-          ],
-          onSelected: (value) {
-            renderValues[1] = value!;
-            setState(() {});
-          },
-        ),
-        IconButton(
-            onPressed: deck.imagePath != null ? () => createInteractiveImageViewer(deck.imagePath!, context) : null,
-            icon: Icon(Icons.image)
-        ),
-        SizedBox(width: 0,)
-      ],
-    )];
+    return [
+      Row(
+        spacing: 8,
+        children: [
+          DropdownMenu(
+            label: const Text("Display"),
+            controller: displayController,
+            inputDecorationTheme: myInputDecorationTheme,
+            textStyle: const TextStyle(fontSize: 12),
+            dropdownMenuEntries: [
+              DropdownMenuEntry(value: "image", label: "Images"),
+              DropdownMenuEntry(value: "text", label: "Text")
+            ],
+            onSelected: (value) {
+              renderValues[0] = value!;
+              setState(() {});
+            },
+          ),
+          DropdownMenu(
+            label: const Text("Columns"),
+            controller: numColumnsController,
+            inputDecorationTheme: myInputDecorationTheme,
+            textStyle: const TextStyle(fontSize: 12),
+            dropdownMenuEntries: [
+              DropdownMenuEntry(value: "2", label: "2"),
+              DropdownMenuEntry(value: "3", label: "3"),
+              DropdownMenuEntry(value: "4", label: "4"),
+            ],
+            onSelected: (value) {
+              renderValues[1] = value!;
+              setState(() {});
+            },
+          ),
+          IconButton(
+              onPressed: deck.imagePath != null
+                  ? () => createInteractiveImageViewer(deck.imagePath!, context)
+                  : null,
+              icon: Icon(Icons.image)),
+          SizedBox(
+            width: 0,
+          )
+        ],
+      )
+    ];
   }
 
   void showRandomHand(Deck deck) {
-
     List<Card> hand = [];
     List<Card> remainingCards = [];
 
@@ -473,10 +512,9 @@ class DeckViewerState extends State<DeckViewer> {
     drawNewHand();
 
     showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return StatefulBuilder(
-          builder: (context, setState) {
+        context: context,
+        builder: (dialogContext) {
+          return StatefulBuilder(builder: (context, setState) {
             return AlertDialog(
               title: Text("Sample Starting Hand"),
               titleTextStyle: TextStyle(fontSize: 16),
@@ -496,8 +534,7 @@ class DeckViewerState extends State<DeckViewer> {
               actions: [
                 TextButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text("Back")
-                ),
+                    child: const Text("Back")),
                 TextButton(
                   onPressed: () {
                     drawCard();
@@ -514,10 +551,8 @@ class DeckViewerState extends State<DeckViewer> {
                 )
               ],
             );
-          }
-        );
-      }
-    );
+          });
+        });
   }
 
   void showDeckEditor(Deck deck, List<Card> allCards) {
@@ -547,7 +582,6 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Widget generateManaCurve(List<Card> cards) {
-
     List<int> manaValues = [0, 1, 2, 3, 4, 5, 6, 7];
     final nonCreatureSeries = [];
     final creatureSeries = [];
@@ -599,95 +633,88 @@ class DeckViewerState extends State<DeckViewer> {
             primaryMeasureAxis: charts.NumericAxisSpec(
                 tickProviderSpec: charts.BasicNumericTickProviderSpec(
                     dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
-            behaviors: [charts.SeriesLegend(showMeasures: true)]
-        )
-    );
+            behaviors: [charts.SeriesLegend(showMeasures: true)]));
   }
 
   List<Widget> generateDeckView(Deck deck, List<String> renderValues) {
     // Initial setup for rendering
     final List<Widget> deckView = [];
 
-    var renderCard = (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
+    var renderCard =
+        (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
 
     getAttribute(card) => card.type;
     final uniqueGroupings = typeOrder;
 
     // Here we loop over unique groupings and generate the widgets for each grouping
     for (String attribute in uniqueGroupings) {
-
       // Here we generate all the widgets within the current grouping
       deck.cards.sort((a, b) => a.manaValue.compareTo(b.manaValue));
       List<Widget> cardWidgets = deck.cards
           .where((card) => getAttribute(card) == attribute)
           .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
-          .entries.map((entry) => renderCard(entry.key, entry.value))
+          .entries
+          .map((entry) => renderCard(entry.key, entry.value))
           .toList();
 
-      int numCards = deck.cards
-          .where((card) => getAttribute(card) == attribute)
-          .length;
+      int numCards =
+          deck.cards.where((card) => getAttribute(card) == attribute).length;
 
       // Generate the header text
       List<Widget> header = [
         Container(
-          padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
-          child: Text("$attribute ($numCards)", style: _headerStyle))
+            padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
+            child: Text("$attribute ($numCards)", style: _headerStyle))
       ];
 
       if (cardWidgets.isNotEmpty) {
-        deckView.add(
-          Column(
+        deckView.add(Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: header + (
-              (renderValues[0] == "text")
-                ? cardWidgets
-                : [GridView.count(
-                  physics: NeverScrollableScrollPhysics(),
-                  childAspectRatio: 0.72,
-                  crossAxisCount: int.parse(renderValues[1]),
-                  shrinkWrap: true,
-                  children: cardWidgets,
-                )]
-            )
-          )
-        );
+            children: header +
+                ((renderValues[0] == "text")
+                    ? cardWidgets
+                    : [
+                        GridView.count(
+                          physics: NeverScrollableScrollPhysics(),
+                          childAspectRatio: 0.72,
+                          crossAxisCount: int.parse(renderValues[1]),
+                          shrinkWrap: true,
+                          children: cardWidgets,
+                        )
+                      ])));
       }
     }
 
     // Add sideboard section if sideboard has cards
     if (deck.sideboard.isNotEmpty) {
-        // Add sideboard header
-        deckView.add(
-            Container(
-                padding: const EdgeInsets.fromLTRB(0, 30, 0, 10),
-                child: Text("Sideboard (${deck.sideboard.length})", style: _sideboardHeaderStyle)
-            )
-        );
+      // Add sideboard header
+      deckView.add(Container(
+          padding: const EdgeInsets.fromLTRB(0, 30, 0, 10),
+          child: Text("Sideboard (${deck.sideboard.length})",
+              style: _sideboardHeaderStyle)));
 
-        // Sort sideboard by mana cost from low to high
-        deck.sideboard.sort((a, b) => a.manaValue.compareTo(b.manaValue));
-        
-        // Generate sideboard widgets (ungrouped, just a flat list)
-        List<Widget> sideboardWidgets = deck.sideboard
-            .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
-            .entries.map((entry) => renderCard(entry.key, entry.value))
-            .toList();
+      // Sort sideboard by mana cost from low to high
+      deck.sideboard.sort((a, b) => a.manaValue.compareTo(b.manaValue));
 
-        // Add sideboard widgets to the view
-        if (renderValues[0] == "text") {
-            deckView.addAll(sideboardWidgets);
-        } else {
-            deckView.add(
-                GridView.count(
-                    physics: NeverScrollableScrollPhysics(),
-                    childAspectRatio: 0.72,
-                    crossAxisCount: int.parse(renderValues[1]),
-                    shrinkWrap: true,
-                    children: sideboardWidgets,
-                )
-            );
-        }
+      // Generate sideboard widgets (ungrouped, just a flat list)
+      List<Widget> sideboardWidgets = deck.sideboard
+          .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
+          .entries
+          .map((entry) => renderCard(entry.key, entry.value))
+          .toList();
+
+      // Add sideboard widgets to the view
+      if (renderValues[0] == "text") {
+        deckView.addAll(sideboardWidgets);
+      } else {
+        deckView.add(GridView.count(
+          physics: NeverScrollableScrollPhysics(),
+          childAspectRatio: 0.72,
+          crossAxisCount: int.parse(renderValues[1]),
+          shrinkWrap: true,
+          children: sideboardWidgets,
+        ));
+      }
     }
 
     return deckView;
@@ -695,86 +722,86 @@ class DeckViewerState extends State<DeckViewer> {
 
   Widget createTextCard(Card card, int count) {
     return GestureDetector(
-      onTap: () => showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            scrollable: true,
-            title: Text("Card Information", style: TextStyle(fontSize: 18),),
-            content: CardPopup(card: card),
-            actions: [
-              TextButton(
-                child: Text("Dismiss"),
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            ],
-          )
-      ),
-      child: Row(
-        spacing: 8,
-        children: [
-          Text(
-            (count > 1) ? "$count x ${card.title}" : card.name,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 16, height: 1.5),
-          ),
-          card.createManaCost()
-        ],
-      )
-    );
+        onTap: () => showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+                  scrollable: true,
+                  title: Text(
+                    "Card Information",
+                    style: TextStyle(fontSize: 18),
+                  ),
+                  content: CardPopup(card: card),
+                  actions: [
+                    TextButton(
+                      child: Text("Dismiss"),
+                      onPressed: () => Navigator.of(context).pop(),
+                    )
+                  ],
+                )),
+        child: Row(
+          spacing: 8,
+          children: [
+            Text(
+              (count > 1) ? "$count x ${card.title}" : card.name,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 16, height: 1.5),
+            ),
+            card.createManaCost()
+          ],
+        ));
   }
 
   Widget createVisualCard(Card card) {
     return FittedBox(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
-        child: Image.network(card.imageUri!),
-      )
-    );
+        child: ClipRRect(
+      borderRadius: BorderRadius.circular(25),
+      child: Image.network(card.imageUri!),
+    ));
   }
 
   Widget createVisualCardPopup(Card card, int count) {
     return Container(
-      padding: EdgeInsets.all(2),
-      child: GestureDetector(
-        onTap: () => showDialog(
-          context: context,
-          builder: (context) => AlertDialog(
-            scrollable: true,
-            title: Text("Card Information", style: TextStyle(fontSize: 18),),
-            content: CardPopup(card: card),
-            actions: [
-              TextButton(
-                child: Text("Dismiss"),
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            ],
-          )
-        ),
-        child: Stack(
-          children: [
-            createVisualCard(card),
-            if (count > 1)
-              Container(
-                alignment: Alignment.bottomLeft,
-                margin: EdgeInsets.symmetric(vertical: 15, horizontal: 13),
-                child: Text(
-                  "${count}x",
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: Colors.white,
-                    background: Paint()
-                      ..color = Colors.black.withAlpha(180)
-                      ..strokeWidth = 11
-                      ..strokeJoin = StrokeJoin.round
-                      ..strokeCap = StrokeCap.round
-                      ..style = PaintingStyle.stroke,
-                  ),
-                ),
-              )
-          ],
-        )
-      )
-    );
+        padding: EdgeInsets.all(2),
+        child: GestureDetector(
+            onTap: () => showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                      scrollable: true,
+                      title: Text(
+                        "Card Information",
+                        style: TextStyle(fontSize: 18),
+                      ),
+                      content: CardPopup(card: card),
+                      actions: [
+                        TextButton(
+                          child: Text("Dismiss"),
+                          onPressed: () => Navigator.of(context).pop(),
+                        )
+                      ],
+                    )),
+            child: Stack(
+              children: [
+                createVisualCard(card),
+                if (count > 1)
+                  Container(
+                    alignment: Alignment.bottomLeft,
+                    margin: EdgeInsets.symmetric(vertical: 15, horizontal: 13),
+                    child: Text(
+                      "${count}x",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: Colors.white,
+                        background: Paint()
+                          ..color = Colors.black.withAlpha(180)
+                          ..strokeWidth = 11
+                          ..strokeJoin = StrokeJoin.round
+                          ..strokeCap = StrokeCap.round
+                          ..style = PaintingStyle.stroke,
+                      ),
+                    ),
+                  )
+              ],
+            )));
   }
 }
 
@@ -792,8 +819,7 @@ void shareWithCubeCobra(Deck deck) {
       scheme: "https",
       host: "cubecobra.com",
       path: "cube/records/import",
-      queryParameters: queryParams
-  );
+      queryParameters: queryParams);
   launchUrl(cubecobraUri);
 }
 
@@ -801,51 +827,44 @@ void createInteractiveImageViewer(String imagePath, BuildContext context) {
   // This is currently the best approach without knowing the images HxW
   // dimensions. Requires a background, and for
   showDialog(
-    context: context,
-    builder: (innerContext) {
-      return AlertDialog(
-        insetPadding: EdgeInsets.zero, // Maximize viewing area
-        contentPadding: EdgeInsets.zero, // Maximize viewing area
-        actions: [
-          TextButton(
-            style: ButtonStyle(
-              foregroundColor: WidgetStateProperty.all(Colors.white),
-              backgroundColor: WidgetStateProperty.all(Colors.black38),
-            ),
-            child: const Text("Share"),
-            onPressed: () async {
-              final params = ShareParams(
-                files: [XFile(imagePath)]
-              );
-              await SharePlus.instance.share(params);
-              Navigator.of(context).pop();
-            },
-          ),
-          TextButton(
-            style: ButtonStyle(
-                foregroundColor: WidgetStateProperty.all(Colors.white),
-                backgroundColor: WidgetStateProperty.all(Colors.black38),
-            ),
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text("Back")
-          ),
-        ],
-        content: Column(
-          children: [
-            Expanded(
-                child: InteractiveViewer(
-                  clipBehavior: Clip.none,
-                    minScale: 1,
-                    maxScale: 4,
-                    boundaryMargin: const EdgeInsets.all(double.infinity),
-                    child: Image.file(File(imagePath))
-                )
-            )
-          ],
-        )
-      );
-    }
-  );
+      context: context,
+      builder: (innerContext) {
+        return AlertDialog(
+            insetPadding: EdgeInsets.zero, // Maximize viewing area
+            contentPadding: EdgeInsets.zero, // Maximize viewing area
+            actions: [
+              TextButton(
+                style: ButtonStyle(
+                  foregroundColor: MaterialStateProperty.all(Colors.white),
+                  backgroundColor: MaterialStateProperty.all(Colors.black38),
+                ),
+                child: const Text("Share"),
+                onPressed: () async {
+                  final params = ShareParams(files: [XFile(imagePath)]);
+                  await SharePlus.instance.share(params);
+                  Navigator.of(context).pop();
+                },
+              ),
+              TextButton(
+                  style: ButtonStyle(
+                    foregroundColor: MaterialStateProperty.all(Colors.white),
+                    backgroundColor: MaterialStateProperty.all(Colors.black38),
+                  ),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Back")),
+            ],
+            content: Column(
+              children: [
+                Expanded(
+                    child: InteractiveViewer(
+                        clipBehavior: Clip.none,
+                        minScale: 1,
+                        maxScale: 4,
+                        boundaryMargin: const EdgeInsets.all(double.infinity),
+                        child: Image.file(File(imagePath))))
+              ],
+            ));
+      });
 }
 
 class CardPopup extends StatefulWidget {
@@ -869,59 +888,53 @@ class _CardPopupState extends State<CardPopup> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      spacing: 20,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SizedBox(
+    return Column(spacing: 20, mainAxisSize: MainAxisSize.min, children: [
+      SizedBox(
           width: MediaQuery.of(context).size.width * 0.7,
           child: FittedBox(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(25),
-                child: Image.network(widget.card.imageUri!),
-              )
-          )
-        ),
-        FutureBuilder(
-            future: cardDataFuture,
-            builder: (context, snapshot) {
-              if (snapshot.hasData) {
-                final Map<String, dynamic> cardData = snapshot.data!;
-                return displayCardData(cardData);
-              }
-              return const CircularProgressIndicator();
+            borderRadius: BorderRadius.circular(25),
+            child: Image.network(widget.card.imageUri!),
+          ))),
+      FutureBuilder(
+          future: cardDataFuture,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              final Map<String, dynamic> cardData = snapshot.data!;
+              return displayCardData(cardData);
             }
-        ),
-        Divider(height: 4,),
-        Row(
+            return const CircularProgressIndicator();
+          }),
+      Divider(
+        height: 4,
+      ),
+      Row(
           mainAxisAlignment: MainAxisAlignment.start,
-          children: [Text("Rulings", style: _headerStyle)]
-        ),
-        FutureBuilder(
+          children: [Text("Rulings", style: _headerStyle)]),
+      FutureBuilder(
           future: rulingsFuture,
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               final rulings = snapshot.data!;
-              return Column(
-                children: [
-                  for (var ruling in rulings)
-                    ListTile(
-                      contentPadding: EdgeInsets.all(0),
-                      title: Text(ruling["published_at"]),
-                      subtitle: Text(ruling["comment"]),
-                    )
-                ]
-              );
+              return Column(children: [
+                for (var ruling in rulings)
+                  ListTile(
+                    contentPadding: EdgeInsets.all(0),
+                    title: Text(ruling["published_at"]),
+                    subtitle: Text(ruling["comment"]),
+                  )
+              ]);
             }
             return const CircularProgressIndicator();
-          }
-        ),
-      ]
-    );
+          }),
+    ]);
   }
 
   Future getCardData(String scryfallId) async {
-    final response = await scryfallGet('/cards/$scryfallId');
+    final response = await http.get(
+      Uri.parse("https://api.scryfall.com/cards/$scryfallId"),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
       return payload;
@@ -931,7 +944,10 @@ class _CardPopupState extends State<CardPopup> {
   }
 
   Future getRulingsData(String scryfallId) async {
-    final response = await scryfallGet('/cards/$scryfallId/rulings');
+    final response = await http.get(
+      Uri.parse("https://api.scryfall.com/cards/$scryfallId/rulings"),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
       final rulings = payload["data"];
@@ -961,8 +977,7 @@ Widget displayCardData(Map<String, dynamic> cardData) {
   }
 
   return Column(
-    spacing: 8,
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: widgets
-  );
+      spacing: 8,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: widgets);
 }

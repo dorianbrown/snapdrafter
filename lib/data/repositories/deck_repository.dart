@@ -98,7 +98,8 @@ class DeckRepository {
       }
 
       await _replaceDeckCardList(txn, 'decklists', deckId, deck.cards);
-      await _replaceDeckCardList(txn, 'sideboard_lists', deckId, deck.sideboard);
+      await _replaceDeckCardList(
+          txn, 'sideboard_lists', deckId, deck.sideboard);
     });
   }
 
@@ -118,7 +119,7 @@ class DeckRepository {
       INNER JOIN cards 
       ON sideboard_lists.scryfall_id = cards.scryfall_id 
     """);
-    
+
     // Get tags for all decks
     final tagsData = await dbClient.rawQuery("""
       SELECT dt.deck_id, t.name 
@@ -147,7 +148,7 @@ class DeckRepository {
           .where((x) => x['deck_id'] == deckId)
           .map((x) => Card.fromMap(x))
           .toList();
-          
+
       // Get tags for this deck
       final deckTags = tagsData
           .where((x) => x['deck_id'] == deckId)
@@ -175,28 +176,29 @@ class DeckRepository {
           imagePath: imagePath,
           cards: currentDecklist,
           sideboard: sideboardCardlist,
-          tags: deckTags
-      ));
+          tags: deckTags));
     }
     return deckList;
   }
 
   Future<void> deleteDeck(int id) async {
     final dbClient = await _db;
-    
+
     // Get image path before deletion
     final deck = await dbClient.query(
       'decks',
       where: 'id = ?',
       whereArgs: [id],
     );
-    
-    final imagePath = deck.isNotEmpty ? deck.first['image_path'] as String? : null;
+
+    final imagePath =
+        deck.isNotEmpty ? deck.first['image_path'] as String? : null;
 
     await dbClient.transaction((txn) async {
       await txn.delete('decks', where: 'id = ?', whereArgs: [id]);
       await txn.delete('decklists', where: 'deck_id = ?', whereArgs: [id]);
-      await txn.delete('sideboard_lists', where: 'deck_id = ?', whereArgs: [id]);
+      await txn
+          .delete('sideboard_lists', where: 'deck_id = ?', whereArgs: [id]);
       await txn.delete('deck_tags', where: 'deck_id = ?', whereArgs: [id]);
 
       // Delete image file if exists
@@ -219,7 +221,8 @@ class DeckRepository {
     final dbClient = await _db;
 
     final String ymd = deck.ymd ?? convertDatetimeToYMD(DateTime.now());
-    final String? storedImagePath = image != null ? await _saveDeckImage(image) : null;
+    final String? storedImagePath =
+        image != null ? await _saveDeckImage(image) : null;
 
     late final int deckId;
     await dbClient.transaction((txn) async {
@@ -239,7 +242,8 @@ class DeckRepository {
       );
 
       await _replaceDeckCardList(txn, 'decklists', deckId, deck.cards);
-      await _replaceDeckCardList(txn, 'sideboard_lists', deckId, deck.sideboard);
+      await _replaceDeckCardList(
+          txn, 'sideboard_lists', deckId, deck.sideboard);
     });
 
     // Match the "loaded deck" shape: imagePath should be a full path if it exists.
@@ -273,7 +277,8 @@ class DeckRepository {
       final directory = await getApplicationDocumentsDirectory();
       // Create folder if it doesn't exist
       Directory('${directory.path}/deck_images').createSync(recursive: true);
-      final imagePath = 'deck_images/${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final imagePath =
+          'deck_images/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
       final file = File("${directory.path}/$imagePath");
       await file.writeAsBytes(encodeJpg(image, quality: 60));
@@ -296,17 +301,15 @@ class DeckRepository {
     final dbClient = await _db;
     await dbClient.transaction((txn) async {
       // Insert tag if it doesn't exist
-      var tagResult = await txn.rawQuery(
-        'SELECT id FROM tags WHERE name = ?',
-        [tagName]
-      );
+      var tagResult =
+          await txn.rawQuery('SELECT id FROM tags WHERE name = ?', [tagName]);
       int tagId;
       if (tagResult.isEmpty) {
         tagId = await txn.insert('tags', {'name': tagName});
       } else {
         tagId = tagResult.first['id'] as int;
       }
-      
+
       // Link tag to deck
       await txn.insert(
         'deck_tags',
@@ -336,5 +339,4 @@ class DeckRepository {
       ''');
     });
   }
-
 }

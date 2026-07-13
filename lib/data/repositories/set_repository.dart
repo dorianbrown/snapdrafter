@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:convert'; // For json.decode
+import 'package:http/http.dart' as http; // For network requests
 import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:sqflite/sqflite.dart';
 
 import '/data/database/database_helper.dart';
 import '/data/models/set.dart';
 import '/utils/utils.dart';
-import '/utils/scryfall_api.dart';
-
 
 class SetRepository {
   late final DatabaseHelper _dbHelper;
@@ -19,7 +18,10 @@ class SetRepository {
   Future<Database> get _db async => await _dbHelper.database;
 
   Future<void> populateSetsTable() async {
-    final response = await scryfallGet('/sets');
+    final response = await http.get(
+      Uri.parse('https://api.scryfall.com/sets'),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
 
     if (response.statusCode == 200) {
       final values = json.decode(response.body);
@@ -46,12 +48,16 @@ class SetRepository {
       });
       debugPrint("Added ${setsData.length} sets to sets table");
     } else {
+      debugPrint(utf8.decode(response.bodyBytes));
       throw Exception('Failed to load sets from Scryfall API');
     }
   }
 
   Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
-    final response = await scryfallGet('/sets');
+    final response = await http.get(
+      Uri.parse('https://api.scryfall.com/sets'),
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+    );
 
     final validSetTypes = ["expansion", "core", "masters"];
 
@@ -68,10 +74,9 @@ class SetRepository {
           validSetTypes.contains(setType) &&
           (setData["digital"] == false)
         ) {
-          final releaseDate = DateTime.parse(releasedAt);
-          // Only store future dates (add 8 days buffer like in download_screen)
-          final bufferDate = releaseDate.add(const Duration(days: 8));
-          if (bufferDate.isAfter(now)) {
+          // Reduce the release date by 8 days, to account for prereleases
+          final releaseDate = DateTime.parse(releasedAt).subtract(const Duration(days: 8));
+          if (releaseDate.isAfter(now)) {
             upcomingDates[setData["code"]] = releaseDate;
           }
         }

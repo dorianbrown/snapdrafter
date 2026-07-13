@@ -39,7 +39,6 @@ class deckImageProcessing extends StatefulWidget {
 }
 
 class _deckImageProcessingState extends State<deckImageProcessing> {
-
   late TextRecognizer _textRecognizer;
   late Future<void> _loadModelsFuture;
   late img.Image decodedImage;
@@ -61,22 +60,20 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     _loadModelsFuture = _loadModels();
 
     // Start CardDetection after first layout complete
-    WidgetsBinding.instance
-      .addPostFrameCallback((_) {
-        _runCardDetection().catchError((e) {
-          debugPrint("Error: $e");
-          setState(() {
-            errorMessage = e.toString();
-          });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _runCardDetection().catchError((e) {
+        debugPrint("Error: $e");
+        setState(() {
+          errorMessage = e.toString();
         });
+      });
     });
   }
 
   Future<void> _loadModels() async {
     try {
       _textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-    }
-    catch (e) {
+    } catch (e) {
       setState(() {
         debugPrint("Error: $e");
         errorMessage = e.toString();
@@ -93,14 +90,14 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 50, vertical: 10),
-          child: FutureBuilder(
-            future: _loadModelsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                return Column(
+        body: Center(
+            child: Padding(
+      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 10),
+      child: FutureBuilder(
+          future: _loadModelsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done) {
+              return Column(
                   spacing: 25,
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -112,36 +109,33 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
                       textAlign: TextAlign.center,
                     ),
                     CircularProgressIndicator(
-                      value: currentTaskCount != null && totalCurrentTask != null
-                        ? currentTaskCount! / totalCurrentTask!
-                        : null,
+                      value:
+                          currentTaskCount != null && totalCurrentTask != null
+                              ? currentTaskCount! / totalCurrentTask!
+                              : null,
                     ),
                     Text(currentTaskCount != null && totalCurrentTask != null
                         ? "$currentTaskCount/$totalCurrentTask"
                         : ""),
                     Spacer(flex: 1),
-                    LinearProgressIndicator(
-                        value: currentStep / totalSteps
-                    ),
+                    LinearProgressIndicator(value: currentStep / totalSteps),
                     Text("Total Progress"),
                     if (errorMessage != null) ...[
-                      Text("Error:", style: TextStyle(
-                          color: Colors.redAccent,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold
-                      )),
+                      Text("Error:",
+                          style: TextStyle(
+                              color: Colors.redAccent,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold)),
                       Text(errorMessage ?? ""),
                     ],
-                    Spacer(flex: 3,)
-                  ]
-                );
-              }
-              return const CircularProgressIndicator();
+                    Spacer(
+                      flex: 3,
+                    )
+                  ]);
             }
-          ),
-        )
-      )
-    );
+            return const CircularProgressIndicator();
+          }),
+    )));
   }
 
   Future<void> _runCardDetection() async {
@@ -171,19 +165,19 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     final modelFile = await rootBundle.load(modelPath);
     final modelBuffer = modelFile.buffer.asUint8List();
 
-    List<Future<List<List<int>>>> futureDetections = [0, 90, 180, 270].map((rot) {
-      Uint8List detectionBytes = img.encodePng(img.copyRotate(inputImage, angle: rot));
-      return compute(_titleDetection, {
-        'inputBytes': detectionBytes,
-        'modelBuffer': modelBuffer
-      });
+    List<Future<List<List<int>>>> futureDetections =
+        [0, 90, 180, 270].map((rot) {
+      Uint8List detectionBytes =
+          img.encodePng(img.copyRotate(inputImage, angle: rot));
+      return compute(_titleDetection,
+          {'inputBytes': detectionBytes, 'modelBuffer': modelBuffer});
     }).toList();
 
     List<List<List<int>>> allDetections = await Future.wait(futureDetections);
 
     // Choose best orientation by number of detections
     int maxDetections = 0;
-    for (int i=0; i < 4; i++) {
+    for (int i = 0; i < 4; i++) {
       if (allDetections[i].length > maxDetections) {
         detections = allDetections[i];
         maxDetections = detections.length;
@@ -198,7 +192,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     inputImage = img.copyRotate(inputImage, angle: correctRotation);
     img.Image inputImageCopy = inputImage.clone();
-
 
     // Using MLKit OCR to turn BBox info into strings.
     List<Future<String>> detectionTextFutures = detections
@@ -252,11 +245,11 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     currentTaskCount = 0;
     totalCurrentTask = _numDetections;
 
-
     for (final text in detectionText) {
       debugPrint("Matching $text with database");
       final matchParams = MatchParams(query: text, choices: choices);
-      Future<ExtractedResult<String>> matchFuture = compute(runFuzzyMatch, matchParams);
+      Future<ExtractedResult<String>> matchFuture =
+          compute(runFuzzyMatch, matchParams);
       matchFuture.then((match) {
         setState(() {
           currentTaskCount = currentTaskCount! + 1;
@@ -270,11 +263,10 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     setState(() => currentStep += 1);
 
-    List<Card?> matchedCards = matches.map(
-            (match) => match.score > 5
-                ? allCards[choicesToCardsMap[match.index]!]
-                : null
-    ).toList();
+    List<Card?> matchedCards = matches
+        .map((match) =>
+            match.score > 5 ? allCards[choicesToCardsMap[match.index]!] : null)
+        .toList();
 
     // Add annotations to image
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
@@ -298,34 +290,24 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       img.drawString(outputImage, matchedCards[i]?.name ?? "",
           font: img.arial48,
           x: x1,
-          y: y1 - 55,  // Place text above box
-          color: overlayColor
-      );
+          y: y1 - 55, // Place text above box
+          color: overlayColor);
 
       // Create output list
       detectionOutput.add(Detection(
-        card: matchedCards[i],
-        ocrText: detectionText[i],
-        ocrDistance: matches[i].score,
-        textImage: img.copyCrop(
-          inputImageCopy,
-          x: x1,
-          y: y1,
-          width: x2 - x1,
-          height: y2 - y1
-        )
-      ));
+          card: matchedCards[i],
+          ocrText: detectionText[i],
+          ocrDistance: matches[i].score,
+          textImage: img.copyCrop(inputImageCopy,
+              x: x1, y: y1, width: x2 - x1, height: y2 - y1)));
     }
 
     // Add count of cards to image
-    img.drawString(
-      outputImage,
-      "Total Cards: ${matchedCards.length}",
-      font: img.arial48,
-      x: outputImage.width - 400,
-      y: outputImage.height - 150,
-      color: overlayColor
-    );
+    img.drawString(outputImage, "Total Cards: ${matchedCards.length}",
+        font: img.arial48,
+        x: outputImage.width - 400,
+        y: outputImage.height - 150,
+        color: overlayColor);
 
     if (widget.isSideboardStep) {
       await Navigator.of(context).pushReplacement(
@@ -358,25 +340,20 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     }
   }
 
-  Future<String> _transcribeDetection(List<int> detection, img.Image inputImage) async {
-
+  Future<String> _transcribeDetection(
+      List<int> detection, img.Image inputImage) async {
     // Extract only relevant part from inputImage
     var [x1, y1, x2, y2] = detection;
-    img.Image detectionImg = img.copyCrop(inputImage,
-        x: x1,
-        y: y1,
-        width: x2 - x1,
-        height: y2 - y1
-    );
+    img.Image detectionImg =
+        img.copyCrop(inputImage, x: x1, y: y1, width: x2 - x1, height: y2 - y1);
 
     // The OCR package fails on image with height < 32px. Here we resize titles
     // higher than 16px to 32px.
     if ((detectionImg.height < 32) && (detectionImg.height > 16)) {
       detectionImg = img.copyResize(detectionImg,
-        height: 33,
-        maintainAspect: true,
-        interpolation: img.Interpolation.cubic
-      );
+          height: 33,
+          maintainAspect: true,
+          interpolation: img.Interpolation.cubic);
     }
 
     // Convert img.Image to MLKit inputImage
@@ -397,11 +374,11 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     // Run MLKit text recognition
     try {
-      final RecognizedText recognizedText = await _textRecognizer.processImage(detectionImage);
+      final RecognizedText recognizedText =
+          await _textRecognizer.processImage(detectionImage);
       debugPrint("Text: ${recognizedText.text}");
       return recognizedText.text;
-    }
-    catch (e) {
+    } catch (e) {
       // When OCR fails (ie < 32px), for we'll return the current NaN, empty string
       return "";
     }
@@ -418,7 +395,8 @@ Future<img.Image> processInputImage(String fp) async {
   }
   Uint8List fileBytes = await File(fp).readAsBytes();
   final decodedImage = img.decodeImage(fileBytes)!;
-  debugPrint("Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
+  debugPrint(
+      "Loaded image dimensions: ${decodedImage.width}x${decodedImage.height}");
   return decodedImage;
 }
 
@@ -446,12 +424,12 @@ Future<List<List<int>>> _titleDetection(Map argMap) async {
   );
 
   // Initializing input/output tensors
-  final inputTensor = List<double>
-      .filled(input.shape.reduce((a, b) => a * b), 0)
-      .reshape(input.shape);
-  final outputTensor = List<double>
-      .filled(output.shape.reduce((a, b) => a * b), -1)
-      .reshape(output.shape);
+  final inputTensor =
+      List<double>.filled(input.shape.reduce((a, b) => a * b), 0)
+          .reshape(input.shape);
+  final outputTensor =
+      List<double>.filled(output.shape.reduce((a, b) => a * b), -1)
+          .reshape(output.shape);
 
   // Filling input tensor with image data
   for (int y = 0; y < inputH; y++) {
@@ -471,17 +449,20 @@ Future<List<List<int>>> _titleDetection(Map argMap) async {
   // image dimensions
   bool isPortrait = inputImage.width < inputImage.height;
   int scalingFactor = isPortrait ? inputImage.height : inputImage.width;
-  double widthPadding = isPortrait ? (inputImage.height - inputImage.width) / 2 : 0.0;
-  double heightPadding = !isPortrait ? (inputImage.width - inputImage.height) / 2 : 0.0;
+  double widthPadding =
+      isPortrait ? (inputImage.height - inputImage.width) / 2 : 0.0;
+  double heightPadding =
+      !isPortrait ? (inputImage.width - inputImage.height) / 2 : 0.0;
 
   List<List<int>> detections = (outputTensor[0] as List<List<double>>)
       .where((element) => (element[4] > detectionThreshold))
       .map((el) => [
-    (el[0] * scalingFactor - widthPadding).toInt(),
-    (el[1] * scalingFactor - heightPadding).toInt(),
-    (el[2] * scalingFactor - widthPadding).toInt(),
-    (el[3] * scalingFactor - heightPadding).toInt()
-  ]).toList();
+            (el[0] * scalingFactor - widthPadding).toInt(),
+            (el[1] * scalingFactor - heightPadding).toInt(),
+            (el[2] * scalingFactor - widthPadding).toInt(),
+            (el[3] * scalingFactor - heightPadding).toInt()
+          ])
+      .toList();
 
   return detections;
 }
