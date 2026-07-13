@@ -42,6 +42,7 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
     super.dispose();
   }
 
+  @override
   void initState() {
     slidableController = SlidableController(this);
     super.initState();
@@ -102,13 +103,13 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
 
   // In order to explain slidability, we programmatically show both sides on first deck
   Future<void> _showFirstDeckTutorial() async {
-    Curve _curve = Easing.emphasizedDecelerate;
+    Curve curve = Easing.emphasizedDecelerate;
     Future.delayed(Duration(milliseconds: 500)).then((_) async {
-      await slidableController.openEndActionPane(duration: Duration(seconds: 1), curve: _curve);
+      await slidableController.openEndActionPane(duration: Duration(seconds: 1), curve: curve);
     }).then((_) async {
-      await slidableController.close(duration: Duration(seconds: 1), curve: _curve);
+      await slidableController.close(duration: Duration(seconds: 1), curve: curve);
     }).then((_) async {
-      await slidableController.openStartActionPane(duration: Duration(seconds: 1), curve: _curve);
+      await slidableController.openStartActionPane(duration: Duration(seconds: 1), curve: curve);
     });
     widget.onFirstDeckViewed(); // Mark as seen after showing toast
   }
@@ -141,7 +142,7 @@ class _DeckTileState extends State<DeckTile> with SingleTickerProviderStateMixin
         Text("$subtitle${widget.deck.ymd}"),
         if (tagChips.isNotEmpty)
           SizedBox(height: 4),
-        Wrap(children: tagChips, spacing: 5, runSpacing: 5,),
+        Wrap(spacing: 5, runSpacing: 5,children: tagChips,),
       ],
     );
   }

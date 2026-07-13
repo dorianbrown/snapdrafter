@@ -11,7 +11,7 @@ import '/data/repositories/cube_repository.dart';
 import '/data/database/backup_helper.dart';
 
 class BackupSettings extends StatefulWidget {
-  const BackupSettings({Key? key}) : super(key: key);
+  const BackupSettings({super.key});
 
   @override
   State<BackupSettings> createState() => _BackupSettingsState();
@@ -149,7 +149,7 @@ class _BackupSettingsState extends State<BackupSettings> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceVariant,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

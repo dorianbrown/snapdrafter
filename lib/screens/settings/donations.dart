@@ -1,10 +1,11 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_donation_buttons/flutter_donation_buttons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class DonationScreen extends StatelessWidget {
+  const DonationScreen({super.key});
+
 
   @override
   Widget build(BuildContext context) {

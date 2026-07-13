@@ -13,7 +13,7 @@ import 'settings/donations.dart';
 import '/utils/theme_notifier.dart';
 
 class Settings extends StatefulWidget {
-  const Settings({Key? key}) : super(key: key);
+  const Settings({super.key});
 
   @override
   State<Settings> createState() => _SettingsState();

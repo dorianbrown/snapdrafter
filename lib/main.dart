@@ -120,7 +120,7 @@ class MainAppState extends State<MainApp> {
 
       final passedDates = upcomingDates.entries
           .where((entry) => 
-              entry.value.isBefore(now) && 
+              entry.value.subtract(Duration(days: 14)).isBefore(now) &&
               !promptedSets.contains(entry.key))
           .toList();
       

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class UserSettings extends StatefulWidget {
-  const UserSettings({Key? key}) : super(key: key);
+  const UserSettings({super.key});
 
   @override
   State<UserSettings> createState() => _UserSettingsState();

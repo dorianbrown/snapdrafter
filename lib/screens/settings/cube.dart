@@ -7,7 +7,7 @@ import '/data/models/card.dart';
 import '/data/repositories/cube_repository.dart';
 
 class CubeSettings extends StatefulWidget {
-  const CubeSettings({Key? key}) : super(key: key);
+  const CubeSettings({super.key});
 
   @override
   State<CubeSettings> createState() => _CubeSettingsState();

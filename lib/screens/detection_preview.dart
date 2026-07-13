@@ -83,7 +83,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       cards: matchedCards,
       sideboard: const [],
     );
-    final img.Image? baseDeckImage = originalImage;
+    final img.Image baseDeckImage = originalImage;
 
     switch (widget.captureSource) {
       case CaptureSource.gallery:
@@ -352,8 +352,8 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               actions: [
                 TextButton(
                     style: ButtonStyle(
-                      foregroundColor: MaterialStateProperty.all(Colors.white),
-                      backgroundColor: MaterialStateProperty.all(Colors.black38),
+                      foregroundColor: WidgetStateProperty.all(Colors.white),
+                      backgroundColor: WidgetStateProperty.all(Colors.black38),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text("Back")
