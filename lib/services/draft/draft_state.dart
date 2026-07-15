@@ -1,0 +1,533 @@
+import 'dart:math';
+
+enum DraftPhase {
+  advertising,
+  lobby,
+  seatingsAssigned,
+  inProgress,
+  complete;
+
+  String get name {
+    switch (this) {
+      case DraftPhase.advertising:
+        return 'advertising';
+      case DraftPhase.lobby:
+        return 'lobby';
+      case DraftPhase.seatingsAssigned:
+        return 'seatings_assigned';
+      case DraftPhase.inProgress:
+        return 'in_progress';
+      case DraftPhase.complete:
+        return 'complete';
+    }
+  }
+
+  static DraftPhase fromString(String value) {
+    return DraftPhase.values.firstWhere(
+      (p) => p.name == value,
+      orElse: () => DraftPhase.lobby,
+    );
+  }
+}
+
+enum PlayerStatus {
+  pending,
+  accepted,
+  dropped;
+
+  String get name {
+    switch (this) {
+      case PlayerStatus.pending:
+        return 'pending';
+      case PlayerStatus.accepted:
+        return 'accepted';
+      case PlayerStatus.dropped:
+        return 'dropped';
+    }
+  }
+
+  static PlayerStatus fromString(String value) {
+    return PlayerStatus.values.firstWhere(
+      (p) => p.name == value,
+      orElse: () => PlayerStatus.pending,
+    );
+  }
+}
+
+enum MatchStatus {
+  pending,
+  reported,
+  confirmed,
+  conflicted;
+
+  String get name {
+    switch (this) {
+      case MatchStatus.pending:
+        return 'pending';
+      case MatchStatus.reported:
+        return 'reported';
+      case MatchStatus.confirmed:
+        return 'confirmed';
+      case MatchStatus.conflicted:
+        return 'conflicted';
+    }
+  }
+
+  static MatchStatus fromString(String value) {
+    return MatchStatus.values.firstWhere(
+      (p) => p.name == value,
+      orElse: () => MatchStatus.pending,
+    );
+  }
+}
+
+class DraftPlayer {
+  final String deviceId;
+  final String playerName;
+  final String deviceName;
+  final int? seatNumber;
+  final int joinOrder;
+  final PlayerStatus status;
+  final int matchWins;
+  final int matchLosses;
+  final int matchDraws;
+
+  const DraftPlayer({
+    required this.deviceId,
+    required this.playerName,
+    required this.deviceName,
+    this.seatNumber,
+    required this.joinOrder,
+    this.status = PlayerStatus.pending,
+    this.matchWins = 0,
+    this.matchLosses = 0,
+    this.matchDraws = 0,
+  });
+
+  int get matchPoints => matchWins * 3 + matchDraws;
+  double get gameWinPercentage {
+    final totalGames = matchWins + matchLosses + matchDraws;
+    if (totalGames == 0) return 0.0;
+    return (matchWins + matchDraws * 0.5) / totalGames;
+  }
+
+  DraftPlayer copyWith({
+    String? deviceId,
+    String? playerName,
+    String? deviceName,
+    int? seatNumber,
+    int? joinOrder,
+    PlayerStatus? status,
+    int? matchWins,
+    int? matchLosses,
+    int? matchDraws,
+    bool clearSeat = false,
+  }) {
+    return DraftPlayer(
+      deviceId: deviceId ?? this.deviceId,
+      playerName: playerName ?? this.playerName,
+      deviceName: deviceName ?? this.deviceName,
+      seatNumber: clearSeat ? null : (seatNumber ?? this.seatNumber),
+      joinOrder: joinOrder ?? this.joinOrder,
+      status: status ?? this.status,
+      matchWins: matchWins ?? this.matchWins,
+      matchLosses: matchLosses ?? this.matchLosses,
+      matchDraws: matchDraws ?? this.matchDraws,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'deviceId': deviceId,
+    'playerName': playerName,
+    'deviceName': deviceName,
+    'seatNumber': seatNumber,
+    'joinOrder': joinOrder,
+    'status': status.name,
+    'matchWins': matchWins,
+    'matchLosses': matchLosses,
+    'matchDraws': matchDraws,
+  };
+
+  factory DraftPlayer.fromJson(Map<String, dynamic> json) {
+    return DraftPlayer(
+      deviceId: json['deviceId'] as String,
+      playerName: json['playerName'] as String,
+      deviceName: json['deviceName'] as String,
+      seatNumber: json['seatNumber'] as int?,
+      joinOrder: json['joinOrder'] as int,
+      status: PlayerStatus.fromString(json['status'] as String),
+      matchWins: json['matchWins'] as int? ?? 0,
+      matchLosses: json['matchLosses'] as int? ?? 0,
+      matchDraws: json['matchDraws'] as int? ?? 0,
+    );
+  }
+}
+
+class DraftMatch {
+  final String matchId;
+  final int roundNumber;
+  final String playerAId;
+  final String? playerBId;
+  final int? aWins;
+  final int? bWins;
+  final int? draws;
+  final MatchStatus status;
+
+  const DraftMatch({
+    required this.matchId,
+    required this.roundNumber,
+    required this.playerAId,
+    this.playerBId,
+    this.aWins,
+    this.bWins,
+    this.draws,
+    this.status = MatchStatus.pending,
+  });
+
+  bool get isBye => playerBId == null;
+
+  DraftMatch copyWith({
+    String? matchId,
+    int? roundNumber,
+    String? playerAId,
+    String? playerBId,
+    int? aWins,
+    int? bWins,
+    int? draws,
+    MatchStatus? status,
+    bool clearPlayerB = false,
+  }) {
+    return DraftMatch(
+      matchId: matchId ?? this.matchId,
+      roundNumber: roundNumber ?? this.roundNumber,
+      playerAId: playerAId ?? this.playerAId,
+      playerBId: clearPlayerB ? null : (playerBId ?? this.playerBId),
+      aWins: aWins ?? this.aWins,
+      bWins: bWins ?? this.bWins,
+      draws: draws ?? this.draws,
+      status: status ?? this.status,
+    );
+  }
+
+  String? winnerId() {
+    if (status != MatchStatus.confirmed) return null;
+    if (isBye) return playerAId;
+    if (aWins == null || bWins == null) return null;
+    if (aWins! > bWins!) return playerAId;
+    if (bWins! > aWins!) return playerBId;
+    return null;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'matchId': matchId,
+    'roundNumber': roundNumber,
+    'playerAId': playerAId,
+    'playerBId': playerBId,
+    'aWins': aWins,
+    'bWins': bWins,
+    'draws': draws,
+    'status': status.name,
+  };
+
+  factory DraftMatch.fromJson(Map<String, dynamic> json) {
+    return DraftMatch(
+      matchId: json['matchId'] as String,
+      roundNumber: json['roundNumber'] as int,
+      playerAId: json['playerAId'] as String,
+      playerBId: json['playerBId'] as String?,
+      aWins: json['aWins'] as int?,
+      bWins: json['bWins'] as int?,
+      draws: json['draws'] as int?,
+      status: MatchStatus.fromString(json['status'] as String),
+    );
+  }
+}
+
+class DraftRound {
+  final int roundNumber;
+  final List<DraftMatch> matches;
+  final bool complete;
+
+  const DraftRound({
+    required this.roundNumber,
+    required this.matches,
+    this.complete = false,
+  });
+
+  DraftRound copyWith({
+    int? roundNumber,
+    List<DraftMatch>? matches,
+    bool? complete,
+  }) {
+    return DraftRound(
+      roundNumber: roundNumber ?? this.roundNumber,
+      matches: matches ?? this.matches,
+      complete: complete ?? this.complete,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'roundNumber': roundNumber,
+    'matches': matches.map((m) => m.toJson()).toList(),
+    'complete': complete,
+  };
+
+  factory DraftRound.fromJson(Map<String, dynamic> json) {
+    return DraftRound(
+      roundNumber: json['roundNumber'] as int,
+      matches: (json['matches'] as List<dynamic>)
+          .map((m) => DraftMatch.fromJson(m as Map<String, dynamic>))
+          .toList(),
+      complete: json['complete'] as bool? ?? false,
+    );
+  }
+}
+
+class DraftSession {
+  final String sessionId;
+  final String name;
+  final String? setCode;
+  final String? cubeId;
+  final int seatCount;
+  final DraftPhase phase;
+  final int totalRounds;
+  final DateTime createdAt;
+
+  const DraftSession({
+    required this.sessionId,
+    required this.name,
+    this.setCode,
+    this.cubeId,
+    required this.seatCount,
+    this.phase = DraftPhase.lobby,
+    required this.totalRounds,
+    required this.createdAt,
+  });
+
+  DraftSession copyWith({
+    String? sessionId,
+    String? name,
+    String? setCode,
+    String? cubeId,
+    int? seatCount,
+    DraftPhase? phase,
+    int? totalRounds,
+    DateTime? createdAt,
+    bool clearSetCode = false,
+    bool clearCubeId = false,
+  }) {
+    return DraftSession(
+      sessionId: sessionId ?? this.sessionId,
+      name: name ?? this.name,
+      setCode: clearSetCode ? null : (setCode ?? this.setCode),
+      cubeId: clearCubeId ? null : (cubeId ?? this.cubeId),
+      seatCount: seatCount ?? this.seatCount,
+      phase: phase ?? this.phase,
+      totalRounds: totalRounds ?? this.totalRounds,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'sessionId': sessionId,
+    'name': name,
+    'setCode': setCode,
+    'cubeId': cubeId,
+    'seatCount': seatCount,
+    'phase': phase.name,
+    'totalRounds': totalRounds,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  factory DraftSession.fromJson(Map<String, dynamic> json) {
+    return DraftSession(
+      sessionId: json['sessionId'] as String,
+      name: json['name'] as String,
+      setCode: json['setCode'] as String?,
+      cubeId: json['cubeId'] as String?,
+      seatCount: json['seatCount'] as int,
+      phase: DraftPhase.fromString(json['phase'] as String),
+      totalRounds: json['totalRounds'] as int,
+      createdAt: DateTime.parse(json['createdAt'] as String),
+    );
+  }
+}
+
+class DraftState {
+  final int sequenceNumber;
+  final DraftSession session;
+  final List<DraftPlayer> players;
+  final List<DraftRound> rounds;
+
+  const DraftState({
+    required this.sequenceNumber,
+    required this.session,
+    this.players = const [],
+    this.rounds = const [],
+  });
+
+  String? get leaderDeviceId {
+    if (players.isEmpty) return null;
+    final sorted = [...players]..sort((a, b) => a.joinOrder.compareTo(b.joinOrder));
+    return sorted.first.deviceId;
+  }
+
+  List<DraftPlayer> get acceptedPlayers =>
+      players.where((p) => p.status == PlayerStatus.accepted).toList();
+
+  List<DraftPlayer> get activePlayers =>
+      players.where((p) => p.status != PlayerStatus.dropped).toList();
+
+  DraftPlayer? getPlayer(String deviceId) {
+    try {
+      return players.firstWhere((p) => p.deviceId == deviceId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DraftMatch? getMyMatch(String deviceId, int roundNumber) {
+    try {
+      return rounds.firstWhere((r) => r.roundNumber == roundNumber).matches
+          .firstWhere((m) =>
+              m.playerAId == deviceId || m.playerBId == deviceId);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<DraftPlayer> get standings {
+    final active = acceptedPlayers;
+    final opponents = <String, List<String>>{};
+    final gameWinRecords = <String, List<int>>{};
+
+    for (final round in rounds) {
+      for (final match in round.matches) {
+        if (match.playerBId == null) continue;
+        opponents.putIfAbsent(match.playerAId, () => []).add(match.playerBId!);
+        opponents.putIfAbsent(match.playerBId!, () => []).add(match.playerAId);
+        if (match.aWins != null && match.bWins != null) {
+          gameWinRecords.putIfAbsent(match.playerAId, () => []).add(match.aWins!);
+          gameWinRecords.putIfAbsent(match.playerBId!, () => []).add(match.bWins!);
+        }
+      }
+    }
+
+    double? opponentMatchWinPercent(String playerId) {
+      final opps = opponents[playerId];
+      if (opps == null || opps.isEmpty) return 0.0;
+      final oppMWP = opps.map((oppId) {
+        final opp = getPlayer(oppId);
+        if (opp == null) return 0.0;
+        final totalMatches = opp.matchWins + opp.matchLosses + opp.matchDraws;
+        if (totalMatches == 0) return 0.0;
+        return (opp.matchWins * 3 + opp.matchDraws) / (totalMatches * 3);
+      }).toList();
+      return oppMWP.reduce((a, b) => a + b) / oppMWP.length;
+    }
+
+    final sorted = [...active]..sort((a, b) {
+      final pointsCompare = b.matchPoints.compareTo(a.matchPoints);
+      if (pointsCompare != 0) return pointsCompare;
+      final omwpA = opponentMatchWinPercent(a.deviceId) ?? 0.0;
+      final omwpB = opponentMatchWinPercent(b.deviceId) ?? 0.0;
+      final omwpCompare = omwpB.compareTo(omwpA);
+      if (omwpCompare != 0) return omwpCompare;
+      return b.gameWinPercentage.compareTo(a.gameWinPercentage);
+    });
+
+    return sorted;
+  }
+
+  DraftState copyWith({
+    int? sequenceNumber,
+    DraftSession? session,
+    List<DraftPlayer>? players,
+    List<DraftRound>? rounds,
+  }) {
+    return DraftState(
+      sequenceNumber: sequenceNumber ?? this.sequenceNumber,
+      session: session ?? this.session,
+      players: players ?? this.players,
+      rounds: rounds ?? this.rounds,
+    );
+  }
+
+  DraftState bumpSequence() => copyWith(sequenceNumber: sequenceNumber + 1);
+
+  Map<String, dynamic> toJson() => {
+    'sequenceNumber': sequenceNumber,
+    'session': session.toJson(),
+    'players': players.map((p) => p.toJson()).toList(),
+    'rounds': rounds.map((r) => r.toJson()).toList(),
+  };
+
+  factory DraftState.fromJson(Map<String, dynamic> json) {
+    return DraftState(
+      sequenceNumber: json['sequenceNumber'] as int,
+      session: DraftSession.fromJson(json['session'] as Map<String, dynamic>),
+      players: (json['players'] as List<dynamic>)
+          .map((p) => DraftPlayer.fromJson(p as Map<String, dynamic>))
+          .toList(),
+      rounds: (json['rounds'] as List<dynamic>?)
+          ?.map((r) => DraftRound.fromJson(r as Map<String, dynamic>))
+          .toList() ?? [],
+    );
+  }
+
+  static DraftState create({
+    required String name,
+    required String leaderDeviceId,
+    String? setCode,
+    String? cubeId,
+    required int seatCount,
+  }) {
+    final sessionId = _generateId();
+    final totalRounds = (log2(seatCount).ceil()).clamp(3, 6);
+
+    return DraftState(
+      sequenceNumber: 0,
+      session: DraftSession(
+        sessionId: sessionId,
+        name: name,
+        setCode: setCode,
+        cubeId: cubeId,
+        seatCount: seatCount,
+        phase: DraftPhase.lobby,
+        totalRounds: totalRounds,
+        createdAt: DateTime.now(),
+      ),
+      players: [
+        DraftPlayer(
+          deviceId: leaderDeviceId,
+          playerName: '',
+          deviceName: '',
+          joinOrder: 0,
+          seatNumber: 1,
+          status: PlayerStatus.accepted,
+        ),
+      ],
+    );
+  }
+}
+
+int log2(int n) {
+  var count = 0;
+  while (n > 1) {
+    n >>= 1;
+    count++;
+  }
+  return count;
+}
+
+final _random = Random();
+
+String _generateId() {
+  final chars = 'abcdef0123456789';
+  String hex(int len) => List.generate(
+        len,
+        (_) => chars[_random.nextInt(chars.length)],
+      ).join();
+
+  return '${hex(8)}-${hex(4)}-${hex(4)}-${hex(4)}-${hex(12)}';
+}

@@ -12,10 +12,13 @@ import '/data/repositories/set_repository.dart';
 import '/screens/decks_overview.dart';
 import '/screens/image_processing_screen.dart';
 import '/screens/settings/download_screen.dart';
+import '/services/draft/draft_session_notifier.dart';
 import '/utils/release_date_helper.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
 import '/widgets/update_prompt_dialog.dart';
+
+import 'dart:math';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,9 +42,17 @@ Future<void> main() async {
   final themeNotifier = ThemeNotifier();
   themeNotifier.setTheme(currentTheme);
 
+  String deviceId = prefs.getString('device_id') ?? _generateDeviceId();
+  await prefs.setString('device_id', deviceId);
+
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => themeNotifier,
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => themeNotifier),
+        ChangeNotifierProvider(
+          create: (_) => DraftSessionNotifier(myDeviceId: deviceId),
+        ),
+      ],
       child: MainApp(),
     ),
   );
@@ -186,4 +197,15 @@ class MainAppState extends State<MainApp> {
     _intentDataStreamSubscription.cancel();
     super.dispose();
   }
+}
+
+final _randomDevice = Random();
+
+String _generateDeviceId() {
+  final chars = 'abcdef0123456789';
+  String hex(int len) => List.generate(
+        len,
+        (_) => chars[_randomDevice.nextInt(chars.length)],
+      ).join();
+  return '${hex(8)}-${hex(4)}-${hex(4)}-${hex(4)}-${hex(12)}';
 }

@@ -84,7 +84,7 @@ class _BackupSettingsState extends State<BackupSettings> {
   }
 
   Future<void> _restoreBackup() async {
-    final result = await FilePicker.platform.pickFiles();
+    final result = await FilePicker.pickFiles();
 
     if (result == null) return;
 
