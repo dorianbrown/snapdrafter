@@ -14,15 +14,9 @@ subprojects {
 }
 
 allprojects {
-    if (!state.executed) {
-        afterEvaluate {
-            if (hasProperty("android")) {
-                android.compileOptions {
-                    sourceCompatibility = JavaVersion.VERSION_21
-                    targetCompatibility = JavaVersion.VERSION_21
-                }
-            }
-        }
+    tasks.withType(JavaCompile).configureEach {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 }
 
