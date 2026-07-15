@@ -47,16 +47,7 @@ android {
     }
 }
 
-subprojects { subproject ->
-    subproject.afterEvaluate {
-        if (subproject.hasProperty("android")) {
-            subproject.android.compileOptions {
-                sourceCompatibility = JavaVersion.VERSION_21
-                targetCompatibility = JavaVersion.VERSION_21
-            }
-        }
-    }
-}
+
 
 flutter {
     source = "../.."

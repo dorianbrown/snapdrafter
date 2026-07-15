@@ -39,7 +39,10 @@ class _DebugScreenState extends State<DebugScreen> {
 
   @override
   void dispose() {
-    _stopScan();
+    _scanSub?.cancel();
+    _scanSub = null;
+    _scanFollower?.stopScan();
+    _scanFollower = null;
     super.dispose();
   }
 
