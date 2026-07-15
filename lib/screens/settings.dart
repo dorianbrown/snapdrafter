@@ -24,6 +24,7 @@ class _SettingsState extends State<Settings> {
   late PackageInfo _packageInfo;
   ThemeMode currentThemeMode = ThemeMode.light;
   late SharedPreferences prefs;
+  bool _debugEnabled = false;
 
   @override
   void initState() {
@@ -45,6 +46,7 @@ class _SettingsState extends State<Settings> {
         "auto" => ThemeMode.system,
         _ => ThemeMode.dark
       };
+      _debugEnabled = prefs.getBool("debug_enabled") ?? false;
     });
   }
 
@@ -215,7 +217,14 @@ class _SettingsState extends State<Settings> {
             ListTile(
               title: Text("About"),
               leading: Icon(Icons.info),
-              subtitle: Text("Information about the app", style: subtitleColor),
+              subtitle: Text(
+                _debugEnabled
+                    ? "Debug mode on. Hold 'About' to disable"
+                    : "Information about the app",
+                style: _debugEnabled
+                    ? subtitleColor.copyWith(color: Colors.red)
+                    : subtitleColor,
+              ),
               onTap: () {
                 showAboutDialog(
                   context: context,
@@ -224,7 +233,22 @@ class _SettingsState extends State<Settings> {
                   applicationVersion: "${_packageInfo.version} (${_packageInfo.buildNumber})",
                   applicationLegalese: "© Copyright Dorian Brown 2025",
                 );
-              }
+              },
+              onLongPress: () async {
+                _debugEnabled = !_debugEnabled;
+                await prefs.setBool("debug_enabled", _debugEnabled);
+                setState(() {});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(_debugEnabled
+                          ? "Debug mode enabled"
+                          : "Debug mode disabled"),
+                      duration: Duration(seconds: 1),
+                    ),
+                  );
+                }
+              },
             ),
           ],
         )

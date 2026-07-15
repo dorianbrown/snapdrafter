@@ -17,6 +17,7 @@ import 'deck_scanner.dart';
 import 'settings/download_screen.dart';
 import 'image_processing_screen.dart';
 import 'settings.dart';
+import 'debug_screen.dart';
 
 import '/data/models/deck.dart';
 import '/data/models/cube.dart';
@@ -47,6 +48,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
   bool _hasSeenOverviewTutorial = false;
+  bool _debugEnabled = false;
   List<String> allTags = [];
 
   @override
@@ -81,6 +83,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   Future<void> _loadFirstDeckStatus() async {
     final prefs = await SharedPreferences.getInstance();
     _hasSeenOverviewTutorial = prefs.getBool("overview_tutorial_seen") ?? false;
+    _debugEnabled = prefs.getBool("debug_enabled") ?? false;
   }
 
   Future<void> _markFirstDeckSeen() async {
@@ -220,12 +223,25 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     });
                   }
                 }),
+            if (_debugEnabled)
+              IconButton(
+                  tooltip: "Debug Draft BLE",
+                  icon: Icon(Icons.diversity_3),
+                  onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (context) => DebugScreen()))),
             Spacer(),
             IconButton(
                 tooltip: "Settings Menu",
                 icon: Icon(Icons.settings),
-                onPressed: () => Navigator.of(context)
-                    .push(MaterialPageRoute(builder: (context) => Settings()))),
+                onPressed: () =>
+                    Navigator.of(context)
+                        .push(MaterialPageRoute(
+                            builder: (context) => Settings()))
+                        .then((_) async {
+                      await _loadFirstDeckStatus();
+                      setState(() {});
+                    })),
           ]),
         ),
         body: FutureBuilder(
