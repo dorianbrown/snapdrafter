@@ -27,22 +27,26 @@ class DiscoveredDraft {
 
 class DraftBleLeader extends DraftBleService {
   final _connectedDevices = <String>{};
-  final _followerConnectedCtrl = StreamController<String>.broadcast();
-  final _followerDisconnectedCtrl = StreamController<String>.broadcast();
+  StreamController<String>? _followerConnectedCtrl;
+  StreamController<String>? _followerDisconnectedCtrl;
   StreamSubscription<BlePeripheralAdvertisingStateChanged>? _advStateSub;
+  StreamSubscription<BlePeripheralCharacteristicSubscriptionChanged>? _charSubStreamSub;
 
   Uint8List? _currentMetaBytes;
   Uint8List? _currentStateBytes;
   DraftState? _currentState;
 
-  Stream<String> get followerConnected => _followerConnectedCtrl.stream;
-  Stream<String> get followerDisconnected => _followerDisconnectedCtrl.stream;
+  Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
+  Stream<String>? get followerDisconnected => _followerDisconnectedCtrl?.stream;
 
   void Function(String deviceId, DraftCommand command)? onCommandReceived;
   DraftState? get currentState => _currentState;
 
   Future<void> startAsLeader(DraftState state) async {
     _currentState = state;
+
+    _followerConnectedCtrl = StreamController<String>.broadcast();
+    _followerDisconnectedCtrl = StreamController<String>.broadcast();
 
     final caps = await UniversalBlePeripheral.getCapabilities();
     print('[BLE_ADV] peripheral capabilities: supportsPeripheralMode=${caps.supportsPeripheralMode}');
@@ -56,36 +60,42 @@ class DraftBleLeader extends DraftBleService {
       throw Exception('Bluetooth not ready for advertising');
     }
 
-    await UniversalBlePeripheral.addService(
-      BlePeripheralService(
-        uuid: DraftBleService.serviceUuid,
-        primary: true,
-        characteristics: [
-          BlePeripheralCharacteristic(
-            uuid: DraftBleService.metaCharUuid,
-            properties: [
-              CharacteristicProperty.read,
-              CharacteristicProperty.notify,
-            ],
-            permissions: [PeripheralAttributePermission.readable],
-          ),
-          BlePeripheralCharacteristic(
-            uuid: DraftBleService.stateCharUuid,
-            properties: [
-              CharacteristicProperty.read,
-              CharacteristicProperty.notify,
-            ],
-            permissions: [PeripheralAttributePermission.readable],
-          ),
-          BlePeripheralCharacteristic(
-            uuid: DraftBleService.commandCharUuid,
-            properties: [CharacteristicProperty.write],
-            permissions: [PeripheralAttributePermission.writeable],
-          ),
-        ],
-      ),
-    );
-    print('[BLE_ADV] service added: ${DraftBleService.serviceUuid}');
+    print('[BLE_ADV] adding service...');
+    try {
+      await UniversalBlePeripheral.addService(
+        BlePeripheralService(
+          uuid: DraftBleService.serviceUuid,
+          primary: true,
+          characteristics: [
+            BlePeripheralCharacteristic(
+              uuid: DraftBleService.metaCharUuid,
+              properties: [
+                CharacteristicProperty.read,
+                CharacteristicProperty.notify,
+              ],
+              permissions: [PeripheralAttributePermission.readable],
+            ),
+            BlePeripheralCharacteristic(
+              uuid: DraftBleService.stateCharUuid,
+              properties: [
+                CharacteristicProperty.read,
+                CharacteristicProperty.notify,
+              ],
+              permissions: [PeripheralAttributePermission.readable],
+            ),
+            BlePeripheralCharacteristic(
+              uuid: DraftBleService.commandCharUuid,
+              properties: [CharacteristicProperty.write],
+              permissions: [PeripheralAttributePermission.writeable],
+            ),
+          ],
+        ),
+      );
+      print('[BLE_ADV] service added: ${DraftBleService.serviceUuid}');
+    } catch (e) {
+      print('[BLE_ADV] addService FAILED: $e');
+      rethrow;
+    }
 
     UniversalBlePeripheral.setReadRequestHandlers(
       (deviceId, characteristicId, offset, value) {
@@ -114,16 +124,35 @@ class DraftBleLeader extends DraftBleService {
     UniversalBlePeripheral.connectionStateStream.listen((event) {
       if (event.connected) {
         _connectedDevices.add(event.deviceId);
-        _followerConnectedCtrl.add(event.deviceId);
+        _followerConnectedCtrl?.add(event.deviceId);
       } else {
         _connectedDevices.remove(event.deviceId);
-        _followerDisconnectedCtrl.add(event.deviceId);
+        _followerDisconnectedCtrl?.add(event.deviceId);
       }
+    });
+
+    _charSubStreamSub = UniversalBlePeripheral.characteristicSubscriptionStream.listen((event) {
+      if (!event.isSubscribed) return;
+      final bytes = event.characteristicId == DraftBleService.stateCharUuid
+          ? _currentStateBytes
+          : event.characteristicId == DraftBleService.metaCharUuid
+              ? _currentMetaBytes
+              : null;
+      if (bytes == null) return;
+      print('[BLE_ADV] pushing initial value to new subscriber ${event.deviceId} for ${event.characteristicId}');
+      UniversalBlePeripheral.updateCharacteristicValue(
+        characteristicId: event.characteristicId,
+        value: bytes,
+        deviceId: event.deviceId,
+      );
     });
 
     _advStateSub = UniversalBlePeripheral.advertisingStateStream.listen((event) {
       print('[BLE_ADV] advertisingStateStream: state=${event.state}, error=${event.error}');
     });
+
+    _currentMetaBytes = DraftBleService.encodeMeta(state.session);
+    _currentStateBytes = DraftBleService.encodeState(state);
 
     final localName = state.session.name;
     print('[BLE_ADV] starting advertising: service=${DraftBleService.serviceUuid} localName="$localName"');
@@ -137,8 +166,8 @@ class DraftBleLeader extends DraftBleService {
     );
     print('[BLE_ADV] advertising started successfully');
 
-    _currentMetaBytes = DraftBleService.encodeMeta(state.session);
-    _currentStateBytes = DraftBleService.encodeState(state);
+    final registeredServices = await UniversalBlePeripheral.getServices();
+    print('[BLE_ADV] registered services on server: $registeredServices');
   }
 
   Future<void> pushState(DraftState state) async {
@@ -180,14 +209,18 @@ class DraftBleLeader extends DraftBleService {
   Future<void> stop() async {
     await _advStateSub?.cancel();
     _advStateSub = null;
+    await _charSubStreamSub?.cancel();
+    _charSubStreamSub = null;
     try {
       await UniversalBlePeripheral.stopAdvertising();
     } catch (_) {}
     try {
       await UniversalBlePeripheral.clearServices();
     } catch (_) {}
-    await _followerConnectedCtrl.close();
-    await _followerDisconnectedCtrl.close();
+    await _followerConnectedCtrl?.close();
+    await _followerDisconnectedCtrl?.close();
+    _followerConnectedCtrl = null;
+    _followerDisconnectedCtrl = null;
     _connectedDevices.clear();
     _currentState = null;
   }

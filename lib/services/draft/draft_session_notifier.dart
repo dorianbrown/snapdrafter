@@ -55,6 +55,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     required int seatCount,
     required String playerName,
   }) async {
+    await _bleService?.stop();
     _myPlayerName = playerName;
 
     final state = DraftState.create(
@@ -299,6 +300,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     required String leaderDeviceId,
     required String playerName,
   }) async {
+    await _bleService?.stop();
     _myPlayerName = playerName;
 
     final follower = DraftBleFollower();

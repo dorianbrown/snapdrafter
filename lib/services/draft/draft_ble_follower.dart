@@ -12,6 +12,7 @@ class DraftBleFollower extends DraftBleService {
   String? _leaderDeviceId;
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
   StreamSubscription? _scanStreamSub;
+  StreamSubscription? _stateValueSub;
 
   Stream<bool> get leaderConnected => _leaderConnectedCtrl.stream;
 
@@ -84,16 +85,18 @@ class DraftBleFollower extends DraftBleService {
 
     await UniversalBle.discoverServices(deviceId);
 
-    final stateBytes = await UniversalBle.read(
+    final stateCompleter = Completer<DraftState>();
+    _stateValueSub = UniversalBle.characteristicValueStream(
       deviceId,
-      DraftBleService.serviceUuid,
       DraftBleService.stateCharUuid,
-    );
-
-    final state = DraftBleService.decodeState(stateBytes);
-    if (state == null) {
-      throw Exception('Failed to decode draft state');
-    }
+    ).listen((bytes) {
+      final newState = DraftBleService.decodeState(bytes);
+      if (newState == null) return;
+      if (!stateCompleter.isCompleted) {
+        stateCompleter.complete(newState);
+      }
+      onStatePush?.call(newState);
+    });
 
     await UniversalBle.subscribeNotifications(
       deviceId,
@@ -101,16 +104,10 @@ class DraftBleFollower extends DraftBleService {
       DraftBleService.stateCharUuid,
     );
 
-    UniversalBle.characteristicValueStream(
-      deviceId,
-      DraftBleService.stateCharUuid,
-    ).listen((bytes) {
-      final newState = DraftBleService.decodeState(bytes);
-      if (newState != null) {
-        onStatePush?.call(newState);
-      }
-    });
-
+    final state = await stateCompleter.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => throw Exception('No state notification received from leader'),
+    );
     return state;
   }
 
@@ -138,6 +135,8 @@ class DraftBleFollower extends DraftBleService {
 
   @override
   Future<void> stop() async {
+    await _stateValueSub?.cancel();
+    _stateValueSub = null;
     if (_leaderDeviceId != null) {
       try {
         await UniversalBle.disconnect(_leaderDeviceId!);
