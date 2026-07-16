@@ -57,17 +57,27 @@ class _DebugScreenState extends State<DebugScreen> {
   void _startScan() {
     _scanFollower = DraftBleFollower();
     _discoveredDrafts.clear();
-    _scanSub = _scanFollower!.scanForDrafts().listen((draft) {
-      setState(() {
-        final idx =
-            _discoveredDrafts.indexWhere((d) => d.deviceId == draft.deviceId);
-        if (idx >= 0) {
-          _discoveredDrafts[idx] = draft;
-        } else {
-          _discoveredDrafts.add(draft);
+    _scanSub = _scanFollower!.scanForDrafts().listen(
+      (draft) {
+        setState(() {
+          final idx =
+              _discoveredDrafts.indexWhere((d) => d.deviceId == draft.deviceId);
+          if (idx >= 0) {
+            _discoveredDrafts[idx] = draft;
+          } else {
+            _discoveredDrafts.add(draft);
+          }
+        });
+      },
+      onError: (error) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Scan error: $error')),
+          );
         }
-      });
-    });
+        _stopScan();
+      },
+    );
     setState(() => _isScanning = true);
   }
 

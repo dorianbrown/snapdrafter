@@ -11,6 +11,7 @@ import 'draft_message.dart';
 class DraftBleFollower extends DraftBleService {
   String? _leaderDeviceId;
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
+  StreamSubscription? _scanStreamSub;
 
   Stream<bool> get leaderConnected => _leaderConnectedCtrl.stream;
 
@@ -19,14 +20,12 @@ class DraftBleFollower extends DraftBleService {
   Stream<DiscoveredDraft> scanForDrafts() {
     final ctrl = StreamController<DiscoveredDraft>.broadcast();
 
-    UniversalBle.scanStream.listen((BleDevice device) {
-      String draftName = '';
-      final nameParts = device.name?.split(': ') ?? [];
-      if (nameParts.length >= 2) {
-        draftName = nameParts.sublist(1).join(': ');
-      } else {
-        draftName = device.name ?? 'Unknown Draft';
-      }
+    _scanStreamSub = UniversalBle.scanStream.listen((BleDevice device) {
+      final name = device.name;
+      if (name == null || !name.startsWith('SnapDrafter:')) return;
+
+      final draftName = name.substring('SnapDrafter:'.length).trim();
+      if (draftName.isEmpty) return;
 
       final sessionId = _extractSessionId(draftName);
 
@@ -40,14 +39,16 @@ class DraftBleFollower extends DraftBleService {
       ));
     });
 
-    UniversalBle.startScan(
-      scanFilter: ScanFilter(withServices: [DraftBleService.serviceUuid]),
-    );
+    UniversalBle.startScan().catchError((error) {
+      ctrl.addError(error);
+    });
 
     return ctrl.stream;
   }
 
   Future<void> stopScan() async {
+    await _scanStreamSub?.cancel();
+    _scanStreamSub = null;
     try {
       await UniversalBle.stopScan();
     } catch (_) {}
