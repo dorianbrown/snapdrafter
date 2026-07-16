@@ -55,10 +55,12 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   void _startScan() {
+    debugPrint('[DEBUG_SCREEN] starting scan');
     _scanFollower = DraftBleFollower();
     _discoveredDrafts.clear();
     _scanSub = _scanFollower!.scanForDrafts().listen(
       (draft) {
+        debugPrint('[DEBUG_SCREEN] discovered draft: ${draft.draftName} deviceId=${draft.deviceId}');
         setState(() {
           final idx =
               _discoveredDrafts.indexWhere((d) => d.deviceId == draft.deviceId);
@@ -70,6 +72,7 @@ class _DebugScreenState extends State<DebugScreen> {
         });
       },
       onError: (error) {
+        debugPrint('[DEBUG_SCREEN] scan error: $error');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Scan error: $error')),
@@ -82,6 +85,7 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   void _stopScan() {
+    debugPrint('[DEBUG_SCREEN] stopping scan');
     _scanSub?.cancel();
     _scanSub = null;
     _scanFollower?.stopScan();
@@ -448,15 +452,23 @@ class _DebugScreenState extends State<DebugScreen> {
         child: Row(
           children: [
             Expanded(
-              child: ElevatedButton.icon(
-                onPressed:
-                    notifier.role != DraftRole.none ? null : _showCreateDraftDialog,
-                icon: Icon(Icons.add, size: 18),
-                label: Text('Create Draft Session'),
-                style: ElevatedButton.styleFrom(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                ),
-              ),
+              child: notifier.isActive
+                  ? ElevatedButton.icon(
+                      onPressed: () => notifier.leaveDraft(),
+                      icon: Icon(Icons.close, size: 18),
+                      label: Text('Cancel Draft'),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    )
+                  : ElevatedButton.icon(
+                      onPressed: _showCreateDraftDialog,
+                      icon: Icon(Icons.add, size: 18),
+                      label: Text('Create Draft Session'),
+                      style: ElevatedButton.styleFrom(
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
             ),
             SizedBox(width: 12),
             Expanded(

@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart';
+
 import 'package:universal_ble/universal_ble.dart';
 import 'draft_ble_service.dart';
 import 'draft_ble_leader.dart';
@@ -22,12 +22,16 @@ class DraftBleFollower extends DraftBleService {
 
     _scanStreamSub = UniversalBle.scanStream.listen((BleDevice device) {
       final name = device.name;
-      if (name == null || !name.startsWith('SnapDrafter:')) return;
+      final services = device.services;
 
-      final draftName = name.substring('SnapDrafter:'.length).trim();
-      if (draftName.isEmpty) return;
+      print('[BLE_SCAN] raw device: id=${device.deviceId} '
+          'name=$name rssi=${device.rssi} services=$services');
+
+      final draftName = name ?? device.deviceId;
 
       final sessionId = _extractSessionId(draftName);
+
+      print('[BLE_SCAN]   -> MATCH: $draftName sessionId=$sessionId rssi=${device.rssi}');
 
       ctrl.add(DiscoveredDraft(
         deviceId: device.deviceId,
@@ -39,7 +43,22 @@ class DraftBleFollower extends DraftBleService {
       ));
     });
 
-    UniversalBle.startScan().catchError((error) {
+    print('[BLE_SCAN] starting scan '
+        'withServices=[${DraftBleService.serviceUuid}]');
+
+    UniversalBle.startScan(
+      scanFilter: ScanFilter(
+        withServices: [DraftBleService.serviceUuid],
+      ),
+      platformConfig: PlatformConfig(
+        android: AndroidOptions(
+          scanMode: AndroidScanMode.lowLatency,
+          callbackType: [AndroidScanCallbackType.allMatches],
+          requestLocationPermission: false,
+        ),
+      ),
+    ).catchError((error) {
+      print('[BLE_SCAN] startScan failed: $error');
       ctrl.addError(error);
     });
 

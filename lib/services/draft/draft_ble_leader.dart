@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'dart:typed_data';
+
 import 'package:universal_ble/universal_ble.dart';
 import 'draft_ble_service.dart';
 import 'draft_state.dart';
@@ -28,6 +29,7 @@ class DraftBleLeader extends DraftBleService {
   final _connectedDevices = <String>{};
   final _followerConnectedCtrl = StreamController<String>.broadcast();
   final _followerDisconnectedCtrl = StreamController<String>.broadcast();
+  StreamSubscription<BlePeripheralAdvertisingStateChanged>? _advStateSub;
 
   Uint8List? _currentMetaBytes;
   Uint8List? _currentStateBytes;
@@ -43,11 +45,13 @@ class DraftBleLeader extends DraftBleService {
     _currentState = state;
 
     final caps = await UniversalBlePeripheral.getCapabilities();
+    print('[BLE_ADV] peripheral capabilities: supportsPeripheralMode=${caps.supportsPeripheralMode}');
     if (!caps.supportsPeripheralMode) {
       throw Exception('Peripheral mode not supported on this device');
     }
 
     final readiness = await UniversalBlePeripheral.getAvailabilityState();
+    print('[BLE_ADV] peripheral readiness: $readiness');
     if (readiness != PeripheralReadinessState.ready) {
       throw Exception('Bluetooth not ready for advertising');
     }
@@ -81,6 +85,7 @@ class DraftBleLeader extends DraftBleService {
         ],
       ),
     );
+    print('[BLE_ADV] service added: ${DraftBleService.serviceUuid}');
 
     UniversalBlePeripheral.setReadRequestHandlers(
       (deviceId, characteristicId, offset, value) {
@@ -116,10 +121,21 @@ class DraftBleLeader extends DraftBleService {
       }
     });
 
+    _advStateSub = UniversalBlePeripheral.advertisingStateStream.listen((event) {
+      print('[BLE_ADV] advertisingStateStream: state=${event.state}, error=${event.error}');
+    });
+
+    final localName = state.session.name;
+    print('[BLE_ADV] starting advertising: service=${DraftBleService.serviceUuid} localName="$localName"');
+
     await UniversalBlePeripheral.startAdvertising(
       services: [DraftBleService.serviceUuid],
-      localName: 'SnapDrafter: ${state.session.name}',
+      localName: localName,
+      platformConfig: PeripheralPlatformConfig(
+        android: PeripheralAndroidOptions(addServicesInScanResponse: true),
+      ),
     );
+    print('[BLE_ADV] advertising started successfully');
 
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
@@ -136,7 +152,7 @@ class DraftBleLeader extends DraftBleService {
         value: _currentMetaBytes!,
       );
     } catch (e) {
-      debugPrint('Failed to push meta update: $e');
+      print('Failed to push meta update: $e');
     }
 
     try {
@@ -145,7 +161,7 @@ class DraftBleLeader extends DraftBleService {
         value: _currentStateBytes!,
       );
     } catch (e) {
-      debugPrint('Failed to push state update: $e');
+      print('Failed to push state update: $e');
     }
   }
 
@@ -156,12 +172,14 @@ class DraftBleLeader extends DraftBleService {
       final cmd = DraftCommand.fromJson(map);
       onCommandReceived?.call(deviceId, cmd);
     } catch (e) {
-      debugPrint('Failed to parse command from $deviceId: $e');
+      print('Failed to parse command from $deviceId: $e');
     }
   }
 
   @override
   Future<void> stop() async {
+    await _advStateSub?.cancel();
+    _advStateSub = null;
     try {
       await UniversalBlePeripheral.stopAdvertising();
     } catch (_) {}
