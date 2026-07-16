@@ -1,3 +1,2 @@
 -keep class org.tensorflow.** { *; }
--dontwarn org.tensorflow.lite.gpu.GpuDelegateFactory$Options
 -ignorewarnings

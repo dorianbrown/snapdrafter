@@ -6,7 +6,7 @@ import 'package:flutter/material.dart' hide Card, Orientation;
 import 'package:flutter/services.dart';
 import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:image/image.dart' as img;
-import 'package:tflite_flutter/tflite_flutter.dart';
+import 'package:flutter_litert/flutter_litert.dart' hide Detection;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:path_provider/path_provider.dart';
 
