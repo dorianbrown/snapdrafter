@@ -37,7 +37,9 @@ class DraftSessionNotifier extends ChangeNotifier {
   bool get isLeader => _role == DraftRole.leader;
   bool get isFollower => _role == DraftRole.follower;
   bool get isActive =>
-      _state != null && _state!.session.phase != DraftPhase.complete;
+      _state != null &&
+      _state!.session.phase != DraftPhase.complete &&
+      _state!.session.phase != DraftPhase.cancelled;
   String? get myPlayerName => _myPlayerName;
   String get myDeviceId => _myDeviceId;
 
@@ -69,6 +71,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     String? cubeId,
     required int seatCount,
     required String playerName,
+    int roundDurationSeconds = 300,
   }) async {
     await _bleService?.stop();
     _myPlayerName = playerName;
@@ -79,6 +82,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       setCode: setCode,
       cubeId: cubeId,
       seatCount: seatCount,
+      roundDurationSeconds: roundDurationSeconds,
     );
 
     final leader = DraftBleLeader();
@@ -115,7 +119,11 @@ class DraftSessionNotifier extends ChangeNotifier {
     // Pair round 1 using Swiss pairings.
     final pairer = SwissPairing();
     final round1Matches = pairer.pairRound(1, seated, []);
-    final round1 = DraftRound(roundNumber: 1, matches: round1Matches);
+    final round1 = DraftRound(
+      roundNumber: 1,
+      matches: round1Matches,
+      roundStartTime: DateTime.now(),
+    );
 
     _state = _state!
         .copyWith(
@@ -153,7 +161,11 @@ class DraftSessionNotifier extends ChangeNotifier {
       acceptedPlayers,
       _state!.rounds,
     );
-    final round = DraftRound(roundNumber: nextRoundNumber, matches: matches);
+    final round = DraftRound(
+      roundNumber: nextRoundNumber,
+      matches: matches,
+      roundStartTime: DateTime.now(),
+    );
 
     _state = _state!
         .copyWith(rounds: [..._state!.rounds, round])
@@ -379,6 +391,10 @@ class DraftSessionNotifier extends ChangeNotifier {
     follower.onStatePush = (newState) {
       if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
         _state = newState;
+        if (newState.session.phase == DraftPhase.cancelled) {
+          leaveDraft();
+          return;
+        }
         notifyListeners();
       }
     };
@@ -426,7 +442,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       }
     }
 
-    _isReconnecting = false;
+    await leaveDraft();
   }
 
   /// Sends a [DropRequest] to the leader, then tears down locally.
@@ -472,13 +488,24 @@ class DraftSessionNotifier extends ChangeNotifier {
 
   /// Leaves the current draft — stops BLE and resets all local state.
   Future<void> leaveDraft() async {
+    if (isLeader && _state != null && _bleService != null) {
+      final cancelledState = _state!
+          .copyWith(
+            session: _state!.session.copyWith(phase: DraftPhase.cancelled),
+          )
+          .bumpSequence();
+      try {
+        await (_bleService as DraftBleLeader).pushState(cancelledState);
+      } catch (_) {}
+    }
+
+    _role = DraftRole.none;
+    _state = null;
+    _myPlayerName = null;
     if (_bleService != null) {
       await _bleService!.stop();
     }
     _bleService = null;
-    _state = null;
-    _role = DraftRole.none;
-    _myPlayerName = null;
     notifyListeners();
   }
 

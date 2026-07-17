@@ -23,6 +23,7 @@ class _DebugScreenState extends State<DebugScreen> {
   bool _isScanning = false;
   DraftBleFollower? _scanFollower;
   String _userName = '';
+  Timer? _tickTimer;
 
   @override
   void initState() {
@@ -43,6 +44,8 @@ class _DebugScreenState extends State<DebugScreen> {
     _scanSub = null;
     _scanFollower?.stopScan();
     _scanFollower = null;
+    _tickTimer?.cancel();
+    _tickTimer = null;
     super.dispose();
   }
 
@@ -117,6 +120,7 @@ class _DebugScreenState extends State<DebugScreen> {
     final nameCtrl = TextEditingController(text: 'Debug Draft');
     final seatCtrl = TextEditingController(text: '8');
     final playerCtrl = TextEditingController(text: _userName);
+    final durationCtrl = TextEditingController(text: '300');
 
     showDialog(
       context: context,
@@ -138,6 +142,12 @@ class _DebugScreenState extends State<DebugScreen> {
               controller: playerCtrl,
               decoration: InputDecoration(labelText: 'Player Name'),
             ),
+            TextField(
+              controller: durationCtrl,
+              decoration:
+                  InputDecoration(labelText: 'Round Duration (seconds)'),
+              keyboardType: TextInputType.number,
+            ),
           ],
         ),
         actions: [
@@ -153,6 +163,7 @@ class _DebugScreenState extends State<DebugScreen> {
                   name: nameCtrl.text,
                   seatCount: int.parse(seatCtrl.text),
                   playerName: playerCtrl.text,
+                  roundDurationSeconds: int.parse(durationCtrl.text),
                 );
                 if (ctx.mounted) Navigator.pop(ctx);
               } catch (e) {
@@ -170,9 +181,24 @@ class _DebugScreenState extends State<DebugScreen> {
     );
   }
 
+  void _syncTickTimer(DraftSessionNotifier notifier) {
+    final inProgress = notifier.state != null &&
+        notifier.state!.session.phase == DraftPhase.inProgress;
+
+    if (inProgress) {
+      _tickTimer ??= Timer.periodic(Duration(seconds: 1), (_) {
+        if (mounted) setState(() {});
+      });
+    } else {
+      _tickTimer?.cancel();
+      _tickTimer = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<DraftSessionNotifier>();
+    _syncTickTimer(notifier);
 
     return Scaffold(
       appBar: AppBar(title: Text('Debug \u2014 Draft BLE')),
@@ -200,12 +226,19 @@ class _DebugScreenState extends State<DebugScreen> {
   }
 
   Widget _buildLeftPane(DraftSessionNotifier notifier) {
+    final inProgress = notifier.state != null &&
+        notifier.state!.session.phase == DraftPhase.inProgress;
+
     return SingleChildScrollView(
       padding: EdgeInsets.all(8),
       child: Column(
         children: [
           _buildLeaderSection(notifier),
           SizedBox(height: 8),
+          if (inProgress) ...[
+            _buildRoundInfo(notifier),
+            SizedBox(height: 8),
+          ],
           _buildFollowersSection(notifier),
           SizedBox(height: 8),
           _buildAvailableDraftsSection(),
@@ -231,10 +264,17 @@ class _DebugScreenState extends State<DebugScreen> {
               _infoRow('Session', notifier.state!.session.name),
               _infoRow('Phase', notifier.state!.session.phase.name),
               _infoRow('Seats', '${notifier.state!.session.seatCount}'),
+              _infoRow('Duration',
+                  '${notifier.state!.session.roundDurationSeconds}s'),
               _infoRow('Rounds',
                   '${notifier.state!.rounds.length}/${notifier.state!.session.totalRounds}'),
               _infoRow('ID', notifier.state!.session.sessionId,
                   monospace: true),
+              if (notifier.state!.session.phase == DraftPhase.lobby) ...[
+                SizedBox(height: 4),
+                _buildPlayersCountRow(notifier),
+                SizedBox(height: 4),
+              ],
             ],
             if (notifier.isFollower && notifier.state != null) ...[
               _infoRow('Role', 'Follower'),
@@ -249,6 +289,8 @@ class _DebugScreenState extends State<DebugScreen> {
               _infoRow('Session', notifier.state!.session.name),
               _infoRow('Phase', notifier.state!.session.phase.name),
               _infoRow('Seats', '${notifier.state!.session.seatCount}'),
+              _infoRow('Duration',
+                  '${notifier.state!.session.roundDurationSeconds}s'),
             ],
           ],
         ),
@@ -334,6 +376,122 @@ class _DebugScreenState extends State<DebugScreen> {
         ],
       ),
     );
+  }
+
+  Widget _buildPlayersCountRow(DraftSessionNotifier notifier) {
+    final accepted = notifier.state!.acceptedPlayers.length;
+    final total = notifier.state!.session.seatCount;
+    final isFull = accepted >= total;
+
+    return Row(
+      children: [
+        Text(
+          'Players: $accepted/$total',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isFull ? Colors.green : Colors.orange,
+          ),
+        ),
+        if (isFull) ...[
+          Spacer(),
+          SizedBox(
+            height: 28,
+            child: ElevatedButton(
+              onPressed: () => notifier.closeLobby(),
+              style: ElevatedButton.styleFrom(
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                textStyle: TextStyle(fontSize: 11),
+              ),
+              child: Text('Start Draft'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRoundInfo(DraftSessionNotifier notifier) {
+    final state = notifier.state!;
+    final currentRound = state.rounds.isNotEmpty ? state.rounds.last : null;
+    final remaining = _remainingSeconds(currentRound, state.session);
+    final roundNum = currentRound?.roundNumber ?? 0;
+    final totalRounds = state.session.totalRounds;
+    final myMatch =
+        currentRound != null ? state.getMyMatch(notifier.myDeviceId, currentRound.roundNumber) : null;
+    final opponentId = myMatch != null
+        ? (myMatch.playerAId == notifier.myDeviceId
+            ? myMatch.playerBId
+            : myMatch.playerAId)
+        : null;
+    final opponent =
+        opponentId != null ? state.getPlayer(opponentId) : null;
+
+    final minutes = (remaining ~/ 60).toString().padLeft(2, '0');
+    final seconds = (remaining % 60).toString().padLeft(2, '0');
+    final isExpired = remaining <= 0;
+
+    return Card(
+      color: isExpired ? Colors.red.shade900 : null,
+      child: Padding(
+        padding: EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Round $roundNum / $totalRounds',
+              style: Theme.of(context).textTheme.titleSmall,
+            ),
+            Divider(),
+            Center(
+              child: Text(
+                '$minutes:$seconds',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'monospace',
+                  color: isExpired ? Colors.white : null,
+                ),
+              ),
+            ),
+            SizedBox(height: 4),
+            Center(
+              child: Text(
+                isExpired ? 'Time\'s up!' : 'remaining',
+                style: TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+            ),
+            SizedBox(height: 8),
+            if (myMatch != null)
+              _infoRow(
+                'Match',
+                myMatch.isBye
+                    ? 'Bye'
+                    : 'vs ${opponent?.playerName ?? opponentId ?? "?"}',
+              ),
+            if (myMatch != null && !myMatch.isBye)
+              _infoRow(
+                'Status',
+                myMatch.status == MatchStatus.confirmed
+                    ? 'Result confirmed'
+                    : myMatch.status == MatchStatus.reported
+                        ? 'Result reported'
+                        : myMatch.status == MatchStatus.conflicted
+                            ? 'Conflict!'
+                            : 'Waiting for result',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  int _remainingSeconds(DraftRound? round, DraftSession session) {
+    if (round == null || round.roundStartTime == null) return 0;
+    final endTime =
+        round.roundStartTime!.add(Duration(seconds: session.roundDurationSeconds));
+    final remaining = endTime.difference(DateTime.now()).inSeconds;
+    return remaining < 0 ? 0 : remaining;
   }
 
   Widget _buildAvailableDraftsSection() {

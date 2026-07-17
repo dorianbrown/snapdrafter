@@ -16,7 +16,8 @@ enum DraftPhase {
   lobby,
   seatingsAssigned,
   inProgress,
-  complete;
+  complete,
+  cancelled;
 
   String get name {
     switch (this) {
@@ -30,6 +31,8 @@ enum DraftPhase {
         return 'in_progress';
       case DraftPhase.complete:
         return 'complete';
+      case DraftPhase.cancelled:
+        return 'cancelled';
     }
   }
 
@@ -277,22 +280,28 @@ class DraftRound {
   final int roundNumber;
   final List<DraftMatch> matches;
   final bool complete;
+  final DateTime? roundStartTime;
 
   const DraftRound({
     required this.roundNumber,
     required this.matches,
     this.complete = false,
+    this.roundStartTime,
   });
 
   DraftRound copyWith({
     int? roundNumber,
     List<DraftMatch>? matches,
     bool? complete,
+    DateTime? roundStartTime,
+    bool clearRoundStartTime = false,
   }) {
     return DraftRound(
       roundNumber: roundNumber ?? this.roundNumber,
       matches: matches ?? this.matches,
       complete: complete ?? this.complete,
+      roundStartTime:
+          clearRoundStartTime ? null : (roundStartTime ?? this.roundStartTime),
     );
   }
 
@@ -300,6 +309,8 @@ class DraftRound {
     'roundNumber': roundNumber,
     'matches': matches.map((m) => m.toJson()).toList(),
     'complete': complete,
+    if (roundStartTime != null)
+      'roundStartTime': roundStartTime!.toUtc().toIso8601String(),
   };
 
   factory DraftRound.fromJson(Map<String, dynamic> json) {
@@ -309,6 +320,9 @@ class DraftRound {
           .map((m) => DraftMatch.fromJson(m as Map<String, dynamic>))
           .toList(),
       complete: json['complete'] as bool? ?? false,
+      roundStartTime: json['roundStartTime'] != null
+          ? DateTime.parse(json['roundStartTime'] as String)
+          : null,
     );
   }
 }
@@ -325,6 +339,7 @@ class DraftSession {
   final int seatCount;
   final DraftPhase phase;
   final int totalRounds;
+  final int roundDurationSeconds;
   final DateTime createdAt;
 
   const DraftSession({
@@ -335,6 +350,7 @@ class DraftSession {
     required this.seatCount,
     this.phase = DraftPhase.lobby,
     required this.totalRounds,
+    this.roundDurationSeconds = 300,
     required this.createdAt,
   });
 
@@ -346,6 +362,7 @@ class DraftSession {
     int? seatCount,
     DraftPhase? phase,
     int? totalRounds,
+    int? roundDurationSeconds,
     DateTime? createdAt,
     bool clearSetCode = false,
     bool clearCubeId = false,
@@ -358,6 +375,7 @@ class DraftSession {
       seatCount: seatCount ?? this.seatCount,
       phase: phase ?? this.phase,
       totalRounds: totalRounds ?? this.totalRounds,
+      roundDurationSeconds: roundDurationSeconds ?? this.roundDurationSeconds,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -370,6 +388,7 @@ class DraftSession {
     'seatCount': seatCount,
     'phase': phase.name,
     'totalRounds': totalRounds,
+    'roundDurationSeconds': roundDurationSeconds,
     'createdAt': createdAt.toIso8601String(),
   };
 
@@ -382,6 +401,7 @@ class DraftSession {
       seatCount: json['seatCount'] as int,
       phase: DraftPhase.fromString(json['phase'] as String),
       totalRounds: json['totalRounds'] as int,
+      roundDurationSeconds: json['roundDurationSeconds'] as int? ?? 300,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -533,6 +553,7 @@ class DraftState {
     String? setCode,
     String? cubeId,
     required int seatCount,
+    int roundDurationSeconds = 300,
   }) {
     final sessionId = _generateId();
     final totalRounds = (log2(seatCount).ceil()).clamp(3, 6);
@@ -547,6 +568,7 @@ class DraftState {
         seatCount: seatCount,
         phase: DraftPhase.lobby,
         totalRounds: totalRounds,
+        roundDurationSeconds: roundDurationSeconds,
         createdAt: DateTime.now(),
       ),
       players: [
