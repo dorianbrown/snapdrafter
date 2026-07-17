@@ -3,20 +3,30 @@ import 'dart:convert';
 import 'dart:math';
 
 class BleChunkedStream {
+  static const chunkedFlag = 0x01;
   static const int headerSize = 8;
+
   int _maxPayloadPerChunk;
 
   final Map<int, _ChunkBuffer> _buffers = {};
   int _nextMessageId = 0;
   int? _currentCompleteMessageId;
 
-  BleChunkedStream({int maxPayloadPerChunk = 20})
+  BleChunkedStream({int maxPayloadPerChunk = 11})
       : _maxPayloadPerChunk = maxPayloadPerChunk;
 
   int get maxPayloadPerChunk => _maxPayloadPerChunk;
 
+  int get maxRawPayload => _maxPayloadPerChunk + chunkOverhead;
+
+  static const chunkOverhead = 1 + headerSize;
+
+  static bool isChunked(Uint8List data) {
+    return data.isNotEmpty && data[0] == chunkedFlag;
+  }
+
   void reconfigure(int mtu) {
-    _maxPayloadPerChunk = mtu - 3;
+    _maxPayloadPerChunk = mtu - 3 - chunkOverhead;
   }
 
   List<Uint8List> chunk(String data) {
@@ -40,9 +50,10 @@ class BleChunkedStream {
       header.setInt16(4, i, Endian.big);
       header.setInt16(6, totalChunks, Endian.big);
 
-      final chunk = Uint8List(headerSize + payload.length);
-      chunk.setRange(0, headerSize, header.buffer.asUint8List());
-      chunk.setRange(headerSize, chunk.length, payload);
+      final chunk = Uint8List(chunkOverhead + payload.length);
+      chunk[0] = chunkedFlag;
+      chunk.setRange(1, chunkOverhead, header.buffer.asUint8List());
+      chunk.setRange(chunkOverhead, chunk.length, payload);
       chunks.add(chunk);
     }
 
@@ -50,13 +61,14 @@ class BleChunkedStream {
   }
 
   void feed(Uint8List chunk) {
-    if (chunk.length < headerSize) return;
+    if (chunk.length < chunkOverhead) return;
+    if (chunk[0] != chunkedFlag) return;
 
-    final header = ByteData.sublistView(chunk, 0, headerSize);
+    final header = ByteData.sublistView(chunk, 1, chunkOverhead);
     final messageId = header.getInt32(0, Endian.big);
     final chunkIndex = header.getInt16(4, Endian.big);
     final totalChunks = header.getInt16(6, Endian.big);
-    final payload = chunk.sublist(headerSize);
+    final payload = chunk.sublist(chunkOverhead);
 
     final buffer = _buffers.putIfAbsent(
       messageId,

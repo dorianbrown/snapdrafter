@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:universal_ble/universal_ble.dart';
+import 'ble_chunked.dart';
 import 'draft_ble_service.dart';
 import 'draft_state.dart';
 import 'draft_message.dart';
@@ -31,10 +32,14 @@ class DraftBleLeader extends DraftBleService {
   StreamController<String>? _followerDisconnectedCtrl;
   StreamSubscription<BlePeripheralAdvertisingStateChanged>? _advStateSub;
   StreamSubscription<BlePeripheralCharacteristicSubscriptionChanged>? _charSubStreamSub;
+  StreamSubscription<BlePeripheralMtuChanged>? _mtuChangedSub;
 
   Uint8List? _currentMetaBytes;
   Uint8List? _currentStateBytes;
   DraftState? _currentState;
+
+  final _metaChunker = BleChunkedStream();
+  final _stateChunker = BleChunkedStream();
 
   Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
   Stream<String>? get followerDisconnected => _followerDisconnectedCtrl?.stream;
@@ -142,21 +147,21 @@ class DraftBleLeader extends DraftBleService {
         print('[BLE_ADV] no bytes available for ${event.characteristicId} (stateLen=${_currentStateBytes?.length}, metaLen=${_currentMetaBytes?.length})');
         return;
       }
-      print('[BLE_ADV] pushing initial value to new subscriber ${event.deviceId} for ${event.characteristicId} (${bytes.length} bytes)');
-      try {
-        await UniversalBlePeripheral.updateCharacteristicValue(
-          characteristicId: event.characteristicId,
-          value: bytes,
-          deviceId: event.deviceId,
-        );
-        print('[BLE_ADV] pushed initial value successfully to ${event.deviceId}');
-      } catch (e) {
-        print('[BLE_ADV] FAILED to push initial value to ${event.deviceId}: $e');
-      }
+      await _pushCharacteristicValue(
+        characteristicId: event.characteristicId,
+        bytes: bytes,
+        deviceId: event.deviceId,
+      );
     });
 
     _advStateSub = UniversalBlePeripheral.advertisingStateStream.listen((event) {
       print('[BLE_ADV] advertisingStateStream: state=${event.state}, error=${event.error}');
+    });
+
+    _mtuChangedSub = UniversalBlePeripheral.mtuChangedStream.listen((event) {
+      _metaChunker.reconfigure(event.mtu);
+      _stateChunker.reconfigure(event.mtu);
+      print('[BLE_ADV] MTU changed for ${event.deviceId}: ${event.mtu} (chunkPayload=${_stateChunker.maxPayloadPerChunk}, rawLimit=${_stateChunker.maxRawPayload})');
     });
 
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
@@ -183,22 +188,51 @@ class DraftBleLeader extends DraftBleService {
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
 
-    try {
-      await UniversalBlePeripheral.updateCharacteristicValue(
-        characteristicId: DraftBleService.metaCharUuid,
-        value: _currentMetaBytes!,
-      );
-    } catch (e) {
-      print('Failed to push meta update: $e');
+    await _pushCharacteristicValue(
+      characteristicId: DraftBleService.metaCharUuid,
+      bytes: _currentMetaBytes!,
+    );
+
+    await _pushCharacteristicValue(
+      characteristicId: DraftBleService.stateCharUuid,
+      bytes: _currentStateBytes!,
+    );
+  }
+
+  Future<void> _pushCharacteristicValue({
+    required String characteristicId,
+    required Uint8List bytes,
+    String? deviceId,
+  }) async {
+    final isState = characteristicId == DraftBleService.stateCharUuid;
+    final chunker = isState ? _stateChunker : _metaChunker;
+
+    if (bytes.length <= chunker.maxRawPayload) {
+      print('[BLE_ADV] pushing raw $bytes.length B to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
+      try {
+        await UniversalBlePeripheral.updateCharacteristicValue(
+          characteristicId: characteristicId,
+          value: bytes,
+          deviceId: deviceId,
+        );
+      } catch (e) {
+        print('[BLE_ADV] FAILED to push value: $e');
+      }
+      return;
     }
 
-    try {
-      await UniversalBlePeripheral.updateCharacteristicValue(
-        characteristicId: DraftBleService.stateCharUuid,
-        value: _currentStateBytes!,
-      );
-    } catch (e) {
-      print('Failed to push state update: $e');
+    final chunks = chunker.chunkBytes(bytes);
+    print('[BLE_ADV] pushing $chunks.length chunks ($bytes.length B total) to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
+    for (var i = 0; i < chunks.length; i++) {
+      try {
+        await UniversalBlePeripheral.updateCharacteristicValue(
+          characteristicId: characteristicId,
+          value: chunks[i],
+          deviceId: deviceId,
+        );
+      } catch (e) {
+        print('[BLE_ADV] FAILED to push chunk $i/${chunks.length}: $e');
+      }
     }
   }
 
@@ -219,6 +253,10 @@ class DraftBleLeader extends DraftBleService {
     _advStateSub = null;
     await _charSubStreamSub?.cancel();
     _charSubStreamSub = null;
+    await _mtuChangedSub?.cancel();
+    _mtuChangedSub = null;
+    _metaChunker.reset();
+    _stateChunker.reset();
     try {
       await UniversalBlePeripheral.stopAdvertising();
     } catch (_) {}

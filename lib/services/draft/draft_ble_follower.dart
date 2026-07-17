@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:universal_ble/universal_ble.dart';
+import 'ble_chunked.dart';
 import 'draft_ble_service.dart';
 import 'draft_ble_leader.dart';
 import 'draft_state.dart';
@@ -13,6 +14,7 @@ class DraftBleFollower extends DraftBleService {
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
   StreamSubscription? _scanStreamSub;
   StreamSubscription? _stateValueSub;
+  final _streamChunker = BleChunkedStream();
 
   Stream<bool> get leaderConnected => _leaderConnectedCtrl.stream;
 
@@ -72,6 +74,9 @@ class DraftBleFollower extends DraftBleService {
     await UniversalBle.connect(deviceId);
     print('[BLE_FOLLOWER] connected to $deviceId');
 
+    final negotiatedMtu = await UniversalBle.requestMtu(deviceId, 512);
+    print('[BLE_FOLLOWER] negotiated MTU: $negotiatedMtu');
+
     UniversalBle.connectionStream(deviceId).listen((connected) {
       _leaderConnectedCtrl.add(connected);
     });
@@ -85,17 +90,18 @@ class DraftBleFollower extends DraftBleService {
       deviceId,
       DraftBleService.stateCharUuid,
     ).listen((bytes) {
-      print('[BLE_FOLLOWER] received state notification (${bytes.length} bytes)');
-      final newState = DraftBleService.decodeState(bytes);
-      if (newState == null) {
-        print('[BLE_FOLLOWER] failed to decode state bytes');
-        return;
+      if (BleChunkedStream.isChunked(bytes)) {
+        _streamChunker.feed(bytes);
+        while (_streamChunker.hasCompleteMessage) {
+          final assembled = _streamChunker.data;
+          if (assembled == null) continue;
+          print('[BLE_FOLLOWER] reassembled state notification (${assembled.length} bytes)');
+          _processState(assembled, stateCompleter);
+        }
+      } else {
+        print('[BLE_FOLLOWER] received state notification (${bytes.length} bytes)');
+        _processState(bytes, stateCompleter);
       }
-      if (!stateCompleter.isCompleted) {
-        print('[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}');
-        stateCompleter.complete(newState);
-      }
-      onStatePush?.call(newState);
     });
 
     print('[BLE_FOLLOWER] subscribing to state characteristic...');
@@ -111,6 +117,19 @@ class DraftBleFollower extends DraftBleService {
       onTimeout: () => throw Exception('No state notification received from leader'),
     );
     return state;
+  }
+
+  void _processState(Uint8List bytes, Completer<DraftState> stateCompleter) {
+    final newState = DraftBleService.decodeState(bytes);
+    if (newState == null) {
+      print('[BLE_FOLLOWER] failed to decode state bytes');
+      return;
+    }
+    if (!stateCompleter.isCompleted) {
+      print('[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}');
+      stateCompleter.complete(newState);
+    }
+    onStatePush?.call(newState);
   }
 
   Future<void> sendCommand(DraftCommand cmd) async {
@@ -139,6 +158,7 @@ class DraftBleFollower extends DraftBleService {
   Future<void> stop() async {
     await _stateValueSub?.cancel();
     _stateValueSub = null;
+    _streamChunker.reset();
     if (_leaderDeviceId != null) {
       try {
         await UniversalBle.disconnect(_leaderDeviceId!);

@@ -95,7 +95,15 @@ jobs:
         run: |
           OFFSET=40
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
-          flutter build ipa --build-number $BUILD_NUM --export-options-plist=ios/GithubActionsExportOptions.plist
+
+          BASE_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          MAJOR_MINOR=$(echo "$BASE_VERSION" | cut -d. -f1,2)
+          BUILD_NAME="$MAJOR_MINOR.$BUILD_NUM"
+          
+          flutter build ipa \
+            --build-number=$BUILD_NUM \
+            --build-name=$BUILD_NAME \
+            --export-options-plist=ios/GithubActionsExportOptions.plist
 
       - name: Upload app to TestFlight
         uses: apple-actions/upload-testflight-build@v3
