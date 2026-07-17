@@ -6,29 +6,38 @@ import 'draft_message.dart';
 import 'draft_ble_service.dart';
 import 'draft_ble_leader.dart';
 import 'draft_ble_follower.dart';
-import 'leader_election.dart';
 import 'swiss_pairing.dart';
 
 enum DraftRole { none, leader, follower }
 
+/// Top-level coordinator for a draft session.
+///
+/// Acts as a [ChangeNotifier] so the UI can listen for state updates.
+/// Internally delegates BLE work to [DraftBleLeader] or [DraftBleFollower]
+/// depending on whether this device is hosting or joining.
+///
+/// All state mutations happen on the leader; followers receive push
+/// notifications of the updated [DraftState] over BLE.
 class DraftSessionNotifier extends ChangeNotifier {
   DraftBleService? _bleService;
   DraftState? _state;
   DraftRole _role = DraftRole.none;
   final String _myDeviceId;
   String? _myPlayerName;
-  StreamSubscription? _followerConnectedSub;
-  StreamSubscription? _followerDisconnectedSub;
+  bool _isReconnecting = false;
 
-  DraftSessionNotifier({required String myDeviceId})
-      : _myDeviceId = myDeviceId;
+  DraftSessionNotifier({required String myDeviceId}) : _myDeviceId = myDeviceId;
+
+  // -------------------------------------------------------------------------
+  // Getters
+  // -------------------------------------------------------------------------
 
   DraftState? get state => _state;
   DraftRole get role => _role;
   bool get isLeader => _role == DraftRole.leader;
   bool get isFollower => _role == DraftRole.follower;
-  bool get isActive => _state != null &&
-      _state!.session.phase != DraftPhase.complete;
+  bool get isActive =>
+      _state != null && _state!.session.phase != DraftPhase.complete;
   String? get myPlayerName => _myPlayerName;
   String get myDeviceId => _myDeviceId;
 
@@ -48,6 +57,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     return myMatch.status == MatchStatus.pending;
   }
 
+  // -------------------------------------------------------------------------
+  // Leader: lobby creation & management
+  // -------------------------------------------------------------------------
+
+  /// Creates a new draft session on this device and starts BLE advertising
+  /// so followers can discover and join.
   Future<void> createAndHost({
     required String name,
     String? setCode,
@@ -76,6 +91,9 @@ class DraftSessionNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Closes the lobby: randomly shuffles accepted players into seats,
+  /// generates round-1 Swiss pairings, and transitions the phase to
+  /// [DraftPhase.inProgress].
   Future<void> closeLobby() async {
     if (!isLeader || _state == null) return;
 
@@ -83,6 +101,7 @@ class DraftSessionNotifier extends ChangeNotifier {
         .where((p) => p.status == PlayerStatus.accepted)
         .toList();
 
+    // Randomly assign seat numbers to accepted players.
     final shuffled = [...acceptedPlayers]..shuffle(Random());
     final seated = <DraftPlayer>[];
     for (var i = 0; i < shuffled.length; i++) {
@@ -93,28 +112,35 @@ class DraftSessionNotifier extends ChangeNotifier {
         .where((p) => p.status != PlayerStatus.accepted)
         .toList();
 
+    // Pair round 1 using Swiss pairings.
     final pairer = SwissPairing();
     final round1Matches = pairer.pairRound(1, seated, []);
     final round1 = DraftRound(roundNumber: 1, matches: round1Matches);
 
-    _state = _state!.copyWith(
-      players: [...seated, ...remaining],
-      rounds: [round1],
-      session: _state!.session.copyWith(phase: DraftPhase.inProgress),
-    ).bumpSequence();
+    _state = _state!
+        .copyWith(
+          players: [...seated, ...remaining],
+          rounds: [round1],
+          session: _state!.session.copyWith(phase: DraftPhase.inProgress),
+        )
+        .bumpSequence();
 
     await (_bleService as DraftBleLeader).pushState(_state!);
     notifyListeners();
   }
 
+  /// Generates the next round's Swiss pairings and broadcasts them.
+  /// If all rounds are complete, marks the session as [DraftPhase.complete].
   Future<void> advanceRound() async {
     if (!isLeader || _state == null) return;
 
     final nextRoundNumber = _state!.rounds.length + 1;
     if (nextRoundNumber > _state!.session.totalRounds) {
-      _state = _state!.copyWith(
-        session: _state!.session.copyWith(phase: DraftPhase.complete),
-      ).bumpSequence();
+      _state = _state!
+          .copyWith(
+            session: _state!.session.copyWith(phase: DraftPhase.complete),
+          )
+          .bumpSequence();
       await (_bleService as DraftBleLeader).pushState(_state!);
       notifyListeners();
       return;
@@ -122,16 +148,24 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     final acceptedPlayers = _state!.acceptedPlayers;
     final pairer = SwissPairing();
-    final matches = pairer.pairRound(nextRoundNumber, acceptedPlayers, _state!.rounds);
+    final matches = pairer.pairRound(
+      nextRoundNumber,
+      acceptedPlayers,
+      _state!.rounds,
+    );
     final round = DraftRound(roundNumber: nextRoundNumber, matches: matches);
 
-    _state = _state!.copyWith(
-      rounds: [..._state!.rounds, round],
-    ).bumpSequence();
+    _state = _state!
+        .copyWith(rounds: [..._state!.rounds, round])
+        .bumpSequence();
 
     await (_bleService as DraftBleLeader).pushState(_state!);
     notifyListeners();
   }
+
+  // -------------------------------------------------------------------------
+  // Leader: incoming command dispatch
+  // -------------------------------------------------------------------------
 
   void _handleCommand(String deviceId, DraftCommand cmd) {
     if (!isLeader || _state == null) return;
@@ -146,13 +180,21 @@ class DraftSessionNotifier extends ChangeNotifier {
     }
   }
 
-  void _handleJoinRequest(String deviceId, String playerName, String deviceName) {
+  /// Adds a joining player to the session. If the player already exists and
+  /// is accepted the request is silently ignored (idempotent reconnect).
+  void _handleJoinRequest(
+    String deviceId,
+    String playerName,
+    String deviceName,
+  ) {
     final existing = _state!.getPlayer(deviceId);
     if (existing != null && existing.status == PlayerStatus.accepted) return;
 
-    final joinOrder = _state!.players
-        .map((p) => p.joinOrder)
-        .fold<int>(0, (max, o) => o > max ? o : max) + 1;
+    final joinOrder =
+        _state!.players
+            .map((p) => p.joinOrder)
+            .fold<int>(0, (max, o) => o > max ? o : max) +
+        1;
 
     final newPlayer = DraftPlayer(
       deviceId: deviceId,
@@ -162,14 +204,25 @@ class DraftSessionNotifier extends ChangeNotifier {
       status: PlayerStatus.accepted,
     );
 
-    _state = _state!.copyWith(
-      players: [..._state!.players, newPlayer],
-    ).bumpSequence();
+    _state = _state!
+        .copyWith(players: [..._state!.players, newPlayer])
+        .bumpSequence();
 
     (_bleService as DraftBleLeader).pushState(_state!);
     notifyListeners();
   }
 
+  // -------------------------------------------------------------------------
+  // Leader: match result reporting
+  // -------------------------------------------------------------------------
+
+  /// Processes a [MatchResult] command from a follower.
+  ///
+  /// The submitter's `myWins`/`opponentWins` are mapped to player A/B fields
+  /// based on which side of the match they occupy.
+  ///
+  /// Conflict detection: if both players have already reported and their
+  /// numbers disagree, the match is set to [MatchStatus.conflicted].
   void _handleMatchResult(String reporterId, MatchResult result) {
     final matchIndex = _state!.rounds
         .firstWhere((r) => r.roundNumber == result.roundNumber)
@@ -193,6 +246,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     int? newBWins;
     int? newDraws;
 
+    // Map the reporter's perspective onto the match's player A/B fields.
     if (isPlayerA) {
       newAWins = result.myWins;
       newBWins = result.opponentWins;
@@ -203,16 +257,16 @@ class DraftSessionNotifier extends ChangeNotifier {
       newDraws = result.draws;
     }
 
+    // Both sides have reported — check for agreement.
     if (currentA != null && currentB != null) {
       if (currentA != newAWins || currentB != newBWins) {
-        final updatedMatch = match.copyWith(
-          status: MatchStatus.conflicted,
-        );
+        final updatedMatch = match.copyWith(status: MatchStatus.conflicted);
         _updateMatch(result.roundNumber, matchIndex, updatedMatch);
         return;
       }
     }
 
+    // First report → status is "reported"; second matching report → "confirmed".
     final newStatus = (currentA != null || currentB != null)
         ? MatchStatus.confirmed
         : MatchStatus.reported;
@@ -226,11 +280,14 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     _updateMatch(result.roundNumber, matchIndex, updatedMatch);
 
+    // Update player win/loss/draw records when the match is confirmed.
     if (newStatus == MatchStatus.confirmed) {
       _updatePlayerRecords(match, result.roundNumber);
     }
   }
 
+  /// Replaces a single match within its round. If every match in the round
+  /// is now complete (or a bye), the round is marked complete.
   void _updateMatch(int roundNumber, int matchIndex, DraftMatch updatedMatch) {
     final rounds = _state!.rounds.toList();
     final roundIndex = rounds.indexWhere((r) => r.roundNumber == roundNumber);
@@ -239,8 +296,9 @@ class DraftSessionNotifier extends ChangeNotifier {
     final matches = rounds[roundIndex].matches.toList();
     matches[matchIndex] = updatedMatch;
 
-    final allComplete = matches.every((m) =>
-        m.status == MatchStatus.confirmed || m.isBye);
+    final allComplete = matches.every(
+      (m) => m.status == MatchStatus.confirmed || m.isBye,
+    );
 
     rounds[roundIndex] = rounds[roundIndex].copyWith(
       matches: matches,
@@ -252,6 +310,8 @@ class DraftSessionNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Updates each player's match win/loss/draw totals after a confirmed
+  /// match result.
   void _updatePlayerRecords(DraftMatch match, int roundNumber) {
     if (match.playerBId == null) return;
 
@@ -282,8 +342,14 @@ class DraftSessionNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  // -------------------------------------------------------------------------
+  // Leader: drop handling
+  // -------------------------------------------------------------------------
+
   void _handleDropRequest(String deviceId) {
-    final playerIndex = _state!.players.indexWhere((p) => p.deviceId == deviceId);
+    final playerIndex = _state!.players.indexWhere(
+      (p) => p.deviceId == deviceId,
+    );
     if (playerIndex == -1) return;
 
     final updatedPlayers = _state!.players.toList();
@@ -296,6 +362,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     notifyListeners();
   }
 
+  // -------------------------------------------------------------------------
+  // Follower: joining & submitting
+  // -------------------------------------------------------------------------
+
+  /// Connects to the leader's BLE peripheral, subscribes to state
+  /// notifications, and sends a [JoinRequest].
   Future<void> joinDraft({
     required String leaderDeviceId,
     required String playerName,
@@ -305,18 +377,17 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     final follower = DraftBleFollower();
     follower.onStatePush = (newState) {
-      if (_state == null ||
-          newState.sequenceNumber > _state!.sequenceNumber) {
+      if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
         _state = newState;
         notifyListeners();
       }
     };
 
-    List<String> leaderDeviceRef = [leaderDeviceId];
-
+    // On BLE disconnect, auto-reconnect to the same leader
+    // as long as this device hasn't intentionally left the draft.
     follower.leaderConnected.listen((connected) {
-      if (!connected && _state != null) {
-        _onLeaderDisconnected(leaderDeviceRef[0]);
+      if (!connected && _state != null && _role == DraftRole.follower) {
+        _attemptReconnect(leaderDeviceId);
       }
     });
 
@@ -326,12 +397,55 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = state;
     notifyListeners();
 
-    await follower.sendCommand(JoinRequest(
-      playerName: playerName,
-      deviceName: _myDeviceId,
-    ));
+    await follower.sendCommand(
+      JoinRequest(playerName: playerName, deviceName: _myDeviceId),
+    );
   }
 
+  /// Auto-reconnect loop with exponential backoff.
+  /// Exits when the device is no longer a follower or the draft is gone
+  /// (e.g. [leaveDraft] or [dropFromDraft] was called).
+  Future<void> _attemptReconnect(String leaderDeviceId) async {
+    if (_isReconnecting) return;
+    _isReconnecting = true;
+
+    const delays = [2, 4, 8, 16, 32];
+
+    for (final delay in delays) {
+      if (_role != DraftRole.follower || _state == null) break;
+
+      await Future.delayed(Duration(seconds: delay));
+
+      try {
+        final follower = _bleService as DraftBleFollower;
+        await follower.reconnectToLeader(leaderDeviceId);
+        _isReconnecting = false;
+        return;
+      } catch (_) {
+        // Retry with next delay
+      }
+    }
+
+    _isReconnecting = false;
+  }
+
+  /// Sends a [DropRequest] to the leader, then tears down locally.
+  Future<void> dropFromDraft() async {
+    if (isFollower && _bleService != null) {
+      try {
+        await (_bleService as DraftBleFollower).sendCommand(DropRequest());
+      } catch (_) {}
+    }
+    await leaveDraft();
+  }
+
+  /// Leader-only: forcefully removes a player from the draft.
+  Future<void> removePlayer(String deviceId) async {
+    if (!isLeader) return;
+    _handleDropRequest(deviceId);
+  }
+
+  /// Sends a [MatchResult] command to the leader.
   Future<void> submitResult({
     required int roundNumber,
     required String matchId,
@@ -352,44 +466,15 @@ class DraftSessionNotifier extends ChangeNotifier {
     await (_bleService as DraftBleFollower).sendCommand(cmd);
   }
 
-  Future<void> _onLeaderDisconnected(String previousLeaderDeviceId) async {
-    if (_state == null || !isFollower) return;
+  // -------------------------------------------------------------------------
+  // Cleanup
+  // -------------------------------------------------------------------------
 
-    final follower = _bleService as DraftBleFollower;
-    final state = _state!;
-
-    final result = await LeaderElection().handleLeaderLost(
-      lastKnownState: state,
-      myDeviceId: _myDeviceId,
-      currentFollower: follower,
-      createLeader: () {
-        final leader = DraftBleLeader();
-        leader.onCommandReceived = _handleCommand;
-        return leader;
-      },
-    );
-
-    switch (result) {
-      case FollowNewLeader(:final leaderDeviceId):
-        await joinDraft(
-          leaderDeviceId: leaderDeviceId,
-          playerName: _myPlayerName ?? '',
-        );
-      case PromotedToLeader(:final leader):
-        _bleService = leader;
-        _role = DraftRole.leader;
-        notifyListeners();
-      case WaitForLeader():
-        break;
-    }
-  }
-
+  /// Leaves the current draft — stops BLE and resets all local state.
   Future<void> leaveDraft() async {
     if (_bleService != null) {
       await _bleService!.stop();
     }
-    await _followerConnectedSub?.cancel();
-    await _followerDisconnectedSub?.cancel();
     _bleService = null;
     _state = null;
     _role = DraftRole.none;
@@ -399,8 +484,6 @@ class DraftSessionNotifier extends ChangeNotifier {
 
   @override
   void dispose() {
-    _followerConnectedSub?.cancel();
-    _followerDisconnectedSub?.cancel();
     _bleService?.stop();
     super.dispose();
   }

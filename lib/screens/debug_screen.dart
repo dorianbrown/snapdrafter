@@ -452,7 +452,7 @@ class _DebugScreenState extends State<DebugScreen> {
         child: Row(
           children: [
             Expanded(
-              child: notifier.isActive
+              child: notifier.isLeader
                   ? ElevatedButton.icon(
                       onPressed: () => notifier.leaveDraft(),
                       icon: Icon(Icons.close, size: 18),
@@ -461,14 +461,23 @@ class _DebugScreenState extends State<DebugScreen> {
                         padding: EdgeInsets.symmetric(vertical: 12),
                       ),
                     )
-                  : ElevatedButton.icon(
-                      onPressed: _showCreateDraftDialog,
-                      icon: Icon(Icons.add, size: 18),
-                      label: Text('Create Draft Session'),
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
+                  : notifier.isFollower
+                      ? ElevatedButton.icon(
+                          onPressed: () => notifier.dropFromDraft(),
+                          icon: Icon(Icons.exit_to_app, size: 18),
+                          label: Text('Leave the Table'),
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        )
+                      : ElevatedButton.icon(
+                          onPressed: _showCreateDraftDialog,
+                          icon: Icon(Icons.add, size: 18),
+                          label: Text('Create Draft Session'),
+                          style: ElevatedButton.styleFrom(
+                            padding: EdgeInsets.symmetric(vertical: 12),
+                          ),
+                        ),
             ),
             SizedBox(width: 12),
             Expanded(

@@ -1,3 +1,7 @@
+/// Commands sent from a follower to the leader over BLE.
+///
+/// Each command maps to a [DraftCommandType] and is serialized as JSON
+/// written to the leader's command characteristic.
 enum DraftCommandType {
   joinRequest,
   matchResult,
@@ -27,6 +31,8 @@ sealed class DraftCommand {
 
   Map<String, dynamic> toJson();
 
+  /// Deserializes a JSON map into the correct [DraftCommand] subclass based
+  /// on the `type` field.
   static DraftCommand fromJson(Map<String, dynamic> json) {
     final type = DraftCommandType.fromString(json['type'] as String);
     switch (type) {
@@ -40,6 +46,8 @@ sealed class DraftCommand {
   }
 }
 
+/// Sent by a follower immediately after connecting to request joining the
+/// draft lobby.
 class JoinRequest extends DraftCommand {
   final String playerName;
   final String deviceName;
@@ -67,6 +75,10 @@ class JoinRequest extends DraftCommand {
   }
 }
 
+/// Reports a match result from the perspective of the submitting player.
+///
+/// The leader maps `myWins`/`opponentWins` to the correct player A/B fields
+/// and detects conflicts when two players' reports disagree.
 class MatchResult extends DraftCommand {
   final int roundNumber;
   final String matchId;
@@ -106,6 +118,7 @@ class MatchResult extends DraftCommand {
   }
 }
 
+/// Signals that a player is voluntarily leaving the draft.
 class DropRequest extends DraftCommand {
   DropRequest();
 

@@ -8,6 +8,7 @@ import 'draft_ble_service.dart';
 import 'draft_state.dart';
 import 'draft_message.dart';
 
+/// Lightweight info returned from a BLE scan when a draft is discovered.
 class DiscoveredDraft {
   final String deviceId;
   final String draftName;
@@ -26,6 +27,15 @@ class DiscoveredDraft {
   });
 }
 
+/// BLE peripheral implementation for the draft host.
+///
+/// Advertises a GATT service with three characteristics:
+///   - **Meta** (read/notify): session metadata for scanning followers
+///   - **State** (read/notify): full [DraftState] JSON, chunked if > MTU
+///   - **Command** (write): incoming [DraftCommand] from followers
+///
+/// Connected followers receive push notifications of state changes via the
+/// state characteristic.
 class DraftBleLeader extends DraftBleService {
   final _connectedDevices = <String>{};
   StreamController<String>? _followerConnectedCtrl;
@@ -45,9 +55,17 @@ class DraftBleLeader extends DraftBleService {
   Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
   Stream<String>? get followerDisconnected => _followerDisconnectedCtrl?.stream;
 
+  /// Callback invoked when a follower writes a [DraftCommand] to the
+  /// command characteristic.
   void Function(String deviceId, DraftCommand command)? onCommandReceived;
   DraftState? get currentState => _currentState;
 
+  // -------------------------------------------------------------------------
+  // Start advertising
+  // -------------------------------------------------------------------------
+
+  /// Registers the GATT service, starts BLE advertising with the draft
+  /// name as the local name, and begins accepting connections.
   Future<void> startAsLeader(DraftState state) async {
     _currentState = state;
 
@@ -66,6 +84,8 @@ class DraftBleLeader extends DraftBleService {
       throw Exception('Bluetooth not ready for advertising');
     }
 
+    // Register GATT service with meta (read/notify), state (read/notify),
+    // and command (write) characteristics.
     print('[BLE_ADV] adding service...');
     try {
       await UniversalBlePeripheral.addService(
@@ -103,6 +123,7 @@ class DraftBleLeader extends DraftBleService {
       rethrow;
     }
 
+    // Handle read requests: return the current serialized state/meta bytes.
     UniversalBlePeripheral.setReadRequestHandlers(
       (deviceId, characteristicId, offset, value) {
         if (characteristicId == DraftBleService.metaCharUuid) {
@@ -117,6 +138,7 @@ class DraftBleLeader extends DraftBleService {
       },
     );
 
+    // Handle write requests: incoming commands from followers.
     UniversalBlePeripheral.setWriteRequestHandlers(
       (deviceId, characteristicId, offset, value) {
         if (characteristicId == DraftBleService.commandCharUuid &&
@@ -127,6 +149,7 @@ class DraftBleLeader extends DraftBleService {
       },
     );
 
+    // Track follower connections vs disconnections.
     UniversalBlePeripheral.connectionStateStream.listen((event) {
       if (event.connected) {
         _connectedDevices.add(event.deviceId);
@@ -138,6 +161,8 @@ class DraftBleLeader extends DraftBleService {
       }
     });
 
+    // When a follower subscribes to a characteristic, push the current value
+    // so they receive the latest state immediately.
     _charSubStreamSub = UniversalBlePeripheral.characteristicSubscriptionStream.listen((event) async {
       if (!event.isSubscribed) return;
       final bytes = event.characteristicId == DraftBleService.stateCharUuid
@@ -161,12 +186,14 @@ class DraftBleLeader extends DraftBleService {
       print('[BLE_ADV] advertisingStateStream: state=${event.state}, error=${event.error}');
     });
 
+    // Reconfigure chunkers when MTU changes for a device.
     _mtuChangedSub = UniversalBlePeripheral.mtuChangedStream.listen((event) {
       _metaChunker.reconfigure(event.mtu);
       _stateChunker.reconfigure(event.mtu);
       print('[BLE_ADV] MTU changed for ${event.deviceId}: ${event.mtu} (chunkPayload=${_stateChunker.maxPayloadPerChunk}, rawLimit=${_stateChunker.maxRawPayload})');
     });
 
+    // Encode initial state and start advertising.
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
 
@@ -186,12 +213,19 @@ class DraftBleLeader extends DraftBleService {
     print('[BLE_ADV] registered services on server: $registeredServices');
   }
 
+  // -------------------------------------------------------------------------
+  // State broadcast
+  // -------------------------------------------------------------------------
+
+  /// Re-encodes and pushes the updated [DraftState] to all connected
+  /// followers via the meta and state characteristics.
   Future<void> pushState(DraftState state) async {
     print('[BLE_ADV] pushState called (seq=${state.sequenceNumber}), call stack:\n${StackTrace.current}');
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
 
+    // Broadcast meta first (lightweight), then the full state.
     await _pushCharacteristicValue(
       characteristicId: DraftBleService.metaCharUuid,
       bytes: _currentMetaBytes!,
@@ -203,6 +237,9 @@ class DraftBleLeader extends DraftBleService {
     );
   }
 
+  /// Pushes bytes to a characteristic for either all connected devices or a
+  /// specific device. Automatically chunks the payload if it exceeds the
+  /// negotiated MTU.
   Future<void> _pushCharacteristicValue({
     required String characteristicId,
     required Uint8List bytes,
@@ -211,6 +248,7 @@ class DraftBleLeader extends DraftBleService {
     final isState = characteristicId == DraftBleService.stateCharUuid;
     final chunker = isState ? _stateChunker : _metaChunker;
 
+    // Small enough to send in one write.
     if (bytes.length <= chunker.maxRawPayload) {
       print('[BLE_ADV] pushing raw ${bytes.length} B to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
       try {
@@ -225,6 +263,7 @@ class DraftBleLeader extends DraftBleService {
       return;
     }
 
+    // Chunked transmission.
     final chunks = chunker.chunkBytes(bytes);
     print('[BLE_ADV] pushing ${chunks.length} chunks (${bytes.length} B total) to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
     for (var i = 0; i < chunks.length; i++) {
@@ -240,6 +279,8 @@ class DraftBleLeader extends DraftBleService {
     }
   }
 
+  /// Queries the maximum notify length for a device to determine the
+  /// effective MTU for chunk calculations.
   Future<void> _queryMtuForDevice(String deviceId) async {
     if (_mtuKnownDevices.contains(deviceId)) return;
     _mtuKnownDevices.add(deviceId);
@@ -256,6 +297,12 @@ class DraftBleLeader extends DraftBleService {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Incoming commands
+  // -------------------------------------------------------------------------
+
+  /// Decodes a JSON payload written by a follower on the command
+  /// characteristic and dispatches it via [onCommandReceived].
   void _handleWriteRequest(String deviceId, Uint8List value) {
     try {
       final json = utf8.decode(value);
@@ -266,6 +313,10 @@ class DraftBleLeader extends DraftBleService {
       print('Failed to parse command from $deviceId: $e');
     }
   }
+
+  // -------------------------------------------------------------------------
+  // Cleanup
+  // -------------------------------------------------------------------------
 
   @override
   Future<void> stop() async {

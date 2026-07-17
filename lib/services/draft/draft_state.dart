@@ -1,5 +1,16 @@
 import 'dart:math';
 
+/// Immutable data model for a draft session.
+///
+/// The full [DraftState] tree is serialized to JSON and broadcast from the
+/// BLE leader to every follower whenever state changes. Sequences are
+/// tracked via [DraftState.sequenceNumber] so followers can ignore stale
+/// updates.
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
 enum DraftPhase {
   advertising,
   lobby,
@@ -81,6 +92,10 @@ enum MatchStatus {
   }
 }
 
+// ---------------------------------------------------------------------------
+// DraftPlayer
+// ---------------------------------------------------------------------------
+
 class DraftPlayer {
   final String deviceId;
   final String playerName;
@@ -104,7 +119,11 @@ class DraftPlayer {
     this.matchDraws = 0,
   });
 
+  /// Tournament match points: 3 per win, 1 per draw.
   int get matchPoints => matchWins * 3 + matchDraws;
+
+  /// Game win percentage used as a secondary tiebreaker.
+  /// Draws count as half a win toward game percentage.
   double get gameWinPercentage {
     final totalGames = matchWins + matchLosses + matchDraws;
     if (totalGames == 0) return 0.0;
@@ -163,6 +182,10 @@ class DraftPlayer {
   }
 }
 
+// ---------------------------------------------------------------------------
+// DraftMatch
+// ---------------------------------------------------------------------------
+
 class DraftMatch {
   final String matchId;
   final int roundNumber;
@@ -184,6 +207,7 @@ class DraftMatch {
     this.status = MatchStatus.pending,
   });
 
+  /// A match is a bye when there is no opponent (odd player count round).
   bool get isBye => playerBId == null;
 
   DraftMatch copyWith({
@@ -209,6 +233,8 @@ class DraftMatch {
     );
   }
 
+  /// Returns the winner's device ID, or `null` if the match is not yet
+  /// confirmed or ended in a draw.
   String? winnerId() {
     if (status != MatchStatus.confirmed) return null;
     if (isBye) return playerAId;
@@ -242,6 +268,10 @@ class DraftMatch {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// DraftRound
+// ---------------------------------------------------------------------------
 
 class DraftRound {
   final int roundNumber;
@@ -282,6 +312,10 @@ class DraftRound {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// DraftSession
+// ---------------------------------------------------------------------------
 
 class DraftSession {
   final String sessionId;
@@ -353,7 +387,13 @@ class DraftSession {
   }
 }
 
+// ---------------------------------------------------------------------------
+// DraftState — root state object synchronized over BLE
+// ---------------------------------------------------------------------------
+
 class DraftState {
+  /// Monotonically increasing counter; followers ignore updates with a lower
+  /// number than what they already have.
   final int sequenceNumber;
   final DraftSession session;
   final List<DraftPlayer> players;
@@ -366,15 +406,18 @@ class DraftState {
     this.rounds = const [],
   });
 
+  /// The device that joined first (lowest [joinOrder]) acts as the leader.
   String? get leaderDeviceId {
     if (players.isEmpty) return null;
     final sorted = [...players]..sort((a, b) => a.joinOrder.compareTo(b.joinOrder));
     return sorted.first.deviceId;
   }
 
+  /// Players whose status is [PlayerStatus.accepted].
   List<DraftPlayer> get acceptedPlayers =>
       players.where((p) => p.status == PlayerStatus.accepted).toList();
 
+  /// Players who have not dropped (includes pending and accepted).
   List<DraftPlayer> get activePlayers =>
       players.where((p) => p.status != PlayerStatus.dropped).toList();
 
@@ -386,6 +429,7 @@ class DraftState {
     }
   }
 
+  /// Looks up this device's match in a given round.
   DraftMatch? getMyMatch(String deviceId, int roundNumber) {
     try {
       return rounds.firstWhere((r) => r.roundNumber == roundNumber).matches
@@ -396,6 +440,10 @@ class DraftState {
     }
   }
 
+  /// Calculates tournament standings sorted by:
+  ///   1. Match points (3 per win, 1 per draw)
+  ///   2. Opponent match-win percentage (OMW% — primary tiebreaker)
+  ///   3. Game win percentage (secondary tiebreaker)
   List<DraftPlayer> get standings {
     final active = acceptedPlayers;
     final opponents = <String, List<String>>{};
@@ -453,6 +501,7 @@ class DraftState {
     );
   }
 
+  /// Returns a copy with the sequence number incremented by one.
   DraftState bumpSequence() => copyWith(sequenceNumber: sequenceNumber + 1);
 
   Map<String, dynamic> toJson() => {
@@ -475,6 +524,9 @@ class DraftState {
     );
   }
 
+  /// Creates a brand-new draft session with the host already seated at
+  /// position 1. [totalRounds] is derived as `log2(seatCount)` clamped to
+  /// the range [3, 6].
   static DraftState create({
     required String name,
     required String leaderDeviceId,
@@ -511,6 +563,12 @@ class DraftState {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Integer log₂ used to determine the number of Swiss rounds from the
+/// player count.
 int log2(int n) {
   var count = 0;
   while (n > 1) {
@@ -522,6 +580,7 @@ int log2(int n) {
 
 final _random = Random();
 
+/// Generates a UUID-like session ID string (e.g. "a1b2c3d4-...-").
 String _generateId() {
   final chars = 'abcdef0123456789';
   String hex(int len) => List.generate(
