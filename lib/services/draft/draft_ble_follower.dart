@@ -91,6 +91,7 @@ class DraftBleFollower extends DraftBleService {
       DraftBleService.stateCharUuid,
     ).listen((bytes) {
       if (BleChunkedStream.isChunked(bytes)) {
+        print('[BLE_FOLLOWER] received chunk (${bytes.length} bytes)');
         _streamChunker.feed(bytes);
         while (_streamChunker.hasCompleteMessage) {
           final assembled = _streamChunker.data;

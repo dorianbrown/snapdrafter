@@ -26,7 +26,7 @@ class BleChunkedStream {
   }
 
   void reconfigure(int mtu) {
-    _maxPayloadPerChunk = mtu - 3 - chunkOverhead;
+    _maxPayloadPerChunk = mtu - 3 - chunkOverhead - 3;
   }
 
   List<Uint8List> chunk(String data) {

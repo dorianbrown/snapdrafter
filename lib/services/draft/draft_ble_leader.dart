@@ -184,6 +184,7 @@ class DraftBleLeader extends DraftBleService {
   }
 
   Future<void> pushState(DraftState state) async {
+    print('[BLE_ADV] pushState called (seq=${state.sequenceNumber}), call stack:\n${StackTrace.current}');
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
@@ -208,7 +209,7 @@ class DraftBleLeader extends DraftBleService {
     final chunker = isState ? _stateChunker : _metaChunker;
 
     if (bytes.length <= chunker.maxRawPayload) {
-      print('[BLE_ADV] pushing raw $bytes.length B to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
+      print('[BLE_ADV] pushing raw ${bytes.length} B to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
       try {
         await UniversalBlePeripheral.updateCharacteristicValue(
           characteristicId: characteristicId,
@@ -222,7 +223,7 @@ class DraftBleLeader extends DraftBleService {
     }
 
     final chunks = chunker.chunkBytes(bytes);
-    print('[BLE_ADV] pushing $chunks.length chunks ($bytes.length B total) to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
+    print('[BLE_ADV] pushing ${chunks.length} chunks (${bytes.length} B total) to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
     for (var i = 0; i < chunks.length; i++) {
       try {
         await UniversalBlePeripheral.updateCharacteristicValue(
