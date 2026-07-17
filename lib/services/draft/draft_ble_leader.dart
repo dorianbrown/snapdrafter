@@ -131,20 +131,28 @@ class DraftBleLeader extends DraftBleService {
       }
     });
 
-    _charSubStreamSub = UniversalBlePeripheral.characteristicSubscriptionStream.listen((event) {
+    _charSubStreamSub = UniversalBlePeripheral.characteristicSubscriptionStream.listen((event) async {
       if (!event.isSubscribed) return;
       final bytes = event.characteristicId == DraftBleService.stateCharUuid
           ? _currentStateBytes
           : event.characteristicId == DraftBleService.metaCharUuid
               ? _currentMetaBytes
               : null;
-      if (bytes == null) return;
-      print('[BLE_ADV] pushing initial value to new subscriber ${event.deviceId} for ${event.characteristicId}');
-      UniversalBlePeripheral.updateCharacteristicValue(
-        characteristicId: event.characteristicId,
-        value: bytes,
-        deviceId: event.deviceId,
-      );
+      if (bytes == null) {
+        print('[BLE_ADV] no bytes available for ${event.characteristicId} (stateLen=${_currentStateBytes?.length}, metaLen=${_currentMetaBytes?.length})');
+        return;
+      }
+      print('[BLE_ADV] pushing initial value to new subscriber ${event.deviceId} for ${event.characteristicId} (${bytes.length} bytes)');
+      try {
+        await UniversalBlePeripheral.updateCharacteristicValue(
+          characteristicId: event.characteristicId,
+          value: bytes,
+          deviceId: event.deviceId,
+        );
+        print('[BLE_ADV] pushed initial value successfully to ${event.deviceId}');
+      } catch (e) {
+        print('[BLE_ADV] FAILED to push initial value to ${event.deviceId}: $e');
+      }
     });
 
     _advStateSub = UniversalBlePeripheral.advertisingStateStream.listen((event) {

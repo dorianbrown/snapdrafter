@@ -68,36 +68,43 @@ class DraftBleFollower extends DraftBleService {
   Future<DraftState> connectToLeader(String deviceId) async {
     _leaderDeviceId = deviceId;
 
+    print('[BLE_FOLLOWER] connecting to $deviceId...');
     await UniversalBle.connect(deviceId);
-
-    print("Finished connecting to leader");
+    print('[BLE_FOLLOWER] connected to $deviceId');
 
     UniversalBle.connectionStream(deviceId).listen((connected) {
       _leaderConnectedCtrl.add(connected);
     });
 
+    print('[BLE_FOLLOWER] discovering services...');
     final services = await UniversalBle.discoverServices(deviceId);
-
-    print("Services discovered on leader: " + services.toString());
+    print('[BLE_FOLLOWER] discovered ${services.length} services');
 
     final stateCompleter = Completer<DraftState>();
     _stateValueSub = UniversalBle.characteristicValueStream(
       deviceId,
       DraftBleService.stateCharUuid,
     ).listen((bytes) {
+      print('[BLE_FOLLOWER] received state notification (${bytes.length} bytes)');
       final newState = DraftBleService.decodeState(bytes);
-      if (newState == null) return;
+      if (newState == null) {
+        print('[BLE_FOLLOWER] failed to decode state bytes');
+        return;
+      }
       if (!stateCompleter.isCompleted) {
+        print('[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}');
         stateCompleter.complete(newState);
       }
       onStatePush?.call(newState);
     });
 
+    print('[BLE_FOLLOWER] subscribing to state characteristic...');
     await UniversalBle.subscribeNotifications(
       deviceId,
       DraftBleService.serviceUuid,
       DraftBleService.stateCharUuid,
     );
+    print('[BLE_FOLLOWER] subscribed, waiting for initial state...');
 
     final state = await stateCompleter.future.timeout(
       const Duration(seconds: 5),
