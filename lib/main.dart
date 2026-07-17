@@ -20,8 +20,13 @@ import '/widgets/update_prompt_dialog.dart';
 
 import 'dart:math';
 
+import 'package:universal_ble/universal_ble.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // enable logging for bluetooth
+  await UniversalBle.setLogLevel(BleLogLevel.verbose);
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,

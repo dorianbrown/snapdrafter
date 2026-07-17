@@ -23,16 +23,10 @@ class DraftBleFollower extends DraftBleService {
 
     _scanStreamSub = UniversalBle.scanStream.listen((BleDevice device) {
       final name = device.name;
-      final services = device.services;
-
-      print('[BLE_SCAN] raw device: id=${device.deviceId} '
-          'name=$name rssi=${device.rssi} services=$services');
 
       final draftName = name ?? device.deviceId;
 
       final sessionId = _extractSessionId(draftName);
-
-      print('[BLE_SCAN]   -> MATCH: $draftName sessionId=$sessionId rssi=${device.rssi}');
 
       ctrl.add(DiscoveredDraft(
         deviceId: device.deviceId,
@@ -43,9 +37,6 @@ class DraftBleFollower extends DraftBleService {
         rssi: device.rssi ?? 0,
       ));
     });
-
-    print('[BLE_SCAN] starting scan '
-        'withServices=[${DraftBleService.serviceUuid}]');
 
     UniversalBle.startScan(
       scanFilter: ScanFilter(
@@ -79,11 +70,15 @@ class DraftBleFollower extends DraftBleService {
 
     await UniversalBle.connect(deviceId);
 
+    print("Finished connecting to leader");
+
     UniversalBle.connectionStream(deviceId).listen((connected) {
       _leaderConnectedCtrl.add(connected);
     });
 
-    await UniversalBle.discoverServices(deviceId);
+    final services = await UniversalBle.discoverServices(deviceId);
+
+    print("Services discovered on leader: " + services.toString());
 
     final stateCompleter = Completer<DraftState>();
     _stateValueSub = UniversalBle.characteristicValueStream(
