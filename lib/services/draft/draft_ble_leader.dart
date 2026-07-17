@@ -40,6 +40,7 @@ class DraftBleLeader extends DraftBleService {
 
   final _metaChunker = BleChunkedStream();
   final _stateChunker = BleChunkedStream();
+  final _mtuKnownDevices = <String>{};
 
   Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
   Stream<String>? get followerDisconnected => _followerDisconnectedCtrl?.stream;
@@ -130,6 +131,7 @@ class DraftBleLeader extends DraftBleService {
       if (event.connected) {
         _connectedDevices.add(event.deviceId);
         _followerConnectedCtrl?.add(event.deviceId);
+        _queryMtuForDevice(event.deviceId);
       } else {
         _connectedDevices.remove(event.deviceId);
         _followerDisconnectedCtrl?.add(event.deviceId);
@@ -147,6 +149,7 @@ class DraftBleLeader extends DraftBleService {
         print('[BLE_ADV] no bytes available for ${event.characteristicId} (stateLen=${_currentStateBytes?.length}, metaLen=${_currentMetaBytes?.length})');
         return;
       }
+      await _queryMtuForDevice(event.deviceId);
       await _pushCharacteristicValue(
         characteristicId: event.characteristicId,
         bytes: bytes,
@@ -237,6 +240,22 @@ class DraftBleLeader extends DraftBleService {
     }
   }
 
+  Future<void> _queryMtuForDevice(String deviceId) async {
+    if (_mtuKnownDevices.contains(deviceId)) return;
+    _mtuKnownDevices.add(deviceId);
+    try {
+      final notifyLen = await UniversalBlePeripheral.getMaximumNotifyLength(deviceId);
+      if (notifyLen != null && notifyLen > 0) {
+        final mtu = notifyLen + 3;
+        _metaChunker.reconfigure(mtu);
+        _stateChunker.reconfigure(mtu);
+        print('[BLE_ADV] queried MTU for $deviceId: notifyLen=$notifyLen (MTU=$mtu, rawLimit=${_stateChunker.maxRawPayload})');
+      }
+    } catch (e) {
+      print('[BLE_ADV] failed to query MTU for $deviceId: $e');
+    }
+  }
+
   void _handleWriteRequest(String deviceId, Uint8List value) {
     try {
       final json = utf8.decode(value);
@@ -258,6 +277,7 @@ class DraftBleLeader extends DraftBleService {
     _mtuChangedSub = null;
     _metaChunker.reset();
     _stateChunker.reset();
+    _mtuKnownDevices.clear();
     try {
       await UniversalBlePeripheral.stopAdvertising();
     } catch (_) {}

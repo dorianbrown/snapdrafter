@@ -70,21 +70,6 @@ class DraftBleFollower extends DraftBleService {
   Future<DraftState> connectToLeader(String deviceId) async {
     _leaderDeviceId = deviceId;
 
-    print('[BLE_FOLLOWER] connecting to $deviceId...');
-    await UniversalBle.connect(deviceId);
-    print('[BLE_FOLLOWER] connected to $deviceId');
-
-    final negotiatedMtu = await UniversalBle.requestMtu(deviceId, 512);
-    print('[BLE_FOLLOWER] negotiated MTU: $negotiatedMtu');
-
-    UniversalBle.connectionStream(deviceId).listen((connected) {
-      _leaderConnectedCtrl.add(connected);
-    });
-
-    print('[BLE_FOLLOWER] discovering services...');
-    final services = await UniversalBle.discoverServices(deviceId);
-    print('[BLE_FOLLOWER] discovered ${services.length} services');
-
     final stateCompleter = Completer<DraftState>();
     _stateValueSub = UniversalBle.characteristicValueStream(
       deviceId,
@@ -104,6 +89,21 @@ class DraftBleFollower extends DraftBleService {
         _processState(bytes, stateCompleter);
       }
     });
+
+    print('[BLE_FOLLOWER] connecting to $deviceId...');
+    await UniversalBle.connect(deviceId);
+    print('[BLE_FOLLOWER] connected to $deviceId');
+
+    final negotiatedMtu = await UniversalBle.requestMtu(deviceId, 512);
+    print('[BLE_FOLLOWER] negotiated MTU: $negotiatedMtu');
+
+    UniversalBle.connectionStream(deviceId).listen((connected) {
+      _leaderConnectedCtrl.add(connected);
+    });
+
+    print('[BLE_FOLLOWER] discovering services...');
+    final services = await UniversalBle.discoverServices(deviceId);
+    print('[BLE_FOLLOWER] discovered ${services.length} services');
 
     print('[BLE_FOLLOWER] subscribing to state characteristic...');
     await UniversalBle.subscribeNotifications(
