@@ -43,11 +43,22 @@ jobs:
           restore-keys: |
             pub-${{ runner.os }}-
 
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}
+          key: android-sdk-${{ runner.os }}-${{ hashFiles('android/app/build.gradle', 'android/settings.gradle') }}
+          restore-keys: |
+            android-sdk-${{ runner.os }}-
+
+      - name: Pub Get
+        run: flutter pub get
+
       - name: Build Unsigned App Bundle
         run: |
           OFFSET=40
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
-          flutter build appbundle --build-number $BUILD_NUM
+          flutter build appbundle --build-number $BUILD_NUM --no-pub
 
       - name: Sign App Bundle
         uses: r0adkll/sign-android-release@v1  # filippoLeporati93/android-release-signer@v1 to fix set-output warning

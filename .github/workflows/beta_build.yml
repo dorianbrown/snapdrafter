@@ -48,8 +48,19 @@ jobs:
           restore-keys: |
             pub-${{ runner.os }}-
 
+      - name: Cache Android SDK
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}
+          key: android-sdk-${{ runner.os }}-${{ hashFiles('android/app/build.gradle', 'android/settings.gradle') }}
+          restore-keys: |
+            android-sdk-${{ runner.os }}-
+
+      - name: Pub Get
+        run: flutter pub get
+
       - name: Build Unsigned App Bundle
-        run: flutter build appbundle
+        run: flutter build appbundle --no-pub
 
       - name: Sign App Bundle
         uses: r0adkll/sign-android-release@v1
