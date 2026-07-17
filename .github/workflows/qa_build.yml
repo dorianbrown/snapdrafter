@@ -43,17 +43,6 @@ jobs:
           restore-keys: |
             pub-${{ runner.os }}-
 
-      - name: Export Android SDK path
-        run: echo "ANDROID_SDK_PATH=$ANDROID_HOME" >> "$GITHUB_ENV"
-
-      - name: Cache Android SDK
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.ANDROID_SDK_PATH }}
-          key: android-sdk-${{ runner.os }}-${{ hashFiles('android/app/build.gradle', 'android/settings.gradle') }}
-          restore-keys: |
-            android-sdk-${{ runner.os }}-
-
       - name: Pub Get
         run: flutter pub get
 
