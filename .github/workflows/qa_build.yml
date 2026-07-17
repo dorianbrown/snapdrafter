@@ -43,10 +43,13 @@ jobs:
           restore-keys: |
             pub-${{ runner.os }}-
 
+      - name: Export Android SDK path
+        run: echo "ANDROID_SDK_PATH=$ANDROID_HOME" >> "$GITHUB_ENV"
+
       - name: Cache Android SDK
         uses: actions/cache@v4
         with:
-          path: ${{ env.ANDROID_HOME }}
+          path: ${{ env.ANDROID_SDK_PATH }}
           key: android-sdk-${{ runner.os }}-${{ hashFiles('android/app/build.gradle', 'android/settings.gradle') }}
           restore-keys: |
             android-sdk-${{ runner.os }}-
@@ -129,7 +132,7 @@ jobs:
           BASE_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
           MAJOR_MINOR=$(echo "$BASE_VERSION" | cut -d. -f1,2)
           BUILD_NAME="$MAJOR_MINOR.$BUILD_NUM"
-          
+
           flutter build ipa \
             --build-number=$BUILD_NUM \
             --build-name=$BUILD_NAME \
