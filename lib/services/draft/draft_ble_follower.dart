@@ -8,6 +8,8 @@ import 'draft_ble_service.dart';
 import 'draft_ble_leader.dart';
 import 'draft_state.dart';
 import 'draft_message.dart';
+import 'ble_platform.dart';
+import 'ble_platform_live.dart';
 
 /// BLE central implementation for a draft follower.
 ///
@@ -18,6 +20,10 @@ import 'draft_message.dart';
 /// State updates larger than the negotiated MTU are received in chunks
 /// and reassembled by [BleChunkedStream].
 class DraftBleFollower extends DraftBleService {
+  final BleCentral _ble;
+
+  DraftBleFollower({BleCentral? ble}) : _ble = ble ?? LiveBleCentral();
+
   String? _leaderDeviceId;
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
   StreamSubscription? _scanStreamSub;
@@ -25,11 +31,28 @@ class DraftBleFollower extends DraftBleService {
   StreamSubscription? _connectionStreamSub;
   final _streamChunker = BleChunkedStream();
 
+  @override
   Stream<bool> get leaderConnected => _leaderConnectedCtrl.stream;
 
   /// Callback invoked each time a new [DraftState] is received from the
   /// leader (both the initial state and subsequent push notifications).
+  @override
   void Function(DraftState state)? onStatePush;
+
+  // -------------------------------------------------------------------------
+  // Leader interface — not supported on the follower
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<void> startAsLeader(DraftState state) =>
+      throw UnsupportedError('Follower cannot host');
+
+  @override
+  Future<void> pushState(DraftState state) =>
+      throw UnsupportedError('Follower cannot push state');
+
+  @override
+  void Function(String deviceId, DraftCommand command)? onCommandReceived;
 
   // -------------------------------------------------------------------------
   // Scanning
@@ -40,7 +63,7 @@ class DraftBleFollower extends DraftBleService {
   Stream<DiscoveredDraft> scanForDrafts() {
     final ctrl = StreamController<DiscoveredDraft>.broadcast();
 
-    _scanStreamSub = UniversalBle.scanStream.listen((BleDevice device) {
+    _scanStreamSub = _ble.scanStream.listen((BleDevice device) {
       final name = device.name;
 
       final draftName = name ?? device.deviceId;
@@ -57,7 +80,7 @@ class DraftBleFollower extends DraftBleService {
       ));
     });
 
-    UniversalBle.startScan(
+    _ble.startScan(
       scanFilter: ScanFilter(
         withServices: [DraftBleService.serviceUuid],
       ),
@@ -80,7 +103,7 @@ class DraftBleFollower extends DraftBleService {
     await _scanStreamSub?.cancel();
     _scanStreamSub = null;
     try {
-      await UniversalBle.stopScan();
+      await _ble.stopScan();
     } catch (_) {}
   }
 
@@ -91,6 +114,7 @@ class DraftBleFollower extends DraftBleService {
   /// Connects to the leader at [deviceId], negotiates MTU, discovers
   /// services, subscribes to state notifications, and awaits the initial
   /// [DraftState] push (with a 5-second timeout).
+  @override
   Future<DraftState> connectToLeader(String deviceId) async {
     _leaderDeviceId = deviceId;
     return await _performConnection(deviceId);
@@ -99,6 +123,7 @@ class DraftBleFollower extends DraftBleService {
   /// Reconnects to a previously connected leader after a BLE disconnect.
   /// Resets internal state and re-runs the full connection flow without
   /// changing the stored [DraftState] locally.
+  @override
   Future<DraftState> reconnectToLeader(String deviceId) async {
     await _stateValueSub?.cancel();
     _stateValueSub = null;
@@ -109,7 +134,7 @@ class DraftBleFollower extends DraftBleService {
   Future<DraftState> _performConnection(String deviceId) async {
     // Listen for state notifications (may arrive in chunks).
     final stateCompleter = Completer<DraftState>();
-    _stateValueSub = UniversalBle.characteristicValueStream(
+    _stateValueSub = _ble.characteristicValueStream(
       deviceId,
       DraftBleService.stateCharUuid,
     ).listen((bytes) {
@@ -130,23 +155,23 @@ class DraftBleFollower extends DraftBleService {
 
     // Connect → negotiate MTU → discover → subscribe.
     print('[BLE_FOLLOWER] connecting to $deviceId...');
-    await UniversalBle.connect(deviceId);
+    await _ble.connect(deviceId);
     print('[BLE_FOLLOWER] connected to $deviceId');
 
-    final negotiatedMtu = await UniversalBle.requestMtu(deviceId, 512);
+    final negotiatedMtu = await _ble.requestMtu(deviceId, 512);
     print('[BLE_FOLLOWER] negotiated MTU: $negotiatedMtu');
 
     await _connectionStreamSub?.cancel();
-    _connectionStreamSub = UniversalBle.connectionStream(deviceId).listen((connected) {
+    _connectionStreamSub = _ble.connectionStream(deviceId).listen((connected) {
       _leaderConnectedCtrl.add(connected);
     });
 
     print('[BLE_FOLLOWER] discovering services...');
-    final services = await UniversalBle.discoverServices(deviceId);
+    final services = await _ble.discoverServices(deviceId);
     print('[BLE_FOLLOWER] discovered ${services.length} services');
 
     print('[BLE_FOLLOWER] subscribing to state characteristic...');
-    await UniversalBle.subscribeNotifications(
+    await _ble.subscribeNotifications(
       deviceId,
       DraftBleService.serviceUuid,
       DraftBleService.stateCharUuid,
@@ -181,13 +206,14 @@ class DraftBleFollower extends DraftBleService {
 
   /// Serializes a [DraftCommand] to JSON and writes it to the leader's
   /// command characteristic.
+  @override
   Future<void> sendCommand(DraftCommand cmd) async {
     if (_leaderDeviceId == null) {
       throw Exception('Not connected to a leader');
     }
     final json = jsonEncode(cmd.toJson());
     final bytes = Uint8List.fromList(utf8.encode(json));
-    await UniversalBle.write(
+    await _ble.write(
       _leaderDeviceId!,
       DraftBleService.serviceUuid,
       DraftBleService.commandCharUuid,
@@ -217,7 +243,7 @@ class DraftBleFollower extends DraftBleService {
     _streamChunker.reset();
     if (_leaderDeviceId != null) {
       try {
-        await UniversalBle.disconnect(_leaderDeviceId!);
+        await _ble.disconnect(_leaderDeviceId!);
       } catch (_) {}
     }
     _leaderDeviceId = null;

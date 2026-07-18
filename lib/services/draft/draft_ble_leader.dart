@@ -57,8 +57,32 @@ class DraftBleLeader extends DraftBleService {
 
   /// Callback invoked when a follower writes a [DraftCommand] to the
   /// command characteristic.
+  @override
   void Function(String deviceId, DraftCommand command)? onCommandReceived;
   DraftState? get currentState => _currentState;
+
+  // -------------------------------------------------------------------------
+  // Follower interface — not supported on the leader
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<DraftState> connectToLeader(String deviceId) =>
+      throw UnsupportedError('Leader cannot connect as follower');
+
+  @override
+  Future<DraftState> reconnectToLeader(String deviceId) =>
+      throw UnsupportedError('Leader cannot reconnect as follower');
+
+  @override
+  Future<void> sendCommand(DraftCommand cmd) =>
+      throw UnsupportedError('Leader cannot send commands');
+
+  @override
+  void Function(DraftState state)? onStatePush;
+
+  @override
+  Stream<bool> get leaderConnected =>
+      throw UnsupportedError('Leader has no connection stream');
 
   // -------------------------------------------------------------------------
   // Start advertising
@@ -66,6 +90,7 @@ class DraftBleLeader extends DraftBleService {
 
   /// Registers the GATT service, starts BLE advertising with the draft
   /// name as the local name, and begins accepting connections.
+  @override
   Future<void> startAsLeader(DraftState state) async {
     _currentState = state;
 
@@ -219,7 +244,9 @@ class DraftBleLeader extends DraftBleService {
 
   /// Re-encodes and pushes the updated [DraftState] to all connected
   /// followers via the meta and state characteristics.
+  @override
   Future<void> pushState(DraftState state) async {
+    if (_connectedDevices.isEmpty) return;
     print('[BLE_ADV] pushState called (seq=${state.sequenceNumber}), call stack:\n${StackTrace.current}');
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);

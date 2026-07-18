@@ -25,14 +25,32 @@ class DraftSessionNotifier extends ChangeNotifier {
   final String _myDeviceId;
   String? _myPlayerName;
   bool _isReconnecting = false;
+  final DraftBleService Function()? _bleLeaderFactory;
+  final DraftBleService Function()? _bleFollowerFactory;
+  final List<int> _reconnectDelaysSeconds;
 
-  DraftSessionNotifier({required String myDeviceId}) : _myDeviceId = myDeviceId;
+  DraftSessionNotifier({
+    required String myDeviceId,
+    DraftBleService Function()? bleLeaderFactory,
+    DraftBleService Function()? bleFollowerFactory,
+    List<int> reconnectDelaysSeconds = const [2, 4, 8, 16, 32],
+  }) : _myDeviceId = myDeviceId,
+       _bleLeaderFactory = bleLeaderFactory,
+       _bleFollowerFactory = bleFollowerFactory,
+       _reconnectDelaysSeconds = reconnectDelaysSeconds;
 
   // -------------------------------------------------------------------------
   // Getters
   // -------------------------------------------------------------------------
 
   DraftState? get state => _state;
+
+  /// Test-only setter for injecting a specific state scenario.
+  @visibleForTesting
+  set state(DraftState? value) {
+    _state = value;
+    notifyListeners();
+  }
   DraftRole get role => _role;
   bool get isLeader => _role == DraftRole.leader;
   bool get isFollower => _role == DraftRole.follower;
@@ -85,7 +103,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       roundDurationSeconds: roundDurationSeconds,
     );
 
-    final leader = DraftBleLeader();
+    final leader = _bleLeaderFactory?.call() ?? DraftBleLeader();
     leader.onCommandReceived = _handleCommand;
     await leader.startAsLeader(state);
 
@@ -133,7 +151,7 @@ class DraftSessionNotifier extends ChangeNotifier {
         )
         .bumpSequence();
 
-    await (_bleService as DraftBleLeader).pushState(_state!);
+    await _bleService!.pushState(_state!);
     notifyListeners();
   }
 
@@ -149,7 +167,7 @@ class DraftSessionNotifier extends ChangeNotifier {
             session: _state!.session.copyWith(phase: DraftPhase.complete),
           )
           .bumpSequence();
-      await (_bleService as DraftBleLeader).pushState(_state!);
+      await _bleService!.pushState(_state!);
       notifyListeners();
       return;
     }
@@ -171,7 +189,7 @@ class DraftSessionNotifier extends ChangeNotifier {
         .copyWith(rounds: [..._state!.rounds, round])
         .bumpSequence();
 
-    await (_bleService as DraftBleLeader).pushState(_state!);
+    await _bleService!.pushState(_state!);
     notifyListeners();
   }
 
@@ -220,7 +238,7 @@ class DraftSessionNotifier extends ChangeNotifier {
         .copyWith(players: [..._state!.players, newPlayer])
         .bumpSequence();
 
-    (_bleService as DraftBleLeader).pushState(_state!);
+    _bleService!.pushState(_state!);
     notifyListeners();
   }
 
@@ -318,7 +336,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     );
 
     _state = _state!.copyWith(rounds: rounds).bumpSequence();
-    (_bleService as DraftBleLeader).pushState(_state!);
+    _bleService!.pushState(_state!);
     notifyListeners();
   }
 
@@ -350,7 +368,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     }
 
     _state = _state!.copyWith(players: players).bumpSequence();
-    (_bleService as DraftBleLeader).pushState(_state!);
+    _bleService!.pushState(_state!);
     notifyListeners();
   }
 
@@ -370,7 +388,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     );
 
     _state = _state!.copyWith(players: updatedPlayers).bumpSequence();
-    (_bleService as DraftBleLeader).pushState(_state!);
+    _bleService!.pushState(_state!);
     notifyListeners();
   }
 
@@ -387,7 +405,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     await _bleService?.stop();
     _myPlayerName = playerName;
 
-    final follower = DraftBleFollower();
+    final follower = _bleFollowerFactory?.call() ?? DraftBleFollower();
     follower.onStatePush = (newState) {
       if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
         _state = newState;
@@ -425,16 +443,13 @@ class DraftSessionNotifier extends ChangeNotifier {
     if (_isReconnecting) return;
     _isReconnecting = true;
 
-    const delays = [2, 4, 8, 16, 32];
-
-    for (final delay in delays) {
+    for (final delay in _reconnectDelaysSeconds) {
       if (_role != DraftRole.follower || _state == null) break;
 
       await Future.delayed(Duration(seconds: delay));
 
       try {
-        final follower = _bleService as DraftBleFollower;
-        await follower.reconnectToLeader(leaderDeviceId);
+        await _bleService!.reconnectToLeader(leaderDeviceId);
         _isReconnecting = false;
         return;
       } catch (_) {
@@ -449,7 +464,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   Future<void> dropFromDraft() async {
     if (isFollower && _bleService != null) {
       try {
-        await (_bleService as DraftBleFollower).sendCommand(DropRequest());
+        await _bleService!.sendCommand(DropRequest());
       } catch (_) {}
     }
     await leaveDraft();
@@ -479,7 +494,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       draws: draws,
     );
 
-    await (_bleService as DraftBleFollower).sendCommand(cmd);
+    await _bleService!.sendCommand(cmd);
   }
 
   // -------------------------------------------------------------------------
@@ -495,7 +510,7 @@ class DraftSessionNotifier extends ChangeNotifier {
           )
           .bumpSequence();
       try {
-        await (_bleService as DraftBleLeader).pushState(cancelledState);
+        await _bleService!.pushState(cancelledState);
       } catch (_) {}
     }
 

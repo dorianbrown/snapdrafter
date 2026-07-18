@@ -10,10 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Java
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 21
           distribution: "temurin"
@@ -26,7 +26,7 @@ jobs:
           cache: true
 
       - name: Cache Gradle
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.gradle/caches
@@ -36,7 +36,7 @@ jobs:
             gradle-${{ runner.os }}-
 
       - name: Cache Pub
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
@@ -63,7 +63,7 @@ jobs:
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
       - name: Upload to Play Store (Internal Testing)
-        uses: r0adkll/upload-google-play@v1.1.3
+        uses: r0adkll/upload-google-play@v1
         with:
           serviceAccountJsonPlainText: ${{ secrets.SERVICE_ACCOUNT_JSON }}
           packageName: com.dbrown.mtg_draft_tracker
@@ -78,7 +78,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v6
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -86,13 +86,13 @@ jobs:
           xcode-version: latest-stable
 
       - name: Install Signing Certificates
-        uses: Apple-Actions/import-codesign-certs@v3
+        uses: Apple-Actions/import-codesign-certs@v6
         with:
           p12-file-base64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
           p12-password: ${{ secrets.P12_PASSWORD }}
 
       - name: Download Provisioning Profiles
-        uses: Apple-Actions/download-provisioning-profiles@v4
+        uses: Apple-Actions/download-provisioning-profiles@v5
         with:
           bundle-id: com.dorianbrown.snapdrafter
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -100,7 +100,7 @@ jobs:
           api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
 
       - name: Download Provisioning Profiles for Extension
-        uses: Apple-Actions/download-provisioning-profiles@v4
+        uses: Apple-Actions/download-provisioning-profiles@v5
         with:
           bundle-id: com.dorianbrown.snapdrafter.shareintent
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
