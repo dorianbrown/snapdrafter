@@ -47,7 +47,7 @@ jobs:
         run: flutter pub get
 
       - name: Run tests
-        run: flutter test
+        run: flutter test --no-pub
 
       - name: Build Unsigned App Bundle
         run: |
@@ -81,7 +81,7 @@ jobs:
           mappingFile: ./build/app/outputs/mapping/release/mapping.txt
           debugSymbols: ./build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib
           whatsNewDirectory: ./whatsnew
-          track: internal
+          tracks: internal
           status: completed
 
   build_ios:
