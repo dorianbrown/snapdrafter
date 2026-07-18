@@ -426,16 +426,21 @@ class DraftSessionNotifier extends ChangeNotifier {
     follower.onStatePush = (newState) {
       print('[NOTIFIER] onStatePush: seq=${newState.sequenceNumber}, '
           'players=${newState.players.length}, phase=${newState.session.phase.name}');
-      final myPlayer = newState.getPlayer(_myDeviceId);
-      if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
-        print('[NOTIFIER] onStatePush: I was dropped!');
-      }
       if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
+        final wasInDraft = _state != null && _state!.getPlayer(_myDeviceId) != null;
         _state = newState;
+
         if (newState.session.phase == DraftPhase.cancelled) {
           leaveDraft();
           return;
         }
+
+        final myPlayer = newState.getPlayer(_myDeviceId);
+        if (wasInDraft && (myPlayer == null || myPlayer.status == PlayerStatus.dropped)) {
+          leaveDraft();
+          return;
+        }
+
         notifyListeners();
       }
     };
@@ -465,10 +470,7 @@ class DraftSessionNotifier extends ChangeNotifier {
         try {
           final updated = await follower.readCurrentState();
           if (updated != null) {
-            print('[NOTIFIER] READ fallback $attempt: seq=${updated.sequenceNumber} '
-                '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
             if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-              print('[NOTIFIER] READ fallback APPLIED newer state');
               _state = updated;
               notifyListeners();
               break;
@@ -481,7 +483,6 @@ class DraftSessionNotifier extends ChangeNotifier {
         final fresh = await follower.resubscribeAndReadState();
         if (fresh != null &&
             fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-          print('[NOTIFIER] resubscribe fallback APPLIED newer state');
           _state = fresh;
           notifyListeners();
         }
@@ -561,10 +562,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       try {
         final updated = await _bleService!.readCurrentState();
         if (updated != null) {
-          print('[NOTIFIER] submitResult READ $attempt: seq=${updated.sequenceNumber} '
-              '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
           if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-            print('[NOTIFIER] submitResult READ APPLIED newer state');
             _state = updated;
             notifyListeners();
             break;
@@ -578,7 +576,6 @@ class DraftSessionNotifier extends ChangeNotifier {
         final fresh = await _bleService!.resubscribeAndReadState();
         if (fresh != null &&
             fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-          print('[NOTIFIER] submitResult resubscribe APPLIED newer state');
           _state = fresh;
           notifyListeners();
         }
