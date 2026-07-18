@@ -89,6 +89,11 @@ abstract class DraftBleService {
   /// via a GATT read. Used as a fallback for unreliable notification delivery.
   Future<DraftState?> readCurrentState() async => null;
 
+  /// Gets the current [DraftState] by forcing a notification via
+  /// unsubscribe+resubscribe on the state characteristic. Avoids Android's
+  /// BLE GATT read cache that returns stale values.
+  Future<DraftState?> resubscribeAndReadState() async => null;
+
   // -------------------------------------------------------------------------
   // Cleanup
   // -------------------------------------------------------------------------

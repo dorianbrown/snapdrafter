@@ -471,6 +471,16 @@ class DraftSessionNotifier extends ChangeNotifier {
           }
         } catch (_) {}
       }
+      
+      if (_state != null) {
+        final fresh = await follower.resubscribeAndReadState();
+        if (fresh != null &&
+            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+          print('[NOTIFIER] resubscribe fallback APPLIED newer state');
+          _state = fresh;
+          notifyListeners();
+        }
+      }
     } catch (_) {
       // Initial connect failed; let the reconnect loop retry in the background.
       _role = DraftRole.follower;
@@ -557,6 +567,18 @@ class DraftSessionNotifier extends ChangeNotifier {
         }
       } catch (_) {}
     }
+
+    if (_state != null) {
+      try {
+        final fresh = await _bleService!.resubscribeAndReadState();
+        if (fresh != null &&
+            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+          print('[NOTIFIER] submitResult resubscribe APPLIED newer state');
+          _state = fresh;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
   }
 
   /// Polls the leader for updated state via a GATT read.
@@ -565,7 +587,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   Future<void> pollState() async {
     if (!isFollower || _state == null || _bleService == null) return;
     try {
-      final updated = await _bleService!.readCurrentState();
+      final updated = await _bleService!.resubscribeAndReadState();
       if (updated != null &&
           updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
         _state = updated;

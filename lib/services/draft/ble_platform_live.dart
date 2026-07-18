@@ -56,6 +56,19 @@ class LiveBleCentral implements BleCentral {
   }
 
   @override
+  Future<void> unsubscribe(
+    String deviceId,
+    String serviceUuid,
+    String characteristicUuid,
+  ) {
+    return UniversalBle.unsubscribe(
+      deviceId,
+      serviceUuid,
+      characteristicUuid,
+    );
+  }
+
+  @override
   Future<void> write(
     String deviceId,
     String serviceUuid,

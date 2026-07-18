@@ -242,10 +242,63 @@ class DraftBleFollower extends DraftBleService {
     );
   }
 
-  /// Reads the current [DraftState] from the leader's state characteristic
-  /// via a GATT read (not notification). Used as a fallback when
-  /// notification-based state pushes are unreliable (e.g. cross-platform
-  /// BLE).
+  /// Reads the current [DraftState] from the leader by unsubscribing from and
+  /// re-subscribing to the state characteristic, which triggers a fresh
+  /// notification push from the leader. This avoids Android's BLE read cache
+  /// when GATT reads return stale data.
+  @override
+  Future<DraftState?> resubscribeAndReadState() async {
+    final deviceId = _leaderDeviceId;
+    if (deviceId == null) return null;
+
+    try {
+      await _ble.unsubscribe(
+        deviceId,
+        DraftBleService.serviceUuid,
+        DraftBleService.stateCharUuid,
+      );
+    } catch (_) {}
+
+    final completer = Completer<DraftState>();
+    StreamSubscription<Uint8List>? sub;
+
+    sub = _ble
+        .characteristicValueStream(deviceId, DraftBleService.stateCharUuid)
+        .listen((bytes) {
+      final decoded = DraftBleService.decodeState(bytes);
+      if (decoded != null && !completer.isCompleted) {
+        completer.complete(decoded);
+      }
+    });
+
+    try {
+      await _ble.subscribeNotifications(
+        deviceId,
+        DraftBleService.serviceUuid,
+        DraftBleService.stateCharUuid,
+      );
+
+      DraftState? state;
+      try {
+        state = await completer.future.timeout(const Duration(seconds: 3));
+      } on TimeoutException {
+        state = null;
+      }
+      if (state != null) {
+        print('[BLE_FOLLOWER] resubscribe got seq=${state.sequenceNumber}, '
+            'players=${state.players.length}, phase=${state.session.phase.name}');
+      }
+      return state;
+    } catch (e) {
+      print('[BLE_FOLLOWER] resubscribe FAILED: $e');
+      return null;
+    } finally {
+      sub.cancel();
+    }
+  }
+
+  /// Legacy read -- subject to Android BLE cache staleness.
+  /// Prefer [resubscribeAndReadState] for cross-platform state sync.
   Future<DraftState?> readCurrentState() async {
     if (_leaderDeviceId == null) return null;
     try {

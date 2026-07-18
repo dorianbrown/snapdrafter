@@ -39,6 +39,9 @@ abstract class BleCentral {
   /// Subscribes to notifications for a characteristic on the remote device.
   Future<void> subscribeNotifications(String deviceId, String serviceUuid, String characteristicUuid);
 
+  /// Unsubscribes from notifications for a characteristic on the remote device.
+  Future<void> unsubscribe(String deviceId, String serviceUuid, String characteristicUuid);
+
   /// Writes a command payload to a characteristic on the remote device.
   Future<void> write(String deviceId, String serviceUuid, String characteristicUuid, Uint8List value);
 

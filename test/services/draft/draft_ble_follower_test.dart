@@ -110,6 +110,23 @@ class FakeBleCentral implements BleCentral {
     subCharUuid = characteristicUuid;
   }
 
+  String? unsubDeviceId;
+  String? unsubServiceUuid;
+  String? unsubCharUuid;
+  Object? unsubscribeThrow;
+
+  @override
+  Future<void> unsubscribe(
+    String deviceId,
+    String serviceUuid,
+    String characteristicUuid,
+  ) async {
+    if (unsubscribeThrow != null) throw unsubscribeThrow!;
+    unsubDeviceId = deviceId;
+    unsubServiceUuid = serviceUuid;
+    unsubCharUuid = characteristicUuid;
+  }
+
   @override
   Future<void> write(
     String deviceId,

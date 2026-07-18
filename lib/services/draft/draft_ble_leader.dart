@@ -186,10 +186,22 @@ class DraftBleLeader extends DraftBleService {
       }
     });
 
-    // When a follower subscribes to a characteristic, push the current value
-    // so they receive the latest state immediately.
+    // iOS workaround: When a follower subscribes (or re-subscribes via
+    // resubscribeAndReadState on the follower side), we must re-encode the
+    // current state fresh. Relying on pre-cached _currentStateBytes can
+    // return stale data because:
+    //   - iOS peripheral GATT read requests return cached values
+    //   - connection-state-dependent early returns in pushState may skip
+    //     re-encoding if _connectedDevices is briefly empty
+    // Re-encoding guarantees every subscriber always sees the latest state.
     _charSubStreamSub = UniversalBlePeripheral.characteristicSubscriptionStream.listen((event) async {
       if (!event.isSubscribed) return;
+      if (event.characteristicId == DraftBleService.stateCharUuid && _currentState != null) {
+        _currentStateBytes = DraftBleService.encodeState(_currentState!);
+      }
+      if (event.characteristicId == DraftBleService.metaCharUuid && _currentState != null) {
+        _currentMetaBytes = DraftBleService.encodeMeta(_currentState!.session);
+      }
       final bytes = event.characteristicId == DraftBleService.stateCharUuid
           ? _currentStateBytes
           : event.characteristicId == DraftBleService.metaCharUuid
@@ -244,13 +256,17 @@ class DraftBleLeader extends DraftBleService {
 
   /// Re-encodes and pushes the updated [DraftState] to all connected
   /// followers via the meta and state characteristics.
+  ///
+  /// Always re-encodes _currentStateBytes and _currentMetaBytes before any
+  /// early return, so that GATT reads, re-subscription handlers, and future
+  /// pushes always serve the latest state regardless of connection tracking
+  /// glitches.
   @override
   Future<void> pushState(DraftState state) async {
-    if (_connectedDevices.isEmpty) return;
-    print('[BLE_ADV] pushState called (seq=${state.sequenceNumber}), call stack:\n${StackTrace.current}');
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
+    if (_connectedDevices.isEmpty) return;
 
     // Broadcast meta first (lightweight), then the full state.
     await _pushCharacteristicValue(
