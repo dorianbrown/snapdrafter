@@ -46,6 +46,9 @@ jobs:
       - name: Pub Get
         run: flutter pub get
 
+      - name: Run tests
+        run: flutter test
+
       - name: Build Unsigned App Bundle
         run: |
           OFFSET=40
@@ -112,6 +115,20 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml # path to pubspec.yaml
+
+      - name: Cache Pub
+        uses: actions/cache@v5
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-${{ runner.os }}-
+
+      - name: Pub Get
+        run: flutter pub get
+
+      - name: Run tests
+        run: flutter test
 
       - name: Build App IPA
         run: |
