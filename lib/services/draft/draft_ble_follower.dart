@@ -248,12 +248,21 @@ class DraftBleFollower extends DraftBleService {
   /// BLE).
   Future<DraftState?> readCurrentState() async {
     if (_leaderDeviceId == null) return null;
-    final bytes = await _ble.readCharacteristic(
-      _leaderDeviceId!,
-      DraftBleService.serviceUuid,
-      DraftBleService.stateCharUuid,
-    );
-    return DraftBleService.decodeState(bytes);
+    try {
+      final bytes = await _ble.readCharacteristic(
+        _leaderDeviceId!,
+        DraftBleService.serviceUuid,
+        DraftBleService.stateCharUuid,
+      );
+      print('[BLE_FOLLOWER] READ state complete, ${bytes.length} bytes');
+      final decoded = DraftBleService.decodeState(bytes);
+      print('[BLE_FOLLOWER] READ decoded state: seq=${decoded?.sequenceNumber}, '
+          'players=${decoded?.players.length}, phase=${decoded?.session.phase.name}');
+      return decoded;
+    } catch (e) {
+      print('[BLE_FOLLOWER] READ state FAILED: $e');
+      return null;
+    }
   }
 
   /// Derives a short session ID from the draft name by hashing it.

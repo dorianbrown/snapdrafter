@@ -105,6 +105,7 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
         ).then((_) {
           if (mounted) {
             setState(() => _joining = false);
+            _startScan();
           }
         });
       }

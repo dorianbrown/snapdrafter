@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,10 +14,23 @@ class DraftWaitingScreen extends StatefulWidget {
 }
 
 class _DraftWaitingScreenState extends State<DraftWaitingScreen> {
+  Timer? _pollTimer;
+
   @override
   void initState() {
     super.initState();
     _watchPhase();
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) {
+        context.read<DraftSessionNotifier>().pollState();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    super.dispose();
   }
 
   void _watchPhase() {
@@ -99,6 +113,19 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen> {
           notifier.leaveDraft();
           Navigator.of(context)
               .popUntil((route) => route.isFirst || route.settings.name == 'draft_lobby');
+        }
+      });
+    }
+
+    final myPlayer = state.getPlayer(notifier.myDeviceId);
+    if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('You were removed from the draft')),
+          );
+          notifier.leaveDraft();
+          Navigator.of(context).pop();
         }
       });
     }

@@ -15,17 +15,25 @@ class DraftActiveScreen extends StatefulWidget {
 
 class _DraftActiveScreenState extends State<DraftActiveScreen> {
   Timer? _tickTimer;
+  Timer? _pollTimer;
 
   @override
   void initState() {
     super.initState();
     _syncTickTimer();
+    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (mounted) {
+        context.read<DraftSessionNotifier>().pollState();
+      }
+    });
   }
 
   @override
   void dispose() {
     _tickTimer?.cancel();
     _tickTimer = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
     super.dispose();
   }
 
@@ -112,6 +120,23 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
           Navigator.of(context).popUntil((route) => route.isFirst);
         }
       });
+    }
+
+    if (notifier.isFollower) {
+      final myPlayer = notifier.state!.getPlayer(notifier.myDeviceId);
+      if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
+        _tickTimer?.cancel();
+        _tickTimer = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('You were removed from the draft')),
+            );
+            notifier.leaveDraft();
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+        });
+      }
     }
   }
 

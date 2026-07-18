@@ -419,6 +419,12 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     final follower = _bleFollowerFactory?.call() ?? DraftBleFollower();
     follower.onStatePush = (newState) {
+      print('[NOTIFIER] onStatePush: seq=${newState.sequenceNumber}, '
+          'players=${newState.players.length}, phase=${newState.session.phase.name}');
+      final myPlayer = newState.getPlayer(_myDeviceId);
+      if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
+        print('[NOTIFIER] onStatePush: I was dropped!');
+      }
       if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
         _state = newState;
         if (newState.session.phase == DraftPhase.cancelled) {
@@ -449,14 +455,22 @@ class DraftSessionNotifier extends ChangeNotifier {
         JoinRequest(playerName: playerName, deviceName: _myDeviceId),
       );
 
-      try {
-        final updated = await follower.readCurrentState();
-        if (updated != null &&
-            (_state == null || updated.sequenceNumber > _state!.sequenceNumber)) {
-          _state = updated;
-          notifyListeners();
-        }
-      } catch (_) {}
+      for (var attempt = 0; attempt < 3; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        try {
+          final updated = await follower.readCurrentState();
+          if (updated != null) {
+            print('[NOTIFIER] READ fallback $attempt: seq=${updated.sequenceNumber} '
+                '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
+            if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+              print('[NOTIFIER] READ fallback APPLIED newer state');
+              _state = updated;
+              notifyListeners();
+              break;
+            }
+          }
+        } catch (_) {}
+      }
     } catch (_) {
       // Initial connect failed; let the reconnect loop retry in the background.
       _role = DraftRole.follower;
@@ -527,10 +541,33 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     await _bleService!.sendCommand(cmd);
 
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      try {
+        final updated = await _bleService!.readCurrentState();
+        if (updated != null) {
+          print('[NOTIFIER] submitResult READ $attempt: seq=${updated.sequenceNumber} '
+              '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
+          if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+            print('[NOTIFIER] submitResult READ APPLIED newer state');
+            _state = updated;
+            notifyListeners();
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Polls the leader for updated state via a GATT read.
+  /// Useful as a fallback when notification-based pushes are unreliable
+  /// (e.g. cross-platform BLE). Called periodically by follower UI screens.
+  Future<void> pollState() async {
+    if (!isFollower || _state == null || _bleService == null) return;
     try {
       final updated = await _bleService!.readCurrentState();
       if (updated != null &&
-          (_state == null || updated.sequenceNumber > _state!.sequenceNumber)) {
+          updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
         _state = updated;
         notifyListeners();
       }
