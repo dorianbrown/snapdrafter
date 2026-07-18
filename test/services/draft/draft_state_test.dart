@@ -183,7 +183,7 @@ void main() {
 
       test('fromJson handles null rounds array', () {
         final baseJson = state8.toJson();
-        baseJson.remove('rounds');
+        baseJson.remove('r');
         final decoded = DraftState.fromJson(baseJson);
         expect(decoded.rounds, isEmpty);
       });
@@ -573,7 +573,7 @@ void main() {
 
       test('roundDurationSeconds defaults to 300 when missing', () {
         final json = session.toJson();
-        json.remove('roundDurationSeconds');
+        json.remove('d');
         final decoded = DraftSession.fromJson(json);
         expect(decoded.roundDurationSeconds, 300);
       });
@@ -649,7 +649,6 @@ void main() {
 
         expect(decoded.deviceId, player.deviceId);
         expect(decoded.playerName, player.playerName);
-        expect(decoded.deviceName, player.deviceName);
         expect(decoded.joinOrder, player.joinOrder);
         expect(decoded.status, player.status);
         expect(decoded.matchWins, player.matchWins);
@@ -665,11 +664,10 @@ void main() {
 
       test('matchWins/matchLosses/matchDraws default to 0 when null', () {
         final json = {
-          'deviceId': 'p',
-          'playerName': 'X',
-          'deviceName': 'X',
-          'joinOrder': 0,
-          'status': 'accepted',
+          'd': 'p',
+          'n': 'X',
+          'j': 0,
+          's': 'accepted',
         };
         final decoded = DraftPlayer.fromJson(json);
         expect(decoded.matchWins, 0);
@@ -881,8 +879,8 @@ void main() {
 
       test('complete defaults to false when missing', () {
         final json = {
-          'roundNumber': 1,
-          'matches': <Map<String, dynamic>>[],
+          'r': 1,
+          'm': <Map<String, dynamic>>[],
         };
         final decoded = DraftRound.fromJson(json);
         expect(decoded.complete, isFalse);

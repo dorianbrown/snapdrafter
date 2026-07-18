@@ -159,28 +159,27 @@ class DraftPlayer {
   }
 
   Map<String, dynamic> toJson() => {
-    'deviceId': deviceId,
-    'playerName': playerName,
-    'deviceName': deviceName,
-    'seatNumber': seatNumber,
-    'joinOrder': joinOrder,
-    'status': status.name,
-    'matchWins': matchWins,
-    'matchLosses': matchLosses,
-    'matchDraws': matchDraws,
+    'd': deviceId,
+    'n': playerName,
+    if (seatNumber != null) 't': seatNumber,
+    'j': joinOrder,
+    's': status.name,
+    if (matchWins != 0) 'mw': matchWins,
+    if (matchLosses != 0) 'ml': matchLosses,
+    if (matchDraws != 0) 'md': matchDraws,
   };
 
   factory DraftPlayer.fromJson(Map<String, dynamic> json) {
     return DraftPlayer(
-      deviceId: json['deviceId'] as String,
-      playerName: json['playerName'] as String,
-      deviceName: json['deviceName'] as String,
-      seatNumber: json['seatNumber'] as int?,
-      joinOrder: json['joinOrder'] as int,
-      status: PlayerStatus.fromString(json['status'] as String),
-      matchWins: json['matchWins'] as int? ?? 0,
-      matchLosses: json['matchLosses'] as int? ?? 0,
-      matchDraws: json['matchDraws'] as int? ?? 0,
+      deviceId: json['d'] as String,
+      playerName: json['n'] as String,
+      deviceName: json['deviceName'] as String? ?? '',
+      seatNumber: json['t'] as int?,
+      joinOrder: json['j'] as int,
+      status: PlayerStatus.fromString(json['s'] as String),
+      matchWins: json['mw'] as int? ?? 0,
+      matchLosses: json['ml'] as int? ?? 0,
+      matchDraws: json['md'] as int? ?? 0,
     );
   }
 }
@@ -248,26 +247,26 @@ class DraftMatch {
   }
 
   Map<String, dynamic> toJson() => {
-    'matchId': matchId,
-    'roundNumber': roundNumber,
-    'playerAId': playerAId,
-    'playerBId': playerBId,
-    'aWins': aWins,
-    'bWins': bWins,
-    'draws': draws,
-    'status': status.name,
+    'i': matchId,
+    'r': roundNumber,
+    'a': playerAId,
+    if (playerBId != null) 'b': playerBId,
+    if (aWins != null) 'aw': aWins,
+    if (bWins != null) 'bw': bWins,
+    if (draws != null) 'dr': draws,
+    's': status.name,
   };
 
   factory DraftMatch.fromJson(Map<String, dynamic> json) {
     return DraftMatch(
-      matchId: json['matchId'] as String,
-      roundNumber: json['roundNumber'] as int,
-      playerAId: json['playerAId'] as String,
-      playerBId: json['playerBId'] as String?,
-      aWins: json['aWins'] as int?,
-      bWins: json['bWins'] as int?,
-      draws: json['draws'] as int?,
-      status: MatchStatus.fromString(json['status'] as String),
+      matchId: json['i'] as String,
+      roundNumber: json['r'] as int,
+      playerAId: json['a'] as String,
+      playerBId: json['b'] as String?,
+      aWins: json['aw'] as int?,
+      bWins: json['bw'] as int?,
+      draws: json['dr'] as int?,
+      status: MatchStatus.fromString(json['s'] as String),
     );
   }
 }
@@ -306,22 +305,22 @@ class DraftRound {
   }
 
   Map<String, dynamic> toJson() => {
-    'roundNumber': roundNumber,
-    'matches': matches.map((m) => m.toJson()).toList(),
-    'complete': complete,
+    'r': roundNumber,
+    'm': matches.map((m) => m.toJson()).toList(),
+    'c': complete,
     if (roundStartTime != null)
-      'roundStartTime': roundStartTime!.toUtc().toIso8601String(),
+      't': roundStartTime!.toUtc().toIso8601String(),
   };
 
   factory DraftRound.fromJson(Map<String, dynamic> json) {
     return DraftRound(
-      roundNumber: json['roundNumber'] as int,
-      matches: (json['matches'] as List<dynamic>)
+      roundNumber: json['r'] as int,
+      matches: (json['m'] as List<dynamic>)
           .map((m) => DraftMatch.fromJson(m as Map<String, dynamic>))
           .toList(),
-      complete: json['complete'] as bool? ?? false,
-      roundStartTime: json['roundStartTime'] != null
-          ? DateTime.parse(json['roundStartTime'] as String)
+      complete: json['c'] as bool? ?? false,
+      roundStartTime: json['t'] != null
+          ? DateTime.parse(json['t'] as String)
           : null,
     );
   }
@@ -381,28 +380,28 @@ class DraftSession {
   }
 
   Map<String, dynamic> toJson() => {
-    'sessionId': sessionId,
-    'name': name,
-    'setCode': setCode,
-    'cubeId': cubeId,
-    'seatCount': seatCount,
-    'phase': phase.name,
-    'totalRounds': totalRounds,
-    'roundDurationSeconds': roundDurationSeconds,
-    'createdAt': createdAt.toIso8601String(),
+    'i': sessionId,
+    'n': name,
+    if (setCode != null) 'c': setCode,
+    if (cubeId != null) 'u': cubeId,
+    'k': seatCount,
+    'h': phase.name,
+    't': totalRounds,
+    'd': roundDurationSeconds,
+    'a': createdAt.toIso8601String(),
   };
 
   factory DraftSession.fromJson(Map<String, dynamic> json) {
     return DraftSession(
-      sessionId: json['sessionId'] as String,
-      name: json['name'] as String,
-      setCode: json['setCode'] as String?,
-      cubeId: json['cubeId'] as String?,
-      seatCount: json['seatCount'] as int,
-      phase: DraftPhase.fromString(json['phase'] as String),
-      totalRounds: json['totalRounds'] as int,
-      roundDurationSeconds: json['roundDurationSeconds'] as int? ?? 300,
-      createdAt: DateTime.parse(json['createdAt'] as String),
+      sessionId: json['i'] as String,
+      name: json['n'] as String,
+      setCode: json['c'] as String?,
+      cubeId: json['u'] as String?,
+      seatCount: json['k'] as int,
+      phase: DraftPhase.fromString(json['h'] as String),
+      totalRounds: json['t'] as int,
+      roundDurationSeconds: json['d'] as int? ?? 300,
+      createdAt: DateTime.parse(json['a'] as String),
     );
   }
 }
@@ -525,20 +524,20 @@ class DraftState {
   DraftState bumpSequence() => copyWith(sequenceNumber: sequenceNumber + 1);
 
   Map<String, dynamic> toJson() => {
-    'sequenceNumber': sequenceNumber,
-    'session': session.toJson(),
-    'players': players.map((p) => p.toJson()).toList(),
-    'rounds': rounds.map((r) => r.toJson()).toList(),
+    'q': sequenceNumber,
+    's': session.toJson(),
+    'p': players.map((p) => p.toJson()).toList(),
+    'r': rounds.map((r) => r.toJson()).toList(),
   };
 
   factory DraftState.fromJson(Map<String, dynamic> json) {
     return DraftState(
-      sequenceNumber: json['sequenceNumber'] as int,
-      session: DraftSession.fromJson(json['session'] as Map<String, dynamic>),
-      players: (json['players'] as List<dynamic>)
+      sequenceNumber: json['q'] as int,
+      session: DraftSession.fromJson(json['s'] as Map<String, dynamic>),
+      players: (json['p'] as List<dynamic>)
           .map((p) => DraftPlayer.fromJson(p as Map<String, dynamic>))
           .toList(),
-      rounds: (json['rounds'] as List<dynamic>?)
+      rounds: (json['r'] as List<dynamic>?)
           ?.map((r) => DraftRound.fromJson(r as Map<String, dynamic>))
           .toList() ?? [],
     );

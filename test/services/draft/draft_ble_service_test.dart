@@ -117,10 +117,10 @@ void main() {
         final json = utf8.decode(encoded);
         final map = jsonDecode(json) as Map<String, dynamic>;
 
-        expect(map['name'], 'Test Draft');
-        expect(map['sessionId'], testState.session.sessionId);
-        expect(map['seatCount'], 8);
-        expect(map['phase'], 'lobby');
+        expect(map['n'], 'Test Draft');
+        expect(map['i'], testState.session.sessionId);
+        expect(map['k'], 8);
+        expect(map['h'], 'lobby');
       });
     });
 
