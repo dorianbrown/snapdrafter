@@ -39,6 +39,12 @@ abstract class BleCentral {
   /// Subscribes to notifications for a characteristic on the remote device.
   Future<void> subscribeNotifications(String deviceId, String serviceUuid, String characteristicUuid);
 
+  /// Subscribes to indications for a characteristic on the remote device.
+  /// Indications require acknowledgment from the central, providing reliable
+  /// delivery — critical for cross-platform BLE where notifications may be
+  /// silently dropped (e.g. iOS peripheral → Android central).
+  Future<void> subscribeIndications(String deviceId, String serviceUuid, String characteristicUuid);
+
   /// Unsubscribes from notifications for a characteristic on the remote device.
   Future<void> unsubscribe(String deviceId, String serviceUuid, String characteristicUuid);
 

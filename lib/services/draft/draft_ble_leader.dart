@@ -131,6 +131,7 @@ class DraftBleLeader extends DraftBleService {
               properties: [
                 CharacteristicProperty.read,
                 CharacteristicProperty.notify,
+                CharacteristicProperty.indicate,
               ],
               permissions: [PeripheralAttributePermission.readable],
             ),
