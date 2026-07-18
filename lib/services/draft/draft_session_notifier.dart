@@ -425,15 +425,22 @@ class DraftSessionNotifier extends ChangeNotifier {
       }
     });
 
-    final state = await follower.connectToLeader(leaderDeviceId);
     _bleService = follower;
-    _role = DraftRole.follower;
-    _state = state;
-    notifyListeners();
 
-    await follower.sendCommand(
-      JoinRequest(playerName: playerName, deviceName: _myDeviceId),
-    );
+    try {
+      final state = await follower.connectToLeader(leaderDeviceId);
+      _role = DraftRole.follower;
+      _state = state;
+      notifyListeners();
+
+      await follower.sendCommand(
+        JoinRequest(playerName: playerName, deviceName: _myDeviceId),
+      );
+    } catch (_) {
+      // Initial connect failed; let the reconnect loop retry in the background.
+      _role = DraftRole.follower;
+      _attemptReconnect(leaderDeviceId);
+    }
   }
 
   /// Auto-reconnect loop with exponential backoff.
@@ -444,7 +451,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     _isReconnecting = true;
 
     for (final delay in _reconnectDelaysSeconds) {
-      if (_role != DraftRole.follower || _state == null) break;
+      if (_role != DraftRole.follower) break;
 
       await Future.delayed(Duration(seconds: delay));
 
@@ -526,6 +533,8 @@ class DraftSessionNotifier extends ChangeNotifier {
 
   @override
   void dispose() {
+    _role = DraftRole.none;
+    _state = null;
     _bleService?.stop();
     super.dispose();
   }

@@ -56,14 +56,21 @@ jobs:
           flutter build appbundle --build-number $BUILD_NUM --no-pub
 
       - name: Sign App Bundle
-        uses: r0adkll/sign-android-release@v1  # filippoLeporati93/android-release-signer@v1 to fix set-output warning
         id: sign_app
-        with:
-          releaseDirectory: build/app/outputs/bundle/release/
-          signingKeyBase64: ${{ secrets.KEYSTORE_BASE64 }}
-          alias: ${{ secrets.KEY_ALIAS }}
-          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          AAB_FILE=$(ls build/app/outputs/bundle/release/*.aab | head -1)
+          echo "$KEYSTORE" | base64 --decode > release.jks
+          jarsigner -keystore release.jks \
+            -storepass "$KEYSTORE_PASS" \
+            -keypass "$KEY_PASS" \
+            "$AAB_FILE" "$ALIAS"
+          rm release.jks
+          echo "signedReleaseFile=$AAB_FILE" >> "$GITHUB_OUTPUT"
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          ALIAS: ${{ secrets.KEY_ALIAS }}
 
       - name: Upload to Play Store (Internal Testing)
         uses: r0adkll/upload-google-play@v1

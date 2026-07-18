@@ -62,8 +62,11 @@ class DraftBleFollower extends DraftBleService {
   /// Returns a stream of [DiscoveredDraft] items.
   Stream<DiscoveredDraft> scanForDrafts() {
     final ctrl = StreamController<DiscoveredDraft>.broadcast();
+    final seenDeviceIds = <String>{};
 
     _scanStreamSub = _ble.scanStream.listen((BleDevice device) {
+      if (!seenDeviceIds.add(device.deviceId)) return;
+
       final name = device.name;
 
       final draftName = name ?? device.deviceId;
@@ -153,18 +156,36 @@ class DraftBleFollower extends DraftBleService {
       }
     });
 
-    // Connect → negotiate MTU → discover → subscribe.
+    // Subscribe to connection state before connecting so we catch
+    // the full lifecycle including connect failures.
+    await _connectionStreamSub?.cancel();
+    _connectionStreamSub = _ble.connectionStream(deviceId).listen((connected) {
+      _leaderConnectedCtrl.add(connected);
+    });
+
+    try {
+      return await _doConnect(deviceId, stateCompleter).timeout(
+        const Duration(seconds: 15),
+      );
+    } catch (e) {
+      // Tear down the connection on any mid-pipeline failure.
+      try {
+        await _ble.disconnect(deviceId);
+      } catch (_) {}
+      rethrow;
+    }
+  }
+
+  Future<DraftState> _doConnect(
+    String deviceId,
+    Completer<DraftState> stateCompleter,
+  ) async {
     print('[BLE_FOLLOWER] connecting to $deviceId...');
     await _ble.connect(deviceId);
     print('[BLE_FOLLOWER] connected to $deviceId');
 
     final negotiatedMtu = await _ble.requestMtu(deviceId, 512);
     print('[BLE_FOLLOWER] negotiated MTU: $negotiatedMtu');
-
-    await _connectionStreamSub?.cancel();
-    _connectionStreamSub = _ble.connectionStream(deviceId).listen((connected) {
-      _leaderConnectedCtrl.add(connected);
-    });
 
     print('[BLE_FOLLOWER] discovering services...');
     final services = await _ble.discoverServices(deviceId);
