@@ -102,7 +102,11 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
         _stopScan();
         Navigator.of(context).push(
           MaterialPageRoute(builder: (_) => const DraftWaitingScreen()),
-        );
+        ).then((_) {
+          if (mounted) {
+            setState(() => _joining = false);
+          }
+        });
       }
     } catch (e) {
       if (mounted) {

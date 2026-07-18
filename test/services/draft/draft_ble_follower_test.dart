@@ -125,6 +125,17 @@ class FakeBleCentral implements BleCentral {
     });
   }
 
+  Uint8List? readCharacteristicResult;
+
+  @override
+  Future<Uint8List> readCharacteristic(
+    String deviceId,
+    String serviceUuid,
+    String characteristicUuid,
+  ) async {
+    return readCharacteristicResult ?? Uint8List(0);
+  }
+
   void emitScanDevice(BleDevice device) => _scanStreamCtrl.add(device);
   void emitScanError(Object error) => _scanStreamCtrl.addError(error);
   void emitConnected(String deviceId) =>

@@ -391,6 +391,17 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = _state!.copyWith(players: updatedPlayers).bumpSequence();
     _bleService!.pushState(_state!);
     notifyListeners();
+
+    Timer(const Duration(seconds: 5), () {
+      if (_state == null) return;
+      final filtered = _state!.players
+          .where((p) => p.deviceId != deviceId)
+          .toList();
+      if (filtered.length == _state!.players.length) return;
+      _state = _state!.copyWith(players: filtered).bumpSequence();
+      _bleService?.pushState(_state!);
+      notifyListeners();
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -437,6 +448,15 @@ class DraftSessionNotifier extends ChangeNotifier {
       await follower.sendCommand(
         JoinRequest(playerName: playerName, deviceName: _myDeviceId),
       );
+
+      try {
+        final updated = await follower.readCurrentState();
+        if (updated != null &&
+            (_state == null || updated.sequenceNumber > _state!.sequenceNumber)) {
+          _state = updated;
+          notifyListeners();
+        }
+      } catch (_) {}
     } catch (_) {
       // Initial connect failed; let the reconnect loop retry in the background.
       _role = DraftRole.follower;
@@ -506,6 +526,15 @@ class DraftSessionNotifier extends ChangeNotifier {
     );
 
     await _bleService!.sendCommand(cmd);
+
+    try {
+      final updated = await _bleService!.readCurrentState();
+      if (updated != null &&
+          (_state == null || updated.sequenceNumber > _state!.sequenceNumber)) {
+        _state = updated;
+        notifyListeners();
+      }
+    } catch (_) {}
   }
 
   // -------------------------------------------------------------------------

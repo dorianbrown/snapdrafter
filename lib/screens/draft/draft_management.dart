@@ -243,7 +243,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            if (!isLeader)
+            if (!isLeader && player.status != PlayerStatus.dropped)
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline, size: 20, color: Colors.red),
                 tooltip: 'Kick player',

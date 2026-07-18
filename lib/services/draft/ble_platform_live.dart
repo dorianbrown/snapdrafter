@@ -69,4 +69,17 @@ class LiveBleCentral implements BleCentral {
       value,
     );
   }
+
+  @override
+  Future<Uint8List> readCharacteristic(
+    String deviceId,
+    String serviceUuid,
+    String characteristicUuid,
+  ) {
+    return UniversalBle.read(
+      deviceId,
+      serviceUuid,
+      characteristicUuid,
+    );
+  }
 }

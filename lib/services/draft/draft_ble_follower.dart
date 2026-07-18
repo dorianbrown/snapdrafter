@@ -242,6 +242,20 @@ class DraftBleFollower extends DraftBleService {
     );
   }
 
+  /// Reads the current [DraftState] from the leader's state characteristic
+  /// via a GATT read (not notification). Used as a fallback when
+  /// notification-based state pushes are unreliable (e.g. cross-platform
+  /// BLE).
+  Future<DraftState?> readCurrentState() async {
+    if (_leaderDeviceId == null) return null;
+    final bytes = await _ble.readCharacteristic(
+      _leaderDeviceId!,
+      DraftBleService.serviceUuid,
+      DraftBleService.stateCharUuid,
+    );
+    return DraftBleService.decodeState(bytes);
+  }
+
   /// Derives a short session ID from the draft name by hashing it.
   String _extractSessionId(String name) {
     int hash = 0;

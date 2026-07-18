@@ -41,4 +41,7 @@ abstract class BleCentral {
 
   /// Writes a command payload to a characteristic on the remote device.
   Future<void> write(String deviceId, String serviceUuid, String characteristicUuid, Uint8List value);
+
+  /// Reads a characteristic value from the remote device.
+  Future<Uint8List> readCharacteristic(String deviceId, String serviceUuid, String characteristicUuid);
 }
