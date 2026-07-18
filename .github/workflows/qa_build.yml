@@ -121,7 +121,8 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: stable
-          flutter-version-file: pubspec.yaml # path to pubspec.yaml
+          flutter-version-file: pubspec.yaml
+          cache: true
 
       - name: Cache Pub
         uses: actions/cache@v5
