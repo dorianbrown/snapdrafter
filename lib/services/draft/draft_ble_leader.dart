@@ -37,7 +37,10 @@ class DiscoveredDraft {
 /// Connected followers receive push notifications of state changes via the
 /// state characteristic.
 class DraftBleLeader extends DraftBleService {
+  final _connectedDevices = <String>{};
   final _subscribedStateDeviceIds = <String>{};
+  StreamController<String>? _followerConnectedCtrl;
+  StreamController<String>? _followerDisconnectedCtrl;
   StreamSubscription<BlePeripheralAdvertisingStateChanged>? _advStateSub;
   StreamSubscription<BlePeripheralCharacteristicSubscriptionChanged>? _charSubStreamSub;
   StreamSubscription<BlePeripheralMtuChanged>? _mtuChangedSub;
@@ -49,6 +52,9 @@ class DraftBleLeader extends DraftBleService {
   final _metaChunker = BleChunkedStream();
   final _stateChunker = BleChunkedStream();
   final _mtuKnownDevices = <String>{};
+
+  Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
+  Stream<String>? get followerDisconnected => _followerDisconnectedCtrl?.stream;
 
   /// Callback invoked when a follower writes a [DraftCommand] to the
   /// command characteristic.
@@ -88,6 +94,9 @@ class DraftBleLeader extends DraftBleService {
   @override
   Future<void> startAsLeader(DraftState state) async {
     _currentState = state;
+
+    _followerConnectedCtrl = StreamController<String>.broadcast();
+    _followerDisconnectedCtrl = StreamController<String>.broadcast();
 
     final caps = await UniversalBlePeripheral.getCapabilities();
     print('[BLE_ADV] peripheral capabilities: supportsPeripheralMode=${caps.supportsPeripheralMode}');
@@ -169,13 +178,27 @@ class DraftBleLeader extends DraftBleService {
       },
     );
 
+    // Track follower connections vs disconnections.
+    UniversalBlePeripheral.connectionStateStream.listen((event) {
+      if (event.connected) {
+        _connectedDevices.add(event.deviceId);
+        _followerConnectedCtrl?.add(event.deviceId);
+        _queryMtuForDevice(event.deviceId);
+        print('[BLE_ADV] follower CONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
+      } else {
+        _connectedDevices.remove(event.deviceId);
+        _followerDisconnectedCtrl?.add(event.deviceId);
+        print('[BLE_ADV] follower DISCONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
+      }
+    });
+
     // iOS workaround: When a follower subscribes (or re-subscribes via
     // resubscribeAndReadState on the follower side), we must re-encode the
     // current state fresh. Relying on pre-cached _currentStateBytes can
     // return stale data because:
     //   - iOS peripheral GATT read requests return cached values
-    //   - subscription-state-dependent early returns in pushState may skip
-    //     re-encoding if _subscribedStateDeviceIds is briefly empty
+    //   - connection-state-dependent early returns in pushState may skip
+    //     re-encoding if _connectedDevices is briefly empty
     // Re-encoding guarantees every subscriber always sees the latest state.
     _charSubStreamSub = UniversalBlePeripheral.characteristicSubscriptionStream.listen((event) async {
       if (event.characteristicId == DraftBleService.stateCharUuid) {
@@ -184,6 +207,7 @@ class DraftBleLeader extends DraftBleService {
         } else {
           _subscribedStateDeviceIds.remove(event.deviceId);
         }
+        print('[BLE_ADV] state char ${event.isSubscribed ? "SUBSCRIBED" : "UNSUBSCRIBED"}: ${event.deviceId} (total=${_subscribedStateDeviceIds.length})');
       }
       if (!event.isSubscribed) return;
       if (event.characteristicId == DraftBleService.stateCharUuid && _currentState != null) {
@@ -384,6 +408,11 @@ class DraftBleLeader extends DraftBleService {
     try {
       await UniversalBlePeripheral.clearServices();
     } catch (_) {}
+    await _followerConnectedCtrl?.close();
+    await _followerDisconnectedCtrl?.close();
+    _followerConnectedCtrl = null;
+    _followerDisconnectedCtrl = null;
+    _connectedDevices.clear();
     _currentState = null;
   }
 }

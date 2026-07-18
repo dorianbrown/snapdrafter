@@ -89,10 +89,10 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen> {
     final state = notifier.state;
 
     if (state == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
-      });
-      return const SizedBox.shrink();
+      return Scaffold(
+        appBar: AppBar(title: const Text('Waiting Room')),
+        body: const Center(child: Text('Draft session lost')),
+      );
     }
 
     final session = state.session;
