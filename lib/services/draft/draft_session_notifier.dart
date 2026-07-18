@@ -60,6 +60,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       _state!.session.phase != DraftPhase.cancelled;
   String? get myPlayerName => _myPlayerName;
   String get myDeviceId => _myDeviceId;
+  bool get isReconnecting => _isReconnecting;
 
   bool hasReportedResult(int roundNumber) {
     if (_state == null) return false;
@@ -449,6 +450,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   Future<void> _attemptReconnect(String leaderDeviceId) async {
     if (_isReconnecting) return;
     _isReconnecting = true;
+    notifyListeners();
 
     for (final delay in _reconnectDelaysSeconds) {
       if (_role != DraftRole.follower) break;
@@ -458,12 +460,14 @@ class DraftSessionNotifier extends ChangeNotifier {
       try {
         await _bleService!.reconnectToLeader(leaderDeviceId);
         _isReconnecting = false;
+        notifyListeners();
         return;
       } catch (_) {
         // Retry with next delay
       }
     }
 
+    _isReconnecting = false;
     await leaveDraft();
   }
 

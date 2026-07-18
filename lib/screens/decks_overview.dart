@@ -17,7 +17,7 @@ import 'deck_scanner.dart';
 import 'settings/download_screen.dart';
 import 'image_processing_screen.dart';
 import 'settings.dart';
-import 'debug_screen.dart';
+import 'draft/draft_lobby.dart';
 
 import '/data/models/deck.dart';
 import '/data/models/cube.dart';
@@ -229,7 +229,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   icon: Icon(Icons.diversity_3),
                   onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                          builder: (context) => DebugScreen()))),
+                          builder: (context) => DraftLobbyScreen()))),
             Spacer(),
             IconButton(
                 tooltip: "Settings Menu",
