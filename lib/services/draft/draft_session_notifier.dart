@@ -218,8 +218,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     String playerName,
     String deviceName,
   ) {
+    print('[NOTIFIER] _handleJoinRequest: $playerName ($deviceId)');
     final existing = _state!.getPlayer(deviceId);
-    if (existing != null && existing.status == PlayerStatus.accepted) return;
+    if (existing != null && existing.status == PlayerStatus.accepted) {
+      print('[NOTIFIER] _handleJoinRequest: player already accepted, ignoring');
+      return;
+    }
 
     final joinOrder =
         _state!.players
@@ -241,6 +245,7 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     _bleService!.pushState(_state!);
     notifyListeners();
+    print('[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}');
   }
 
   // -------------------------------------------------------------------------

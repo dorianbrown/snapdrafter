@@ -217,6 +217,8 @@ class DraftBleFollower extends DraftBleService {
     if (!stateCompleter.isCompleted) {
       print('[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}');
       stateCompleter.complete(newState);
+    } else {
+      print('[BLE_FOLLOWER] subsequent state push: seq=${newState.sequenceNumber}, players=${newState.players.length}');
     }
     onStatePush?.call(newState);
   }
@@ -234,6 +236,7 @@ class DraftBleFollower extends DraftBleService {
     }
     final json = jsonEncode(cmd.toJson());
     final bytes = Uint8List.fromList(utf8.encode(json));
+    print('[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $_leaderDeviceId (${json.length} chars)');
     await _ble.write(
       _leaderDeviceId!,
       DraftBleService.serviceUuid,

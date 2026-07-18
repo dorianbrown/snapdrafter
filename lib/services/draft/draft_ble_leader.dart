@@ -181,9 +181,11 @@ class DraftBleLeader extends DraftBleService {
         _connectedDevices.add(event.deviceId);
         _followerConnectedCtrl?.add(event.deviceId);
         _queryMtuForDevice(event.deviceId);
+        print('[BLE_ADV] follower CONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
       } else {
         _connectedDevices.remove(event.deviceId);
         _followerDisconnectedCtrl?.add(event.deviceId);
+        print('[BLE_ADV] follower DISCONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
       }
     });
 
@@ -267,7 +269,11 @@ class DraftBleLeader extends DraftBleService {
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
-    if (_connectedDevices.isEmpty) return;
+    print('[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, connectedDevices=${_connectedDevices.length}');
+    if (_connectedDevices.isEmpty) {
+      print('[BLE_ADV] pushState SKIPPED — no connected devices!');
+      return;
+    }
 
     // Broadcast meta first (lightweight), then the full state.
     await _pushCharacteristicValue(
@@ -352,6 +358,7 @@ class DraftBleLeader extends DraftBleService {
       final json = utf8.decode(value);
       final map = jsonDecode(json) as Map<String, dynamic>;
       final cmd = DraftCommand.fromJson(map);
+      print('[BLE_ADV] command received from $deviceId: type=${cmd.runtimeType}, ${json.length} chars');
       onCommandReceived?.call(deviceId, cmd);
     } catch (e) {
       print('Failed to parse command from $deviceId: $e');
