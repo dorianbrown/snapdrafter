@@ -25,6 +25,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   final String _myDeviceId;
   String? _myPlayerName;
   bool _isReconnecting = false;
+  StreamSubscription<bool>? _leaderConnectedSub;
   final Map<String, String> _bleToAppId = {};
   final DraftBleService Function()? _bleLeaderFactory;
   final DraftBleService Function()? _bleFollowerFactory;
@@ -435,7 +436,7 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     // On BLE disconnect, auto-reconnect to the same leader
     // as long as this device hasn't intentionally left the draft.
-    follower.leaderConnected.listen((connected) {
+    _leaderConnectedSub = follower.leaderConnected.listen((connected) {
       if (!connected && _state != null && _role == DraftRole.follower) {
         _attemptReconnect(leaderDeviceId);
       }
@@ -499,8 +500,12 @@ class DraftSessionNotifier extends ChangeNotifier {
 
       await Future.delayed(Duration(seconds: delay));
 
+      if (_role != DraftRole.follower) break;
+      final bleService = _bleService;
+      if (bleService == null) break;
+
       try {
-        await _bleService!.reconnectToLeader(leaderDeviceId);
+        await bleService.reconnectToLeader(leaderDeviceId);
         _isReconnecting = false;
         notifyListeners();
         return;
@@ -609,31 +614,47 @@ class DraftSessionNotifier extends ChangeNotifier {
 
   /// Leaves the current draft — stops BLE and resets all local state.
   Future<void> leaveDraft() async {
-    if (isLeader && _state != null && _bleService != null) {
-      final cancelledState = _state!
-          .copyWith(
-            session: _state!.session.copyWith(phase: DraftPhase.cancelled),
-          )
-          .bumpSequence();
-      try {
-        await _bleService!.pushState(cancelledState);
-      } catch (_) {}
-    }
+    _isReconnecting = false;
+
+    final wasLeader = isLeader;
+    final oldState = _state;
+    final bleService = _bleService;
 
     _role = DraftRole.none;
     _state = null;
     _myPlayerName = null;
-    if (_bleService != null) {
-      await _bleService!.stop();
+    _bleToAppId.clear();
+
+    _leaderConnectedSub?.cancel();
+    _leaderConnectedSub = null;
+
+    if (wasLeader && oldState != null && bleService != null) {
+      final cancelledState = oldState
+          .copyWith(
+            session: oldState.session.copyWith(phase: DraftPhase.cancelled),
+          )
+          .bumpSequence();
+      try {
+        await bleService.pushState(cancelledState);
+      } catch (_) {}
+    }
+
+    if (bleService != null) {
+      await bleService.stop();
     }
     _bleService = null;
+
     notifyListeners();
   }
 
   @override
   void dispose() {
+    _isReconnecting = false;
+    _leaderConnectedSub?.cancel();
+    _leaderConnectedSub = null;
     _role = DraftRole.none;
     _state = null;
+    _bleToAppId.clear();
     if (_bleService != null) {
       print('[NOTIFIER] dispose: stopping BLE service (fire-and-forget)');
       _bleService!.stop();

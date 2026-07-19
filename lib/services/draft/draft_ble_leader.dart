@@ -44,6 +44,7 @@ class DraftBleLeader extends DraftBleService {
   StreamSubscription<BlePeripheralAdvertisingStateChanged>? _advStateSub;
   StreamSubscription<BlePeripheralCharacteristicSubscriptionChanged>? _charSubStreamSub;
   StreamSubscription<BlePeripheralMtuChanged>? _mtuChangedSub;
+  StreamSubscription<BlePeripheralConnectionStateChanged>? _connStateSub;
 
   Uint8List? _currentMetaBytes;
   Uint8List? _currentStateBytes;
@@ -175,7 +176,7 @@ class DraftBleLeader extends DraftBleService {
     );
 
     // Track follower connections vs disconnections.
-    UniversalBlePeripheral.connectionStateStream.listen((event) {
+    _connStateSub = UniversalBlePeripheral.connectionStateStream.listen((event) {
       if (event.connected) {
         _connectedDevices.add(event.deviceId);
         _followerConnectedCtrl?.add(event.deviceId);
@@ -419,10 +420,18 @@ class DraftBleLeader extends DraftBleService {
     _charSubStreamSub = null;
     await _mtuChangedSub?.cancel();
     _mtuChangedSub = null;
+    await _connStateSub?.cancel();
+    _connStateSub = null;
     _metaChunker.reset();
     _stateChunker.reset();
     _mtuKnownDevices.clear();
     _subscribedStateDeviceIds.clear();
+    try {
+      UniversalBlePeripheral.setReadRequestHandlers(null);
+    } catch (_) {}
+    try {
+      UniversalBlePeripheral.setWriteRequestHandlers(null);
+    } catch (_) {}
     try {
       await UniversalBlePeripheral.stopAdvertising();
     } catch (e) {
