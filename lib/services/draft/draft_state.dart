@@ -544,8 +544,8 @@ class DraftState {
   }
 
   /// Creates a brand-new draft session with the host already seated at
-  /// position 1. [totalRounds] is derived as `log2(seatCount)` clamped to
-  /// the range [3, 6].
+  /// position 1. [totalRounds] is derived as `log2(seatCount)` capped at
+  /// a maximum of 6.
   static DraftState create({
     required String name,
     required String leaderDeviceId,
@@ -555,7 +555,7 @@ class DraftState {
     int roundDurationSeconds = 300,
   }) {
     final sessionId = _generateId();
-    final totalRounds = (log2(seatCount).ceil()).clamp(3, 6);
+    final totalRounds = (log2(seatCount).ceil()).clamp(0, 6);
 
     return DraftState(
       sequenceNumber: 0,

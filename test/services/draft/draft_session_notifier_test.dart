@@ -467,6 +467,38 @@ void main() {
       fakeLeader.onCommandReceived?.call('nobody', DropRequest());
       expect(fakeLeader.pushStateCallCount, beforeLen);
     });
+
+    test('submitResult as leader processes locally', () async {
+      final state = notifier.state!;
+      notifier.state = state.copyWith(
+        players: [
+          state.players.first,
+          DraftPlayer(deviceId: 'f1', playerName: 'A', deviceName: 'd', joinOrder: 1, status: PlayerStatus.accepted),
+        ],
+        rounds: [
+          DraftRound(roundNumber: 1, matches: [
+            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1'),
+          ]),
+        ],
+        session: state.session.copyWith(phase: DraftPhase.inProgress),
+      );
+
+      final beforeLen = fakeLeader.pushStateCallCount;
+      await notifier.submitResult(
+        roundNumber: 1,
+        matchId: 'm1',
+        myWins: 2,
+        opponentWins: 1,
+        draws: 0,
+      );
+
+      expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
+      final updated = notifier.state!;
+      final match = updated.rounds[0].matches[0];
+      expect(match.status, MatchStatus.reported);
+      expect(match.aWins, 2);
+      expect(match.bWins, 1);
+    });
   });
 
   // -----------------------------------------------------------------------

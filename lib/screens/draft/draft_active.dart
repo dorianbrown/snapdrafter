@@ -281,12 +281,22 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
       return const Center(child: Text('No round data'));
     }
 
+    final myMatch = state.getMyMatch(notifier.myDeviceId, currentRound.roundNumber);
+    final hasMyMatch = myMatch != null && !myMatch.isBye;
+    final otherMatches = myMatch != null
+        ? currentRound.matches.where((m) => m.matchId != myMatch.matchId).toList()
+        : currentRound.matches.toList();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ...currentRound.matches.map((m) => _buildMatchTile(state, m)),
+          if (hasMyMatch) ...[
+            _buildMyMatchSection(state, notifier, myMatch, currentRound.roundNumber),
+            const SizedBox(height: 16),
+          ],
+          ...otherMatches.map((m) => _buildMatchTile(state, m)),
           const SizedBox(height: 24),
           if (currentRound.complete)
             SizedBox(
@@ -440,15 +450,20 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
       );
     }
 
+    final roundNumber = state.rounds.last.roundNumber;
+    return _buildMyMatchSection(state, notifier, myMatch, roundNumber);
+  }
+
+  Widget _buildMyMatchSection(
+      DraftState state, DraftSessionNotifier notifier,
+      DraftMatch myMatch, int roundNumber) {
     final opponentId = myMatch.playerAId == notifier.myDeviceId
         ? myMatch.playerBId
         : myMatch.playerAId;
     final opponent = opponentId != null ? state.getPlayer(opponentId) : null;
 
-    final canReport = notifier.canReportResult(
-        state.rounds.last.roundNumber);
-    final hasReported = notifier.hasReportedResult(
-        state.rounds.last.roundNumber);
+    final canReport = notifier.canReportResult(roundNumber);
+    final hasReported = notifier.hasReportedResult(roundNumber);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -496,7 +511,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
               height: 48,
               child: ElevatedButton.icon(
                 onPressed: () => _showReportResultDialog(
-                    notifier, state.rounds.last.roundNumber, myMatch),
+                    notifier, roundNumber, myMatch),
                 icon: const Icon(Icons.edit_note, size: 18),
                 label: const Text('Report Match Result'),
                 style: ElevatedButton.styleFrom(

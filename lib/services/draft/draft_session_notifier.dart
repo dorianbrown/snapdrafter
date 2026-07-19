@@ -536,7 +536,8 @@ class DraftSessionNotifier extends ChangeNotifier {
     _handleDropRequest(deviceId);
   }
 
-  /// Sends a [MatchResult] command to the leader.
+  /// Sends a [MatchResult] command. Followers send over BLE; the leader
+  /// processes it locally.
   Future<void> submitResult({
     required int roundNumber,
     required String matchId,
@@ -544,8 +545,6 @@ class DraftSessionNotifier extends ChangeNotifier {
     required int opponentWins,
     required int draws,
   }) async {
-    if (!isFollower) return;
-
     final cmd = MatchResult(
       roundNumber: roundNumber,
       matchId: matchId,
@@ -553,6 +552,13 @@ class DraftSessionNotifier extends ChangeNotifier {
       opponentWins: opponentWins,
       draws: draws,
     );
+
+    if (isLeader) {
+      _handleMatchResult(_myDeviceId, cmd);
+      return;
+    }
+
+    if (!isFollower) return;
 
     await _bleService!.sendCommand(cmd);
 

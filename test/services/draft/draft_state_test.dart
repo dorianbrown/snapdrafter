@@ -48,9 +48,9 @@ void main() {
         expect(state8.session.sessionId, contains('-'));
       });
 
-      test('totalRounds = ceil(log2(seatCount)).clamp(3,6)', () {
-        expect(state8.session.totalRounds, 3); // log2(8)=3, clamp(3,6)=3
-        expect(state4.session.totalRounds, 3); // log2(4)=2, clamp(2,3,6)=3
+      test('totalRounds = ceil(log2(seatCount)).clamp(0,6)', () {
+        expect(state8.session.totalRounds, 3); // log2(8)=3, capped at 6 = 3
+        expect(state4.session.totalRounds, 2); // log2(4)=2, capped at 6 = 2
         final state32 = DraftState.create(
           name: 'Big',
           leaderDeviceId: 'l',
@@ -62,13 +62,13 @@ void main() {
           leaderDeviceId: 'l',
           seatCount: 64,
         );
-        expect(state64.session.totalRounds, 6); // log2(64)=6, clamp(6,3,6)=6
+        expect(state64.session.totalRounds, 6); // log2(64)=6, capped at 6 = 6
         final state128 = DraftState.create(
           name: 'Huge2',
           leaderDeviceId: 'l',
           seatCount: 128,
         );
-        expect(state128.session.totalRounds, 6); // log2(128)=7, clamp(7,3,6)=6
+        expect(state128.session.totalRounds, 6); // log2(128)=7, capped at 6 = 6
       });
 
       test('setCode and cubeId are optional', () {

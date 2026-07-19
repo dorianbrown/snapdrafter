@@ -56,13 +56,13 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
 
     try {
       await context.read<DraftSessionNotifier>().createAndHost(
-            name: _nameCtrl.text.trim().isEmpty
-                ? '${_playerCtrl.text.trim()}\'s Draft'
-                : _nameCtrl.text.trim(),
-            seatCount: seatCount,
-            playerName: _playerCtrl.text.trim(),
-            roundDurationSeconds: roundMin * 60,
-          );
+        name: _nameCtrl.text.trim().isEmpty
+            ? '${_playerCtrl.text.trim()}\'s Draft'
+            : _nameCtrl.text.trim(),
+        seatCount: seatCount,
+        playerName: _playerCtrl.text.trim(),
+        roundDurationSeconds: roundMin * 60,
+      );
 
       if (mounted) {
         Navigator.of(context).pushReplacement(
@@ -71,9 +71,9 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to create draft: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to create draft: $e')));
       }
     } finally {
       if (mounted) setState(() => _creating = false);
@@ -107,8 +107,9 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
                   border: OutlineInputBorder(),
                 ),
                 textCapitalization: TextCapitalization.words,
-                validator: (v) =>
-                    v == null || v.trim().isEmpty ? 'Enter your player name' : null,
+                validator: (v) => v == null || v.trim().isEmpty
+                    ? 'Enter your player name'
+                    : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -121,7 +122,8 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
                 validator: (v) {
                   final parsed = int.tryParse(v?.trim() ?? '');
                   if (parsed == null) return 'Enter a number';
-                  if (parsed <= 3) return 'Must be greater than 3';
+                  // TODO: Uncomment this again
+                  // if (parsed <= 3) return 'Must be greater than 3';
                   return null;
                 },
               ),
@@ -151,7 +153,10 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
                           height: 20,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Create Draft', style: TextStyle(fontSize: 16)),
+                      : const Text(
+                          'Create Draft',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
               ),
             ],
