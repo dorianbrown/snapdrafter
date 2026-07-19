@@ -403,11 +403,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                             fontWeight: FontWeight.bold, fontSize: 16)),
                 ],
               ),
-              if (match.draws != null && match.draws! > 0) ...[
-                const SizedBox(height: 4),
-                Text('Draws: ${match.draws}',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
             ],
             const SizedBox(height: 4),
             Container(
@@ -567,7 +562,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
     final isPlayerA = match.playerAId == notifier.myDeviceId;
     final myWins = (isPlayerA ? match.aWins : match.bWins) ?? 0;
     final oppWins = (isPlayerA ? match.bWins : match.aWins) ?? 0;
-    final draws = match.draws ?? 0;
 
     return Card(
       color: Colors.orange.shade50,
@@ -580,7 +574,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                 style: TextStyle(fontWeight: FontWeight.w600)),
             const SizedBox(height: 8),
             Text(
-                'You: $myWins wins — Opponent: $oppWins wins — Draws: $draws',
+                'You: $myWins wins — Opponent: $oppWins wins',
                 style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 12),
             Row(
@@ -590,8 +584,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                     onPressed: () => _showReportResultDialog(
                         notifier, roundNumber, match,
                         initialMyWins: myWins,
-                        initialOpponentWins: oppWins,
-                        initialDraws: draws),
+                        initialOpponentWins: oppWins),
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('Correct'),
                   ),
@@ -604,7 +597,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                       matchId: match.matchId,
                       myWins: myWins,
                       opponentWins: oppWins,
-                      draws: draws,
                     ),
                     icon: const Icon(Icons.check, size: 16),
                     label: const Text('Confirm'),
@@ -624,10 +616,10 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
 
   void _showReportResultDialog(
       DraftSessionNotifier notifier, int roundNumber, DraftMatch match,
-      {int initialMyWins = 0, int initialOpponentWins = 0, int initialDraws = 0}) {
+      {int initialMyWins = 0, int initialOpponentWins = 0}) {
     int myWins = initialMyWins;
     int opponentWins = initialOpponentWins;
-    int draws = initialDraws;
+    final maxWins = 3;
 
     showDialog(
       context: context,
@@ -652,7 +644,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                       style:
                           const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   IconButton(
-                    onPressed: myWins < 3
+                    onPressed: myWins + opponentWins < maxWins
                         ? () => setDialogState(() => myWins++)
                         : null,
                     icon: const Icon(Icons.add_circle_outline),
@@ -675,30 +667,8 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                       style:
                           const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   IconButton(
-                    onPressed: opponentWins < 3
+                    onPressed: myWins + opponentWins < maxWins
                         ? () => setDialogState(() => opponentWins++)
-                        : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text('Draws', style: TextStyle(fontWeight: FontWeight.w500)),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: draws > 0
-                        ? () => setDialogState(() => draws--)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                  ),
-                  Text('$draws',
-                      style:
-                          const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    onPressed: draws < 3
-                        ? () => setDialogState(() => draws++)
                         : null,
                     icon: const Icon(Icons.add_circle_outline),
                   ),
@@ -718,7 +688,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                   matchId: match.matchId,
                   myWins: myWins,
                   opponentWins: opponentWins,
-                  draws: draws,
                 );
                 Navigator.pop(ctx);
               },

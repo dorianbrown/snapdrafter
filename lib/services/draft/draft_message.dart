@@ -84,14 +84,12 @@ class MatchResult extends DraftCommand {
   final String matchId;
   final int myWins;
   final int opponentWins;
-  final int draws;
 
   MatchResult({
     required this.roundNumber,
     required this.matchId,
     required this.myWins,
     required this.opponentWins,
-    required this.draws,
   });
 
   @override
@@ -104,7 +102,6 @@ class MatchResult extends DraftCommand {
     'matchId': matchId,
     'myWins': myWins,
     'opponentWins': opponentWins,
-    'draws': draws,
   };
 
   factory MatchResult.fromJson(Map<String, dynamic> json) {
@@ -113,7 +110,6 @@ class MatchResult extends DraftCommand {
       matchId: json['matchId'] as String,
       myWins: json['myWins'] as int,
       opponentWins: json['opponentWins'] as int,
-      draws: json['draws'] as int,
     );
   }
 }

@@ -482,7 +482,6 @@ void main() {
                   playerBId: 'p3',
                   aWins: 2,
                   bWins: 0,
-                  draws: 0,
                   status: MatchStatus.confirmed,
                 ),
                 DraftMatch(
@@ -492,7 +491,6 @@ void main() {
                   playerBId: 'p4',
                   aWins: 2,
                   bWins: 0,
-                  draws: 0,
                   status: MatchStatus.confirmed,
                 ),
               ],
@@ -733,7 +731,6 @@ void main() {
         playerBId: 'p2',
         aWins: 2,
         bWins: 0,
-        draws: 0,
         status: MatchStatus.confirmed,
       );
       expect(match.winnerId(), 'p1');
@@ -747,7 +744,6 @@ void main() {
         playerBId: 'p2',
         aWins: 0,
         bWins: 2,
-        draws: 0,
         status: MatchStatus.confirmed,
       );
       expect(match.winnerId(), 'p2');
@@ -761,7 +757,6 @@ void main() {
         playerBId: 'p2',
         aWins: 1,
         bWins: 1,
-        draws: 1,
         status: MatchStatus.confirmed,
       );
       expect(match.winnerId(), isNull);
@@ -786,7 +781,6 @@ void main() {
         playerBId: 'p2',
         aWins: 2,
         bWins: 0,
-        draws: 0,
       );
       final cleared = match.copyWith(clearPlayerB: true);
       expect(cleared.playerBId, isNull);
@@ -802,7 +796,6 @@ void main() {
           playerBId: 'p2',
           aWins: 2,
           bWins: 1,
-          draws: 0,
           status: MatchStatus.confirmed,
         );
         final json = match.toJson();
@@ -814,7 +807,6 @@ void main() {
         expect(decoded.playerBId, match.playerBId);
         expect(decoded.aWins, match.aWins);
         expect(decoded.bWins, match.bWins);
-        expect(decoded.draws, match.draws);
         expect(decoded.status, match.status);
       });
 
@@ -831,7 +823,6 @@ void main() {
         expect(decoded.playerBId, isNull);
         expect(decoded.aWins, isNull);
         expect(decoded.bWins, isNull);
-        expect(decoded.draws, isNull);
         expect(decoded.isBye, isTrue);
       });
     });

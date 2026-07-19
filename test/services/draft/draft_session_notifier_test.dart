@@ -359,14 +359,13 @@ void main() {
 
       final beforeLen = fakeLeader.pushStateCallCount;
       fakeLeader.onCommandReceived?.call('my-device', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0, draws: 0,
+        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0,
       ));
 
       final match = notifier.state!.rounds[0].matches[0];
       expect(match.status, MatchStatus.reported);
       expect(match.aWins, 2);
       expect(match.bWins, 0);
-      expect(match.draws, 0);
       expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
     });
 
@@ -379,14 +378,14 @@ void main() {
         ],
         rounds: [
           DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins: 0, draws: 0, status: MatchStatus.reported),
+            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins: 0, status: MatchStatus.reported),
           ]),
         ],
         session: state.session.copyWith(phase: DraftPhase.inProgress),
       );
 
       fakeLeader.onCommandReceived?.call('f1', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 0, opponentWins: 2, draws: 0,
+        roundNumber: 1, matchId: 'm1', myWins: 0, opponentWins: 2,
       ));
 
       final match = notifier.state!.rounds[0].matches[0];
@@ -408,14 +407,14 @@ void main() {
         ],
         rounds: [
           DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins:0, draws: 0, status: MatchStatus.reported, reportedByDeviceId: 'my-device'),
+            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins: 0, status: MatchStatus.reported, reportedByDeviceId: 'my-device'),
           ]),
         ],
         session: state.session.copyWith(phase: DraftPhase.inProgress),
       );
 
       fakeLeader.onCommandReceived?.call('f1', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0, draws: 0,
+        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0,
       ));
 
       final match = notifier.state!.rounds[0].matches[0];
@@ -438,7 +437,7 @@ void main() {
 
       final beforeLen = fakeLeader.pushStateCallCount;
       fakeLeader.onCommandReceived?.call('my-device', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0, draws: 0,
+        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0,
       ));
       expect(fakeLeader.pushStateCallCount, beforeLen);
     });
@@ -493,7 +492,6 @@ void main() {
         matchId: 'm1',
         myWins: 2,
         opponentWins: 1,
-        draws: 0,
       );
 
       expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
@@ -694,7 +692,6 @@ void main() {
         matchId: 'match-abc',
         myWins: 2,
         opponentWins: 0,
-        draws: 1,
       );
 
       expect(fakeFollower.sentCommands.length, greaterThan(beforeLen));
@@ -703,7 +700,6 @@ void main() {
       expect(cmd.matchId, 'match-abc');
       expect(cmd.myWins, 2);
       expect(cmd.opponentWins, 0);
-      expect(cmd.draws, 1);
     });
 
     test('submitResult when not follower → no-op', () async {
@@ -712,7 +708,6 @@ void main() {
         matchId: 'm1',
         myWins: 2,
         opponentWins: 0,
-        draws: 0,
       );
       expect(fakeFollower.sentCommands, isEmpty);
     });

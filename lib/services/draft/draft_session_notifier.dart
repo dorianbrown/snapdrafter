@@ -280,16 +280,13 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     int? newAWins;
     int? newBWins;
-    int? newDraws;
 
     if (isPlayerA) {
       newAWins = result.myWins;
       newBWins = result.opponentWins;
-      newDraws = result.draws;
     } else {
       newBWins = result.myWins;
       newAWins = result.opponentWins;
-      newDraws = result.draws;
     }
 
     switch (match.status) {
@@ -300,7 +297,6 @@ class DraftSessionNotifier extends ChangeNotifier {
         final updated = match.copyWith(
           aWins: newAWins,
           bWins: newBWins,
-          draws: newDraws,
           reportedByDeviceId: reporterId,
           status: MatchStatus.reported,
         );
@@ -312,7 +308,6 @@ class DraftSessionNotifier extends ChangeNotifier {
         final updated = match.copyWith(
           aWins: newAWins,
           bWins: newBWins,
-          draws: newDraws,
           status: MatchStatus.confirmed,
         );
         _updateMatch(result.roundNumber, matchIndex, updated);
@@ -541,14 +536,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     required String matchId,
     required int myWins,
     required int opponentWins,
-    required int draws,
   }) async {
     final cmd = MatchResult(
       roundNumber: roundNumber,
       matchId: matchId,
       myWins: myWins,
       opponentWins: opponentWins,
-      draws: draws,
     );
 
     if (isLeader) {

@@ -192,7 +192,6 @@ class DraftMatch {
   final String? playerBId;
   final int? aWins;
   final int? bWins;
-  final int? draws;
   final String? reportedByDeviceId;
   final MatchStatus status;
 
@@ -203,7 +202,6 @@ class DraftMatch {
     this.playerBId,
     this.aWins,
     this.bWins,
-    this.draws,
     this.reportedByDeviceId,
     this.status = MatchStatus.pending,
   });
@@ -218,7 +216,6 @@ class DraftMatch {
     String? playerBId,
     int? aWins,
     int? bWins,
-    int? draws,
     String? reportedByDeviceId,
     MatchStatus? status,
     bool clearPlayerB = false,
@@ -230,7 +227,6 @@ class DraftMatch {
       playerBId: clearPlayerB ? null : (playerBId ?? this.playerBId),
       aWins: aWins ?? this.aWins,
       bWins: bWins ?? this.bWins,
-      draws: draws ?? this.draws,
       reportedByDeviceId: reportedByDeviceId ?? this.reportedByDeviceId,
       status: status ?? this.status,
     );
@@ -254,7 +250,6 @@ class DraftMatch {
     if (playerBId != null) 'b': playerBId,
     if (aWins != null) 'aw': aWins,
     if (bWins != null) 'bw': bWins,
-    if (draws != null) 'dr': draws,
     if (reportedByDeviceId != null) 'rd': reportedByDeviceId,
     's': status.name,
   };
@@ -267,7 +262,6 @@ class DraftMatch {
       playerBId: json['b'] as String?,
       aWins: json['aw'] as int?,
       bWins: json['bw'] as int?,
-      draws: json['dr'] as int?,
       reportedByDeviceId: json['rd'] as String?,
       status: MatchStatus.fromString(json['s'] as String),
     );

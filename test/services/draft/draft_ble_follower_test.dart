@@ -568,7 +568,6 @@ void main() {
         matchId: 'm1',
         myWins: 2,
         opponentWins: 0,
-        draws: 0,
       ));
       expect(fake.writes.length, 1);
     });

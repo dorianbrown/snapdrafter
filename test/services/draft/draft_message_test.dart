@@ -44,7 +44,6 @@ void main() {
           matchId: 'match-abc',
           myWins: 2,
           opponentWins: 1,
-          draws: 0,
         );
         final json = original.toJson();
         final decoded = MatchResult.fromJson(json);
@@ -53,7 +52,6 @@ void main() {
         expect(decoded.matchId, 'match-abc');
         expect(decoded.myWins, 2);
         expect(decoded.opponentWins, 1);
-        expect(decoded.draws, 0);
         expect(decoded.type, DraftCommandType.matchResult);
       });
 
@@ -64,7 +62,7 @@ void main() {
           'matchId': 'm1',
           'myWins': 1,
           'opponentWins': 2,
-          'draws': 1,
+          
         };
         final cmd = DraftCommand.fromJson(json);
         expect(cmd, isA<MatchResult>());
@@ -73,7 +71,6 @@ void main() {
         expect(result.matchId, 'm1');
         expect(result.myWins, 1);
         expect(result.opponentWins, 2);
-        expect(result.draws, 1);
       });
 
       test('toJson includes type field', () {
@@ -82,7 +79,6 @@ void main() {
           matchId: 'm1',
           myWins: 2,
           opponentWins: 0,
-          draws: 0,
         );
         final json = result.toJson();
         expect(json['type'], 'match_result');
