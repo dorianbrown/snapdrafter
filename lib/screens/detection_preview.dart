@@ -133,11 +133,14 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     return WillPopScope(
       onWillPop: () async {
         if (widget.isSideboardStep) {
-          // Pop back to the mainboard preview
           Navigator.of(context).pop();
           return false;
         }
-        // For non-sideboard steps, navigate back to home
+        if (widget.onDeckSaved != null) {
+          Navigator.of(context).popUntil(ModalRoute.withName('scan_deck'));
+          Navigator.of(context).pop();
+          return false;
+        }
         Navigator.of(context).popUntil(ModalRoute.withName('/'));
         return false;
       },
