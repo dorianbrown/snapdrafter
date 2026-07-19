@@ -318,7 +318,7 @@ void main() {
       final newState = notifier.state!;
       expect(newState.players.length, 2);
       final player = newState.players.last;
-      expect(player.deviceId, 'follower-1');
+      expect(player.deviceId, 'Pixel 7');
       expect(player.playerName, 'Alice');
       expect(player.deviceName, 'Pixel 7');
       expect(player.status, PlayerStatus.accepted);
@@ -443,12 +443,12 @@ void main() {
       fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
         playerName: 'Alice', deviceName: 'Phone',
       ));
-      expect(notifier.state!.getPlayer('follower-1')!.status, PlayerStatus.accepted);
+      expect(notifier.state!.getPlayer('Phone')!.status, PlayerStatus.accepted);
 
       final beforeLen = fakeLeader.pushStateCallCount;
       fakeLeader.onCommandReceived?.call('follower-1', DropRequest());
 
-      expect(notifier.state!.getPlayer('follower-1')!.status, PlayerStatus.dropped);
+      expect(notifier.state!.getPlayer('Phone')!.status, PlayerStatus.dropped);
       expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
     });
 
@@ -456,10 +456,10 @@ void main() {
       fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
         playerName: 'Alice', deviceName: 'Phone',
       ));
-      expect(notifier.state!.getPlayer('follower-1')!.status, PlayerStatus.accepted);
+      expect(notifier.state!.getPlayer('Phone')!.status, PlayerStatus.accepted);
 
-      await notifier.removePlayer('follower-1');
-      expect(notifier.state!.getPlayer('follower-1')!.status, PlayerStatus.dropped);
+      await notifier.removePlayer('Phone');
+      expect(notifier.state!.getPlayer('Phone')!.status, PlayerStatus.dropped);
     });
 
     test('handleDropRequest for non-existent player is ignored', () {

@@ -25,6 +25,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   final String _myDeviceId;
   String? _myPlayerName;
   bool _isReconnecting = false;
+  final Map<String, String> _bleToAppId = {};
   final DraftBleService Function()? _bleLeaderFactory;
   final DraftBleService Function()? _bleFollowerFactory;
   final List<int> _reconnectDelaysSeconds;
@@ -205,9 +206,9 @@ class DraftSessionNotifier extends ChangeNotifier {
       case JoinRequest(:final playerName, :final deviceName):
         _handleJoinRequest(deviceId, playerName, deviceName);
       case MatchResult result:
-        _handleMatchResult(deviceId, result);
+        _handleMatchResult(_bleToAppId[deviceId] ?? deviceId, result);
       case DropRequest():
-        _handleDropRequest(deviceId);
+        _handleDropRequest(_bleToAppId[deviceId] ?? deviceId);
     }
   }
 
@@ -219,7 +220,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     String deviceName,
   ) {
     print('[NOTIFIER] _handleJoinRequest: $playerName ($deviceId)');
-    final existing = _state!.getPlayer(deviceId);
+    final existing = _state!.getPlayer(deviceName);
     if (existing != null && existing.status == PlayerStatus.accepted) {
       print('[NOTIFIER] _handleJoinRequest: player already accepted, ignoring');
       return;
@@ -231,8 +232,10 @@ class DraftSessionNotifier extends ChangeNotifier {
             .fold<int>(0, (max, o) => o > max ? o : max) +
         1;
 
+    _bleToAppId[deviceId] = deviceName;
+
     final newPlayer = DraftPlayer(
-      deviceId: deviceId,
+      deviceId: deviceName,
       playerName: playerName,
       deviceName: deviceName,
       joinOrder: joinOrder,
