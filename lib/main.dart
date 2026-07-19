@@ -13,6 +13,7 @@ import '/screens/decks_overview.dart';
 import '/screens/image_processing_screen.dart';
 import '/screens/settings/download_screen.dart';
 import '/services/draft/draft_session_notifier.dart';
+import '/services/draft/notification_service.dart';
 import '/utils/release_date_helper.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
@@ -50,6 +51,8 @@ Future<void> main() async {
   String deviceId = prefs.getString('device_id') ?? _generateDeviceId();
   await prefs.setString('device_id', deviceId);
 
+  await NotificationService.instance.init();
+
   runApp(
     MultiProvider(
       providers: [
@@ -70,7 +73,7 @@ class MainApp extends StatefulWidget {
   State<MainApp> createState() => MainAppState();
 }
 
-class MainAppState extends State<MainApp> {
+class MainAppState extends State<MainApp> with WidgetsBindingObserver {
   late StreamSubscription _intentDataStreamSubscription;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
   final ReleaseDateHelper _releaseDateHelper = ReleaseDateHelper();
@@ -79,6 +82,7 @@ class MainAppState extends State<MainApp> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _setRepository = SetRepository();
     
     // Run the release date check after the app is initialized
@@ -199,8 +203,14 @@ class MainAppState extends State<MainApp> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _intentDataStreamSubscription.cancel();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    NotificationService.instance.lifecycleState = state;
   }
 }
 

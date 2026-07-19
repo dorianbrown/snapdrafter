@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
+import '../../services/draft/notification_service.dart';
 import 'draft_results.dart';
 
 class DraftActiveScreen extends StatefulWidget {
@@ -16,6 +17,7 @@ class DraftActiveScreen extends StatefulWidget {
 class _DraftActiveScreenState extends State<DraftActiveScreen> {
   Timer? _tickTimer;
   Timer? _pollTimer;
+  int? _timeElapsedNotifiedRound;
 
   @override
   void initState() {
@@ -44,7 +46,10 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
 
     if (inProgress && _tickTimer == null) {
       _tickTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-        if (mounted) setState(() {});
+        if (mounted) {
+          setState(() {});
+          _checkTimeElapsed();
+        }
       });
     } else if (!inProgress && _tickTimer != null) {
       _tickTimer!.cancel();
@@ -98,6 +103,28 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
         round.roundStartTime!.add(Duration(seconds: session.roundDurationSeconds));
     final remaining = endTime.difference(DateTime.now()).inSeconds;
     return remaining < 0 ? 0 : remaining;
+  }
+
+  void _checkTimeElapsed() {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+    if (state == null || state.rounds.isEmpty) return;
+
+    final currentRound = state.rounds.last;
+    if (currentRound.complete) return;
+
+    final remaining =
+        _remainingSeconds(currentRound, state.session);
+    if (remaining == 0 &&
+        _timeElapsedNotifiedRound != currentRound.roundNumber) {
+      _timeElapsedNotifiedRound = currentRound.roundNumber;
+      NotificationService.instance.notifyRoundTimeElapsed(
+        roundNumber: currentRound.roundNumber,
+      );
+    } else if (remaining > 0 &&
+        _timeElapsedNotifiedRound == currentRound.roundNumber) {
+      _timeElapsedNotifiedRound = null;
+    }
   }
 
   void _navigateIfNeeded(DraftSessionNotifier notifier) {

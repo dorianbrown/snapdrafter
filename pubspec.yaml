@@ -66,6 +66,7 @@ dependencies:
   collection: any
   url_launcher: any
   universal_ble: ^2.1.0
+  flutter_local_notifications: ^18.0.1
 dependency_overrides:
   simple_icons: ^16.23.0
 dev_dependencies:

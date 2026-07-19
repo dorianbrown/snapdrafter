@@ -10,6 +10,11 @@
 	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>This app uses Bluetooth to scan, connect, and communicate with nearby devices during draft sessions.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>bluetooth-peripheral</string>
+		<string>bluetooth-central</string>
+	</array>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>This app uses Bluetooth to host draft sessions that other devices can join.</string>
 	<key>NSCameraUsageDescription</key>

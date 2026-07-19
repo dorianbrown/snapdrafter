@@ -7,6 +7,7 @@ import 'draft_ble_service.dart';
 import 'draft_ble_leader.dart';
 import 'draft_ble_follower.dart';
 import 'swiss_pairing.dart';
+import 'notification_service.dart';
 
 enum DraftRole { none, leader, follower }
 
@@ -156,6 +157,10 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     await _bleService!.pushState(_state!);
     notifyListeners();
+
+    if (_state!.rounds.isNotEmpty) {
+      _notifyNewRoundForDevice(_state!.rounds.last, _myDeviceId);
+    }
   }
 
   /// Generates the next round's Swiss pairings and broadcasts them.
@@ -194,6 +199,8 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     await _bleService!.pushState(_state!);
     notifyListeners();
+
+    _notifyNewRoundForDevice(round, _myDeviceId);
   }
 
   // -------------------------------------------------------------------------
@@ -302,6 +309,8 @@ class DraftSessionNotifier extends ChangeNotifier {
         );
         _updateMatch(result.roundNumber, matchIndex, updated);
         _updatePlayerRecords(updated, result.roundNumber);
+
+        _notifyMatchResultSubmitted(reporterId, updated);
 
       case MatchStatus.reported:
         if (match.reportedByDeviceId == reporterId) return;
@@ -424,10 +433,15 @@ class DraftSessionNotifier extends ChangeNotifier {
         print('[NOTIFIER] onStatePush: I was dropped!');
       }
       if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
+        final oldRoundCount = _state?.rounds.length ?? 0;
         _state = newState;
         if (newState.session.phase == DraftPhase.cancelled) {
           leaveDraft();
           return;
+        }
+        if (newState.rounds.length > oldRoundCount &&
+            newState.rounds.isNotEmpty) {
+          _notifyNewRoundForDevice(newState.rounds.last, _myDeviceId);
         }
         notifyListeners();
       }
@@ -601,6 +615,51 @@ class DraftSessionNotifier extends ChangeNotifier {
         notifyListeners();
       }
     } catch (_) {}
+  }
+
+  // -------------------------------------------------------------------------
+  // Notification helpers
+  // -------------------------------------------------------------------------
+
+  void _notifyMatchResultSubmitted(String reporterId, DraftMatch match) {
+    if (_state == null) return;
+    final reporter = _state!.getPlayer(reporterId);
+    if (reporter == null) return;
+
+    final opponentId = match.playerAId == reporterId
+        ? match.playerBId
+        : match.playerAId;
+    final opponent = opponentId != null ? _state!.getPlayer(opponentId) : null;
+
+    final reporterWins = match.playerAId == reporterId ? match.aWins : match.bWins;
+    final opponentWins = match.playerAId == reporterId ? match.bWins : match.aWins;
+
+    NotificationService.instance.notifyMatchResultSubmitted(
+      reporterName: reporter.playerName,
+      opponentName: opponent?.playerName ?? 'Bye',
+      reporterWins: reporterWins ?? 0,
+      opponentWins: opponentWins ?? 0,
+      roundNumber: match.roundNumber,
+    );
+  }
+
+  void _notifyNewRoundForDevice(DraftRound round, String deviceId) {
+    if (_state == null) return;
+    final match = _state!.getMyMatch(deviceId, round.roundNumber);
+    String? opponentName;
+    if (match != null && !match.isBye) {
+      final opponentId = match.playerAId == deviceId
+          ? match.playerBId
+          : match.playerAId;
+      if (opponentId != null) {
+        opponentName = _state!.getPlayer(opponentId)?.playerName;
+      }
+    }
+    NotificationService.instance.notifyNewRound(
+      roundNumber: round.roundNumber,
+      totalRounds: _state!.session.totalRounds,
+      opponentName: opponentName,
+    );
   }
 
   // -------------------------------------------------------------------------
