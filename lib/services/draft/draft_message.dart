@@ -5,7 +5,8 @@
 enum DraftCommandType {
   joinRequest,
   matchResult,
-  dropRequest;
+  dropRequest,
+  submitDecklist;
 
   String get name {
     switch (this) {
@@ -15,6 +16,8 @@ enum DraftCommandType {
         return 'match_result';
       case DraftCommandType.dropRequest:
         return 'drop_request';
+      case DraftCommandType.submitDecklist:
+        return 'submit_decklist';
     }
   }
 
@@ -42,6 +45,8 @@ sealed class DraftCommand {
         return MatchResult.fromJson(json);
       case DraftCommandType.dropRequest:
         return DropRequest.fromJson(json);
+      case DraftCommandType.submitDecklist:
+        return SubmitDecklist.fromJson(json);
     }
   }
 }
@@ -128,5 +133,35 @@ class DropRequest extends DraftCommand {
 
   factory DropRequest.fromJson(Map<String, dynamic> json) {
     return DropRequest();
+  }
+}
+
+/// Submits a player's draft decklist to the leader for sync to all devices.
+class SubmitDecklist extends DraftCommand {
+  final List<String> mainboardScryfallIds;
+  final List<String> sideboardScryfallIds;
+
+  SubmitDecklist({
+    required this.mainboardScryfallIds,
+    required this.sideboardScryfallIds,
+  });
+
+  @override
+  DraftCommandType get type => DraftCommandType.submitDecklist;
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': type.name,
+    'mb': mainboardScryfallIds,
+    'sb': sideboardScryfallIds,
+  };
+
+  factory SubmitDecklist.fromJson(Map<String, dynamic> json) {
+    return SubmitDecklist(
+      mainboardScryfallIds:
+          (json['mb'] as List<dynamic>).cast<String>(),
+      sideboardScryfallIds:
+          (json['sb'] as List<dynamic>).cast<String>(),
+    );
   }
 }

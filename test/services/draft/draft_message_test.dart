@@ -123,6 +123,7 @@ void main() {
         expect(DraftCommandType.joinRequest.name, 'join_request');
         expect(DraftCommandType.matchResult.name, 'match_result');
         expect(DraftCommandType.dropRequest.name, 'drop_request');
+        expect(DraftCommandType.submitDecklist.name, 'submit_decklist');
       });
 
       test('fromString returns correct value for known strings', () {
@@ -132,12 +133,65 @@ void main() {
             DraftCommandType.matchResult);
         expect(DraftCommandType.fromString('drop_request'),
             DraftCommandType.dropRequest);
+        expect(DraftCommandType.fromString('submit_decklist'),
+            DraftCommandType.submitDecklist);
       });
 
       test('fromString falls back to joinRequest for unknown string', () {
         expect(DraftCommandType.fromString('unknown'),
             DraftCommandType.joinRequest);
         expect(DraftCommandType.fromString(''), DraftCommandType.joinRequest);
+      });
+    });
+
+    group('SubmitDecklist', () {
+      test('toJson → fromJson round-trip', () {
+        final original = SubmitDecklist(
+          mainboardScryfallIds: ['id-1', 'id-2', 'id-3'],
+          sideboardScryfallIds: ['id-side-1'],
+        );
+        final json = original.toJson();
+        final decoded = SubmitDecklist.fromJson(json);
+
+        expect(decoded.mainboardScryfallIds, ['id-1', 'id-2', 'id-3']);
+        expect(decoded.sideboardScryfallIds, ['id-side-1']);
+        expect(decoded.type, DraftCommandType.submitDecklist);
+      });
+
+      test('fromJson via DraftCommand.fromJson dispatches correctly', () {
+        final json = {
+          'type': 'submit_decklist',
+          'mb': ['a', 'b'],
+          'sb': ['c'],
+        };
+        final cmd = DraftCommand.fromJson(json);
+        expect(cmd, isA<SubmitDecklist>());
+        final decklist = cmd as SubmitDecklist;
+        expect(decklist.mainboardScryfallIds, ['a', 'b']);
+        expect(decklist.sideboardScryfallIds, ['c']);
+      });
+
+      test('toJson includes type field', () {
+        final cmd = SubmitDecklist(
+          mainboardScryfallIds: ['x'],
+          sideboardScryfallIds: [],
+        );
+        final json = cmd.toJson();
+        expect(json['type'], 'submit_decklist');
+        expect(json['mb'], ['x']);
+        expect(json['sb'], []);
+      });
+
+      test('empty lists round-trip', () {
+        final original = SubmitDecklist(
+          mainboardScryfallIds: [],
+          sideboardScryfallIds: [],
+        );
+        final json = original.toJson();
+        final decoded = SubmitDecklist.fromJson(json);
+
+        expect(decoded.mainboardScryfallIds, isEmpty);
+        expect(decoded.sideboardScryfallIds, isEmpty);
       });
     });
   });

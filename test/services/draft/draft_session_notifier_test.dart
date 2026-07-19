@@ -501,6 +501,71 @@ void main() {
       expect(match.aWins, 2);
       expect(match.bWins, 1);
     });
+
+    test('handleDecklistSubmission updates player decklist and pushes state', () {
+      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
+        playerName: 'Alice', deviceName: 'Phone',
+      ));
+      final beforeLen = fakeLeader.pushStateCallCount;
+
+      fakeLeader.onCommandReceived?.call('follower-1', SubmitDecklist(
+        mainboardScryfallIds: ['id-a', 'id-b'],
+        sideboardScryfallIds: ['id-side'],
+      ));
+
+      final player = notifier.state!.getPlayer('Phone')!;
+      expect(player.decklistMainboard, ['id-a', 'id-b']);
+      expect(player.decklistSideboard, ['id-side']);
+      expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
+      expect(notifier.hasSubmittedDecklist('Phone'), isTrue);
+    });
+
+    test('handleDecklistSubmission ignores second submission', () {
+      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
+        playerName: 'Alice', deviceName: 'Phone',
+      ));
+      fakeLeader.onCommandReceived?.call('follower-1', SubmitDecklist(
+        mainboardScryfallIds: ['first'],
+        sideboardScryfallIds: [],
+      ));
+
+      final beforeLen = fakeLeader.pushStateCallCount;
+      fakeLeader.onCommandReceived?.call('follower-1', SubmitDecklist(
+        mainboardScryfallIds: ['second'],
+        sideboardScryfallIds: [],
+      ));
+
+      expect(notifier.state!.getPlayer('Phone')!.decklistMainboard, ['first']);
+      expect(fakeLeader.pushStateCallCount, beforeLen);
+    });
+
+    test('handleDecklistSubmission ignores unknown device', () {
+      final beforeLen = fakeLeader.pushStateCallCount;
+      fakeLeader.onCommandReceived?.call('nobody', SubmitDecklist(
+        mainboardScryfallIds: ['x'],
+        sideboardScryfallIds: [],
+      ));
+      expect(fakeLeader.pushStateCallCount, beforeLen);
+    });
+
+    test('hasSubmittedDecklist returns false for unsubmitted player', () {
+      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
+        playerName: 'Alice', deviceName: 'Phone',
+      ));
+      expect(notifier.hasSubmittedDecklist('Phone'), isFalse);
+    });
+
+    test('submitDecklist as leader processes locally', () async {
+      final beforeLen = fakeLeader.pushStateCallCount;
+      await notifier.submitDecklist(
+        mainboardScryfallIds: ['id-1'],
+        sideboardScryfallIds: [],
+      );
+
+      expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
+      expect(notifier.hasSubmittedDecklist('my-device'), isTrue);
+      expect(notifier.state!.getPlayer('my-device')!.decklistMainboard, ['id-1']);
+    });
   });
 
   // -----------------------------------------------------------------------
@@ -708,6 +773,32 @@ void main() {
         matchId: 'm1',
         myWins: 2,
         opponentWins: 0,
+      );
+      expect(fakeFollower.sentCommands, isEmpty);
+    });
+
+    test('submitDecklist sends SubmitDecklist command', () async {
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+      final beforeLen = fakeFollower.sentCommands.length;
+
+      await notifier.submitDecklist(
+        mainboardScryfallIds: ['id-1', 'id-2'],
+        sideboardScryfallIds: ['id-side'],
+      );
+
+      expect(fakeFollower.sentCommands.length, greaterThan(beforeLen));
+      final cmd = fakeFollower.lastSentCommand as SubmitDecklist;
+      expect(cmd.mainboardScryfallIds, ['id-1', 'id-2']);
+      expect(cmd.sideboardScryfallIds, ['id-side']);
+    });
+
+    test('submitDecklist when not follower → no-op', () async {
+      await notifier.submitDecklist(
+        mainboardScryfallIds: ['x'],
+        sideboardScryfallIds: [],
       );
       expect(fakeFollower.sentCommands, isEmpty);
     });

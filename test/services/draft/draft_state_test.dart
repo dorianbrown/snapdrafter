@@ -680,6 +680,91 @@ void main() {
         expect(decoded.matchLosses, 0);
         expect(decoded.matchDraws, 0);
       });
+
+      test('null decklist fields survive', () {
+        final json = player.toJson();
+        final decoded = DraftPlayer.fromJson(json);
+        expect(decoded.decklistMainboard, isNull);
+        expect(decoded.decklistSideboard, isNull);
+      });
+
+      test('decklist fields survive round-trip', () {
+        final p = DraftPlayer(
+          deviceId: 'd1',
+          playerName: 'Alice',
+          deviceName: 'Phone',
+          joinOrder: 0,
+          decklistMainboard: ['id-1', 'id-2'],
+          decklistSideboard: ['id-3'],
+        );
+        final json = p.toJson();
+        final decoded = DraftPlayer.fromJson(json);
+
+        expect(decoded.decklistMainboard, ['id-1', 'id-2']);
+        expect(decoded.decklistSideboard, ['id-3']);
+      });
+
+      test('decklistMainboard omitted from JSON when null', () {
+        final json = player.toJson();
+        expect(json.containsKey('dm'), isFalse);
+        expect(json.containsKey('ds'), isFalse);
+      });
+    });
+
+    group('decklist copyWith', () {
+      test('preserves decklistMainboard', () {
+        final p = DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          deviceName: 'd',
+          joinOrder: 0,
+          decklistMainboard: ['abc'],
+        );
+        final copy = p.copyWith(playerName: 'new');
+        expect(copy.decklistMainboard, ['abc']);
+        expect(copy.playerName, 'new');
+      });
+
+      test('overwrites decklistMainboard', () {
+        final p = DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          deviceName: 'd',
+          joinOrder: 0,
+          decklistMainboard: ['abc'],
+        );
+        final copy = p.copyWith(decklistMainboard: ['xyz']);
+        expect(copy.decklistMainboard, ['xyz']);
+      });
+
+      test('null decklistMainboard preserved on copyWith without override', () {
+        final copy = player.copyWith(playerName: 'new');
+        expect(copy.decklistMainboard, isNull);
+      });
+
+      test('clearDecklistMainboard nulls the field', () {
+        final p = DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          deviceName: 'd',
+          joinOrder: 0,
+          decklistMainboard: ['abc'],
+        );
+        final copy = p.copyWith(clearDecklistMainboard: true);
+        expect(copy.decklistMainboard, isNull);
+      });
+
+      test('clearDecklistSideboard nulls the field', () {
+        final p = DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          deviceName: 'd',
+          joinOrder: 0,
+          decklistSideboard: ['abc'],
+        );
+        final copy = p.copyWith(clearDecklistSideboard: true);
+        expect(copy.decklistSideboard, isNull);
+      });
     });
   });
 

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/models/card.dart' as mtg;
 import '../../data/models/deck_upsert.dart';
+import '../../data/repositories/card_repository.dart';
 import '../../data/repositories/deck_repository.dart';
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import '../deck_scanner.dart';
+import 'decklist_preview_sheet.dart';
 
 class DraftResultsScreen extends StatefulWidget {
   const DraftResultsScreen({super.key});
@@ -16,7 +19,11 @@ class DraftResultsScreen extends StatefulWidget {
 
 class _DraftResultsScreenState extends State<DraftResultsScreen> {
   final DeckRepository _deckRepository = DeckRepository();
-  bool _deckSubmitted = false;
+  final CardRepository _cardRepository = CardRepository();
+  List<String>? _capturedMainboardIds;
+  List<String>? _capturedSideboardIds;
+  bool _deckCaptured = false;
+  final Set<String> _savedPlayerIds = {};
 
   @override
   void initState() {
@@ -30,11 +37,13 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     if (state == null) return;
 
     final decks = await _deckRepository.getAllDecks();
-    final tag = 'draft:${state.session.sessionId}:${notifier.myDeviceId}';
-    final submitted = decks.any((d) => d.tags.contains(tag));
+    final submitted = decks.any(
+      (d) =>
+          d.tags.contains(state.session.name) && d.name == state.session.name,
+    );
 
-    if (mounted) {
-      setState(() => _deckSubmitted = submitted);
+    if (mounted && submitted) {
+      setState(() => _deckCaptured = true);
     }
   }
 
@@ -52,9 +61,16 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
     final standings = state.standings;
     final session = state.session;
+    final myDeviceId = notifier.myDeviceId;
+    final hasSubmitted = notifier.hasSubmittedDecklist(myDeviceId);
+    final submittedPlayers =
+        state.players.where((p) => p.decklistMainboard != null).toList();
+    final unsavedPlayers = submittedPlayers
+        .where((p) => !_savedPlayerIds.contains(p.deviceId))
+        .toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text('${session.name} — Results')),
+      appBar: AppBar(title: Text('${session.name} \u2014 Results')),
       body: standings.isEmpty
           ? const Center(child: Text('No standings available'))
           : ListView(
@@ -88,26 +104,42 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                   return _buildStandingRow(rank, player, notifier);
                 }),
                 const SizedBox(height: 16),
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: _deckSubmitted ? null : _scanDeck,
-                    icon: Icon(_deckSubmitted
-                        ? Icons.check_circle
-                        : Icons.camera_alt),
-                    label: Text(_deckSubmitted
-                        ? 'Deck Submitted'
-                        : 'Scan My Deck'),
+                if (!hasSubmitted) ...[
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed:
+                          _deckCaptured ? _shareDecklist : _scanDeck,
+                      icon: Icon(_deckCaptured
+                          ? Icons.share
+                          : Icons.camera_alt),
+                      label:
+                          Text(_deckCaptured ? 'Share Decklist' : 'Scan My Deck'),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
+                  const SizedBox(height: 8),
+                ],
+                if (unsavedPlayers.isNotEmpty) ...[
+                  SizedBox(
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () =>
+                          _saveAllDecklists(unsavedPlayers, session.name),
+                      icon: const Icon(Icons.save_alt),
+                      label: Text(
+                          'Save All Decklists (${unsavedPlayers.length})'),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
                     onPressed: () async {
                       await notifier.leaveDraft();
                       if (context.mounted) {
-                        Navigator.of(context).popUntil((route) => route.isFirst);
+                        Navigator.of(context)
+                            .popUntil((route) => route.isFirst);
                       }
                     },
                     child: const Text('Done'),
@@ -122,11 +154,10 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
   void _scanDeck() async {
     final notifier = context.read<DraftSessionNotifier>();
     final state = notifier.state;
-    if (state == null) return;
+    if (state == null || !mounted) return;
 
     final session = state.session;
 
-    if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
         settings: const RouteSettings(name: 'scan_deck'),
@@ -140,17 +171,148 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
           onDeckSaved: (deck) async {
             await _deckRepository.addTagToDeck(
               deck.id,
-              'draft:${session.sessionId}:${notifier.myDeviceId}',
+              session.name,
             );
-            setState(() => _deckSubmitted = true);
+            _capturedMainboardIds =
+                deck.cards.map((c) => c.scryfallId).toList();
+            _capturedSideboardIds =
+                deck.sideboard.map((c) => c.scryfallId).toList();
+            setState(() => _deckCaptured = true);
           },
         ),
       ),
     );
+
+    if (_capturedMainboardIds != null && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showShareDialog();
+        }
+      });
+    }
   }
 
-  Widget _buildStandingRow(int rank, DraftPlayer player, DraftSessionNotifier notifier) {
+  void _showShareDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Decklist Captured'),
+        content: const Text(
+            'Share this decklist with all players so they can view and save it?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Not Now'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _shareDecklist();
+            },
+            child: const Text('Share'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareDecklist() {
+    final notifier = context.read<DraftSessionNotifier>();
+    if (_capturedMainboardIds == null) return;
+
+    notifier.submitDecklist(
+      mainboardScryfallIds: _capturedMainboardIds!,
+      sideboardScryfallIds: _capturedSideboardIds ?? [],
+    );
+  }
+
+  Future<void> _viewDecklist(DraftPlayer player) async {
+    if (player.decklistMainboard == null) return;
+
+    final mainboard = await _cardRepository
+        .getCardsByScryfallIds(player.decklistMainboard!);
+    final sideboard = player.decklistSideboard != null
+        ? await _cardRepository
+            .getCardsByScryfallIds(player.decklistSideboard!)
+        : <mtg.Card>[];
+
+    if (!mounted) return;
+
+    showDecklistPreviewSheet(
+      context,
+      playerName: player.playerName,
+      mainboard: mainboard,
+      sideboard: sideboard,
+      onSave: () => _saveDecklistToCollection(player, mainboard, sideboard),
+    );
+  }
+
+  Future<void> _saveDecklistToCollection(
+    DraftPlayer player,
+    List<mtg.Card> mainboard,
+    List<mtg.Card> sideboard,
+  ) async {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+    if (state == null) return;
+
+    final upsert = DeckUpsert(
+      cards: mainboard,
+      sideboard: sideboard,
+      name: '${state.session.name} \u2014 ${player.playerName}',
+      wins: player.matchWins,
+      losses: player.matchLosses,
+      draws: player.matchDraws,
+      setId: state.session.setCode,
+      cubecobraId: state.session.cubeId,
+    );
+
+    final savedDeck = await _deckRepository.saveNewDeck(upsert);
+    await _deckRepository.addTagToDeck(savedDeck.id, state.session.name);
+    setState(() => _savedPlayerIds.add(player.deviceId));
+  }
+
+  Future<void> _saveAllDecklists(
+    List<DraftPlayer> players,
+    String draftName,
+  ) async {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+
+    for (final player in players) {
+      if (player.decklistMainboard == null) continue;
+      final mainboard = await _cardRepository
+          .getCardsByScryfallIds(player.decklistMainboard!);
+      final sideboard = player.decklistSideboard != null
+          ? await _cardRepository
+              .getCardsByScryfallIds(player.decklistSideboard!)
+          : <mtg.Card>[];
+
+      final upsert = DeckUpsert(
+        cards: mainboard,
+        sideboard: sideboard,
+        name: '$draftName \u2014 ${player.playerName}',
+        wins: player.matchWins,
+        losses: player.matchLosses,
+        draws: player.matchDraws,
+        setId: state?.session.setCode,
+        cubecobraId: state?.session.cubeId,
+      );
+
+      final savedDeck = await _deckRepository.saveNewDeck(upsert);
+      await _deckRepository.addTagToDeck(savedDeck.id, draftName);
+      _savedPlayerIds.add(player.deviceId);
+    }
+
+    if (mounted) {
+      setState(() {});
+    }
+  }
+
+  Widget _buildStandingRow(
+      int rank, DraftPlayer player, DraftSessionNotifier notifier) {
     final isMe = player.deviceId == notifier.myDeviceId;
+    final hasDecklist = player.decklistMainboard != null;
 
     Color? rankColor;
     if (rank == 1) rankColor = Colors.amber;
@@ -182,7 +344,9 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 player.playerName,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
+                  fontWeight: rank == 1
+                      ? FontWeight.bold
+                      : FontWeight.normal,
                 ),
               ),
             ),
@@ -198,16 +362,37 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
         trailing: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (hasDecklist)
+              IconButton(
+                icon: const Icon(Icons.visibility, size: 18),
+                tooltip: 'View decklist',
+                onPressed: () => _viewDecklist(player),
+                visualDensity: VisualDensity.compact,
+              ),
+            if (hasDecklist)
+              IconButton(
+                icon: Icon(
+                  _savedPlayerIds.contains(player.deviceId)
+                      ? Icons.bookmark
+                      : Icons.bookmark_border,
+                  size: 18,
+                  color: _savedPlayerIds.contains(player.deviceId)
+                      ? Colors.green
+                      : null,
+                ),
+                tooltip: 'Save decklist',
+                onPressed: _savedPlayerIds.contains(player.deviceId)
+                    ? null
+                    : () => _viewDecklist(player),
+                visualDensity: VisualDensity.compact,
+              ),
+            const SizedBox(width: 4),
             Icon(
-              _deckSubmitted && isMe
-                  ? Icons.style
-                  : Icons.style_outlined,
+              hasDecklist ? Icons.style : Icons.style_outlined,
               size: 18,
-              color: _deckSubmitted && isMe
-                  ? Colors.green
-                  : Colors.grey.shade400,
+              color: hasDecklist ? Colors.green : Colors.grey.shade400,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             Text(
               '${player.matchWins}-${player.matchLosses}-${player.matchDraws}',
               style: const TextStyle(

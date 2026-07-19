@@ -60,5 +60,11 @@ class CardRepository {
     return _allCards;
   }
 
+  Future<List<Card>> getCardsByScryfallIds(List<String> scryfallIds) async {
+    final all = await getAllCards();
+    final idSet = scryfallIds.toSet();
+    return all.where((c) => idSet.contains(c.scryfallId)).toList();
+  }
+
   // Add methods for cards_to_tokens and tokens tables if needed
 }

@@ -218,6 +218,8 @@ class DraftSessionNotifier extends ChangeNotifier {
         _handleMatchResult(_bleToAppId[deviceId] ?? deviceId, result);
       case DropRequest():
         _handleDropRequest(_bleToAppId[deviceId] ?? deviceId);
+      case SubmitDecklist cmd:
+        _handleDecklistSubmission(_bleToAppId[deviceId] ?? deviceId, cmd);
     }
   }
 
@@ -412,6 +414,33 @@ class DraftSessionNotifier extends ChangeNotifier {
     });
   }
 
+  /// Processes a [SubmitDecklist] command from a follower or the leader
+  /// themselves. Updates the player's decklist in state and pushes the
+  /// updated state to all followers. Decklists are immutable after
+  /// submission — subsequent submissions from the same player are ignored.
+  void _handleDecklistSubmission(String deviceId, SubmitDecklist cmd) {
+    if (!isLeader || _state == null) return;
+
+    final players = _state!.players.toList();
+    final idx = players.indexWhere((p) => p.deviceId == deviceId);
+    if (idx == -1) return;
+
+    if (players[idx].decklistMainboard != null) return;
+
+    players[idx] = players[idx].copyWith(
+      decklistMainboard: cmd.mainboardScryfallIds,
+      decklistSideboard: cmd.sideboardScryfallIds,
+    );
+
+    _state = _state!.copyWith(players: players).bumpSequence();
+    _bleService!.pushState(_state!);
+    notifyListeners();
+  }
+
+  bool hasSubmittedDecklist(String deviceId) {
+    return _state?.getPlayer(deviceId)?.decklistMainboard != null;
+  }
+
   // -------------------------------------------------------------------------
   // Follower: joining & submitting
   // -------------------------------------------------------------------------
@@ -595,6 +624,56 @@ class DraftSessionNotifier extends ChangeNotifier {
         if (fresh != null &&
             fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
           print('[NOTIFIER] submitResult resubscribe APPLIED newer state');
+          _state = fresh;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
+  }
+
+  /// Sends a [SubmitDecklist] command. Followers send over BLE; the leader
+  /// processes it locally.
+  Future<void> submitDecklist({
+    required List<String> mainboardScryfallIds,
+    required List<String> sideboardScryfallIds,
+  }) async {
+    final cmd = SubmitDecklist(
+      mainboardScryfallIds: mainboardScryfallIds,
+      sideboardScryfallIds: sideboardScryfallIds,
+    );
+
+    if (isLeader) {
+      _handleDecklistSubmission(_myDeviceId, cmd);
+      return;
+    }
+
+    if (!isFollower) return;
+
+    await _bleService!.sendCommand(cmd);
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      try {
+        final updated = await _bleService!.readCurrentState();
+        if (updated != null) {
+          print('[NOTIFIER] submitDecklist READ $attempt: seq=${updated.sequenceNumber} '
+              '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
+          if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+            print('[NOTIFIER] submitDecklist READ APPLIED newer state');
+            _state = updated;
+            notifyListeners();
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (_state != null) {
+      try {
+        final fresh = await _bleService!.resubscribeAndReadState();
+        if (fresh != null &&
+            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+          print('[NOTIFIER] submitDecklist resubscribe APPLIED newer state');
           _state = fresh;
           notifyListeners();
         }

@@ -106,6 +106,8 @@ class DraftPlayer {
   final int matchWins;
   final int matchLosses;
   final int matchDraws;
+  final List<String>? decklistMainboard;
+  final List<String>? decklistSideboard;
 
   const DraftPlayer({
     required this.deviceId,
@@ -117,6 +119,8 @@ class DraftPlayer {
     this.matchWins = 0,
     this.matchLosses = 0,
     this.matchDraws = 0,
+    this.decklistMainboard,
+    this.decklistSideboard,
   });
 
   /// Tournament match points: 3 per win, 1 per draw.
@@ -140,7 +144,11 @@ class DraftPlayer {
     int? matchWins,
     int? matchLosses,
     int? matchDraws,
+    List<String>? decklistMainboard,
+    List<String>? decklistSideboard,
     bool clearSeat = false,
+    bool clearDecklistMainboard = false,
+    bool clearDecklistSideboard = false,
   }) {
     return DraftPlayer(
       deviceId: deviceId ?? this.deviceId,
@@ -152,6 +160,12 @@ class DraftPlayer {
       matchWins: matchWins ?? this.matchWins,
       matchLosses: matchLosses ?? this.matchLosses,
       matchDraws: matchDraws ?? this.matchDraws,
+      decklistMainboard: clearDecklistMainboard
+          ? null
+          : (decklistMainboard ?? this.decklistMainboard),
+      decklistSideboard: clearDecklistSideboard
+          ? null
+          : (decklistSideboard ?? this.decklistSideboard),
     );
   }
 
@@ -164,6 +178,8 @@ class DraftPlayer {
     if (matchWins != 0) 'mw': matchWins,
     if (matchLosses != 0) 'ml': matchLosses,
     if (matchDraws != 0) 'md': matchDraws,
+    if (decklistMainboard != null) 'dm': decklistMainboard,
+    if (decklistSideboard != null) 'ds': decklistSideboard,
   };
 
   factory DraftPlayer.fromJson(Map<String, dynamic> json) {
@@ -177,6 +193,10 @@ class DraftPlayer {
       matchWins: json['mw'] as int? ?? 0,
       matchLosses: json['ml'] as int? ?? 0,
       matchDraws: json['md'] as int? ?? 0,
+      decklistMainboard:
+          (json['dm'] as List<dynamic>?)?.cast<String>(),
+      decklistSideboard:
+          (json['ds'] as List<dynamic>?)?.cast<String>(),
     );
   }
 }
