@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart' hide Orientation;
 import 'package:camerawesome/camerawesome_plugin.dart';
 
+import '../data/models/deck.dart';
+import '../data/models/deck_upsert.dart';
 import '../utils/utils.dart';
 import 'image_processing_screen.dart';
 
 class DeckScanner extends StatefulWidget {
-  const DeckScanner({super.key});
+  final DeckUpsert? prefill;
+  final void Function(Deck)? onDeckSaved;
+
+  const DeckScanner({super.key, this.prefill, this.onDeckSaved});
 
   @override
   DeckScannerState createState() => DeckScannerState();
@@ -59,6 +64,8 @@ class DeckScannerState extends State<DeckScanner> {
                       builder: (context) => deckImageProcessing(
                             filePath: filePath,
                             captureSource: CaptureSource.camera,
+                            prefill: widget.prefill,
+                            onDeckSaved: widget.onDeckSaved,
                           )));
                 } else if (mediaCapture.status == MediaCaptureStatus.success) {
                   debugPrint("Finished writing image file");

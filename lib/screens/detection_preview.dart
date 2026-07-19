@@ -27,6 +27,8 @@ class DetectionPreviewScreen extends StatefulWidget {
   final DeckUpsert? baseDeck;
   final img.Image? baseDeckImage;
   final bool isSideboardStep;
+  final DeckUpsert? prefill;
+  final void Function(Deck)? onDeckSaved;
 
   const DetectionPreviewScreen({
       super.key, 
@@ -37,6 +39,8 @@ class DetectionPreviewScreen extends StatefulWidget {
       this.baseDeck,
       this.baseDeckImage,
       this.isSideboardStep = false,
+      this.prefill,
+      this.onDeckSaved,
   });
 
   @override
@@ -304,12 +308,12 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       upsert = DeckUpsert(
         cards: widget.baseDeck!.cards,
         sideboard: matchedCards,
-        name: widget.baseDeck!.name,
+        name: widget.prefill?.name ?? widget.baseDeck!.name,
         wins: widget.baseDeck!.wins,
         losses: widget.baseDeck!.losses,
         draws: widget.baseDeck!.draws,
-        setId: widget.baseDeck!.setId,
-        cubecobraId: widget.baseDeck!.cubecobraId,
+        setId: widget.prefill?.setId ?? widget.baseDeck!.setId,
+        cubecobraId: widget.prefill?.cubecobraId ?? widget.baseDeck!.cubecobraId,
         ymd: widget.baseDeck!.ymd,
       );
       imageToUse = widget.baseDeckImage ?? originalImage;
@@ -318,12 +322,12 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       upsert = DeckUpsert(
         cards: matchedCards,
         sideboard: const [],
-        name: null,
+        name: widget.prefill?.name ?? null,
         wins: null,
         losses: null,
         draws: null,
-        setId: null,
-        cubecobraId: null,
+        setId: widget.prefill?.setId ?? null,
+        cubecobraId: widget.prefill?.cubecobraId ?? null,
         ymd: null,
       );
       imageToUse = originalImage;
@@ -334,12 +338,19 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
 
     _changeNotifier.markNeedsRefresh();
 
-    Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (context) => DeckViewer(deck: newDeck),
-        ),
-        ModalRoute.withName('/')
-    );
+    if (widget.onDeckSaved != null) {
+      widget.onDeckSaved!(newDeck);
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    } else {
+      Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => DeckViewer(deck: newDeck),
+          ),
+          ModalRoute.withName('/')
+      );
+    }
   }
 
   void createInteractiveViewer(Uint8List imageBytes) {

@@ -15,6 +15,7 @@ import '/utils/utils.dart';
 
 import '/data/repositories/card_repository.dart';
 import '/data/models/card.dart';
+import '/data/models/deck.dart';
 import '/data/models/deck_upsert.dart';
 import '/models/detection.dart';
 
@@ -26,13 +27,17 @@ class deckImageProcessing extends StatefulWidget {
   final DeckUpsert? baseDeck;
   final img.Image? baseDeckImage;
   final bool isSideboardStep;
+  final DeckUpsert? prefill;
+  final void Function(Deck)? onDeckSaved;
   const deckImageProcessing(
       {super.key,
       required this.filePath,
       this.captureSource = CaptureSource.gallery,
       this.baseDeck,
       this.baseDeckImage,
-      this.isSideboardStep = false});
+      this.isSideboardStep = false,
+      this.prefill,
+      this.onDeckSaved});
 
   @override
   _deckImageProcessingState createState() => _deckImageProcessingState();
@@ -309,35 +314,21 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
         y: outputImage.height - 150,
         color: overlayColor);
 
-    if (widget.isSideboardStep) {
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => DetectionPreviewScreen(
-            image: outputImage,
-            originalImage: inputImageCopy,
-            detections: detectionOutput,
-            captureSource: widget.captureSource,
-            baseDeck: widget.baseDeck,
-            baseDeckImage: widget.baseDeckImage,
-            isSideboardStep: widget.isSideboardStep,
-          ),
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => DetectionPreviewScreen(
+          image: outputImage,
+          originalImage: inputImageCopy,
+          detections: detectionOutput,
+          captureSource: widget.captureSource,
+          baseDeck: widget.baseDeck,
+          baseDeckImage: widget.baseDeckImage,
+          isSideboardStep: widget.isSideboardStep,
+          prefill: widget.prefill,
+          onDeckSaved: widget.onDeckSaved,
         ),
-      );
-    } else {
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => DetectionPreviewScreen(
-            image: outputImage,
-            originalImage: inputImageCopy,
-            detections: detectionOutput,
-            captureSource: widget.captureSource,
-            baseDeck: widget.baseDeck,
-            baseDeckImage: widget.baseDeckImage,
-            isSideboardStep: widget.isSideboardStep,
-          ),
-        ),
-      );
-    }
+      ),
+    );
   }
 
   Future<String> _transcribeDetection(

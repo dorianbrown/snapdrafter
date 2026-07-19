@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../data/models/deck_upsert.dart';
+import '../../data/repositories/deck_repository.dart';
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
+import '../deck_scanner.dart';
 
 class DraftResultsScreen extends StatefulWidget {
   const DraftResultsScreen({super.key});
@@ -12,6 +15,29 @@ class DraftResultsScreen extends StatefulWidget {
 }
 
 class _DraftResultsScreenState extends State<DraftResultsScreen> {
+  final DeckRepository _deckRepository = DeckRepository();
+  bool _deckSubmitted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkExistingSubmission();
+  }
+
+  Future<void> _checkExistingSubmission() async {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+    if (state == null) return;
+
+    final decks = await _deckRepository.getAllDecks();
+    final tag = 'draft:${state.session.sessionId}:${notifier.myDeviceId}';
+    final submitted = decks.any((d) => d.tags.contains(tag));
+
+    if (mounted) {
+      setState(() => _deckSubmitted = submitted);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<DraftSessionNotifier>();
@@ -61,7 +87,20 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                   final player = entry.value;
                   return _buildStandingRow(rank, player, notifier);
                 }),
-                const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                SizedBox(
+                  height: 48,
+                  child: ElevatedButton.icon(
+                    onPressed: _deckSubmitted ? null : _scanDeck,
+                    icon: Icon(_deckSubmitted
+                        ? Icons.check_circle
+                        : Icons.camera_alt),
+                    label: Text(_deckSubmitted
+                        ? 'Deck Submitted'
+                        : 'Scan My Deck'),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
@@ -77,6 +116,38 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 const SizedBox(height: 16),
               ],
             ),
+    );
+  }
+
+  void _scanDeck() async {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+    if (state == null) return;
+
+    final session = state.session;
+
+    if (!mounted) return;
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => DeckScanner(
+          prefill: DeckUpsert(
+            cards: const [],
+            name: session.name,
+            setId: session.setCode,
+            cubecobraId: session.cubeId,
+          ),
+          onDeckSaved: (deck) async {
+            await _deckRepository.addTagToDeck(
+              deck.id,
+              'draft:${session.sessionId}:${notifier.myDeviceId}',
+            );
+            setState(() => _deckSubmitted = true);
+            if (mounted) {
+              Navigator.of(context).pop();
+            }
+          },
+        ),
+      ),
     );
   }
 
@@ -126,12 +197,27 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
           'Points: ${player.matchPoints}',
           style: const TextStyle(fontSize: 12),
         ),
-        trailing: Text(
-          '${player.matchWins}-${player.matchLosses}-${player.matchDraws}',
-          style: const TextStyle(
-            fontFamily: 'monospace',
-            fontWeight: FontWeight.w500,
-          ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _deckSubmitted && isMe
+                  ? Icons.style
+                  : Icons.style_outlined,
+              size: 18,
+              color: _deckSubmitted && isMe
+                  ? Colors.green
+                  : Colors.grey.shade400,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '${player.matchWins}-${player.matchLosses}-${player.matchDraws}',
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );
