@@ -946,14 +946,12 @@ void main() {
         expect(MatchStatus.pending.name, 'pending');
         expect(MatchStatus.reported.name, 'reported');
         expect(MatchStatus.confirmed.name, 'confirmed');
-        expect(MatchStatus.conflicted.name, 'conflicted');
       });
 
       test('fromString returns correct value for known strings', () {
         expect(MatchStatus.fromString('pending'), MatchStatus.pending);
         expect(MatchStatus.fromString('reported'), MatchStatus.reported);
         expect(MatchStatus.fromString('confirmed'), MatchStatus.confirmed);
-        expect(MatchStatus.fromString('conflicted'), MatchStatus.conflicted);
       });
 
       test('fromString falls back to pending for unknown value', () {

@@ -399,7 +399,7 @@ void main() {
       expect(pA.matchLosses, 0);
     });
 
-    test('handleMatchResult second report disagrees → conflicted', () {
+    test('handleMatchResult second report always confirms, updates scores', () {
       final state = notifier.state!;
       notifier.state = state.copyWith(
         players: [
@@ -408,7 +408,7 @@ void main() {
         ],
         rounds: [
           DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins:0, draws: 0, status: MatchStatus.reported),
+            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins:0, draws: 0, status: MatchStatus.reported, reportedByDeviceId: 'my-device'),
           ]),
         ],
         session: state.session.copyWith(phase: DraftPhase.inProgress),
@@ -419,10 +419,12 @@ void main() {
       ));
 
       final match = notifier.state!.rounds[0].matches[0];
-      expect(match.status, MatchStatus.conflicted);
+      expect(match.status, MatchStatus.confirmed);
+      expect(match.aWins, 0);
+      expect(match.bWins, 2);
 
-      final pA = notifier.state!.getPlayer('my-device')!;
-      expect(pA.matchWins, 0);
+      final pB = notifier.state!.getPlayer('f1')!;
+      expect(pB.matchWins, 1);
     });
 
     test('handleMatchResult reporter not in match → ignored', () {
@@ -857,7 +859,7 @@ void main() {
       notifier.state = notifier.state!.copyWith(
         rounds: [
           DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', status: MatchStatus.reported),
+            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', status: MatchStatus.reported, reportedByDeviceId: 'my-device'),
           ]),
         ],
       );

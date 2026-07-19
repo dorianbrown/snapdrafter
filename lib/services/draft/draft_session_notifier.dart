@@ -67,8 +67,8 @@ class DraftSessionNotifier extends ChangeNotifier {
     if (_state == null) return false;
     final myMatch = _state!.getMyMatch(_myDeviceId, roundNumber);
     if (myMatch == null) return false;
-    return myMatch.status == MatchStatus.reported ||
-        myMatch.status == MatchStatus.confirmed;
+    return myMatch.status == MatchStatus.confirmed ||
+        myMatch.reportedByDeviceId == _myDeviceId;
   }
 
   bool canReportResult(int roundNumber) {
@@ -258,11 +258,10 @@ class DraftSessionNotifier extends ChangeNotifier {
 
   /// Processes a [MatchResult] command from a follower.
   ///
-  /// The submitter's `myWins`/`opponentWins` are mapped to player A/B fields
-  /// based on which side of the match they occupy.
-  ///
-  /// Conflict detection: if both players have already reported and their
-  /// numbers disagree, the match is set to [MatchStatus.conflicted].
+  /// The first report sets the match to [MatchStatus.reported] and records
+  /// the submitter's device ID. The second reporter's submission always
+  /// results in [MatchStatus.confirmed]; if their scores differ from the
+  /// first report the match scores are updated to the second reporter's values.
   void _handleMatchResult(String reporterId, MatchResult result) {
     final matchIndex = _state!.rounds
         .firstWhere((r) => r.roundNumber == result.roundNumber)
@@ -279,14 +278,10 @@ class DraftSessionNotifier extends ChangeNotifier {
     final isPlayerB = match.playerBId == reporterId;
     if (!isPlayerA && !isPlayerB) return;
 
-    final currentA = match.aWins;
-    final currentB = match.bWins;
-
     int? newAWins;
     int? newBWins;
     int? newDraws;
 
-    // Map the reporter's perspective onto the match's player A/B fields.
     if (isPlayerA) {
       newAWins = result.myWins;
       newBWins = result.opponentWins;
@@ -297,32 +292,31 @@ class DraftSessionNotifier extends ChangeNotifier {
       newDraws = result.draws;
     }
 
-    // Both sides have reported — check for agreement.
-    if (currentA != null && currentB != null) {
-      if (currentA != newAWins || currentB != newBWins) {
-        final updatedMatch = match.copyWith(status: MatchStatus.conflicted);
-        _updateMatch(result.roundNumber, matchIndex, updatedMatch);
+    switch (match.status) {
+      case MatchStatus.confirmed:
         return;
-      }
-    }
 
-    // First report → status is "reported"; second matching report → "confirmed".
-    final newStatus = (currentA != null || currentB != null)
-        ? MatchStatus.confirmed
-        : MatchStatus.reported;
+      case MatchStatus.pending:
+        final updated = match.copyWith(
+          aWins: newAWins,
+          bWins: newBWins,
+          draws: newDraws,
+          reportedByDeviceId: reporterId,
+          status: MatchStatus.reported,
+        );
+        _updateMatch(result.roundNumber, matchIndex, updated);
+        _updatePlayerRecords(updated, result.roundNumber);
 
-    final updatedMatch = match.copyWith(
-      aWins: newAWins,
-      bWins: newBWins,
-      draws: newDraws,
-      status: newStatus,
-    );
-
-    _updateMatch(result.roundNumber, matchIndex, updatedMatch);
-
-    // Update player win/loss/draw records when the match is confirmed.
-    if (newStatus == MatchStatus.confirmed) {
-      _updatePlayerRecords(updatedMatch, result.roundNumber);
+      case MatchStatus.reported:
+        if (match.reportedByDeviceId == reporterId) return;
+        final updated = match.copyWith(
+          aWins: newAWins,
+          bWins: newBWins,
+          draws: newDraws,
+          status: MatchStatus.confirmed,
+        );
+        _updateMatch(result.roundNumber, matchIndex, updated);
+        _updatePlayerRecords(updated, result.roundNumber);
     }
   }
 
@@ -337,7 +331,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     matches[matchIndex] = updatedMatch;
 
     final allComplete = matches.every(
-      (m) => m.status == MatchStatus.confirmed || m.isBye,
+      (m) => m.status != MatchStatus.pending || m.isBye,
     );
 
     rounds[roundIndex] = rounds[roundIndex].copyWith(

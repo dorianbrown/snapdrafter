@@ -148,8 +148,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
         return Colors.orange;
       case MatchStatus.confirmed:
         return Colors.green;
-      case MatchStatus.conflicted:
-        return Colors.red;
     }
   }
 
@@ -161,8 +159,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
         return 'Reported';
       case MatchStatus.confirmed:
         return 'Confirmed';
-      case MatchStatus.conflicted:
-        return 'Conflict!';
     }
   }
 
@@ -520,6 +516,9 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                 ),
               ),
             )
+          else if (myMatch.status == MatchStatus.reported &&
+              myMatch.reportedByDeviceId != notifier.myDeviceId)
+            _buildConfirmationCard(notifier, roundNumber, myMatch)
           else
             const Card(
               child: Padding(
@@ -559,11 +558,72 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
     );
   }
 
-  void _showReportResultDialog(
+  Widget _buildConfirmationCard(
       DraftSessionNotifier notifier, int roundNumber, DraftMatch match) {
-    int myWins = 0;
-    int opponentWins = 0;
-    int draws = 0;
+    final isPlayerA = match.playerAId == notifier.myDeviceId;
+    final myWins = (isPlayerA ? match.aWins : match.bWins) ?? 0;
+    final oppWins = (isPlayerA ? match.bWins : match.aWins) ?? 0;
+    final draws = match.draws ?? 0;
+
+    return Card(
+      color: Colors.orange.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text('Opponent submitted results',
+                style: TextStyle(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text(
+                'You: $myWins wins — Opponent: $oppWins wins — Draws: $draws',
+                style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => _showReportResultDialog(
+                        notifier, roundNumber, match,
+                        initialMyWins: myWins,
+                        initialOpponentWins: oppWins,
+                        initialDraws: draws),
+                    icon: const Icon(Icons.edit, size: 16),
+                    label: const Text('Correct'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => notifier.submitResult(
+                      roundNumber: roundNumber,
+                      matchId: match.matchId,
+                      myWins: myWins,
+                      opponentWins: oppWins,
+                      draws: draws,
+                    ),
+                    icon: const Icon(Icons.check, size: 16),
+                    label: const Text('Confirm'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportResultDialog(
+      DraftSessionNotifier notifier, int roundNumber, DraftMatch match,
+      {int initialMyWins = 0, int initialOpponentWins = 0, int initialDraws = 0}) {
+    int myWins = initialMyWins;
+    int opponentWins = initialOpponentWins;
+    int draws = initialDraws;
 
     showDialog(
       context: context,

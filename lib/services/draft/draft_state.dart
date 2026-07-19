@@ -71,8 +71,7 @@ enum PlayerStatus {
 enum MatchStatus {
   pending,
   reported,
-  confirmed,
-  conflicted;
+  confirmed;
 
   String get name {
     switch (this) {
@@ -82,8 +81,6 @@ enum MatchStatus {
         return 'reported';
       case MatchStatus.confirmed:
         return 'confirmed';
-      case MatchStatus.conflicted:
-        return 'conflicted';
     }
   }
 
@@ -196,6 +193,7 @@ class DraftMatch {
   final int? aWins;
   final int? bWins;
   final int? draws;
+  final String? reportedByDeviceId;
   final MatchStatus status;
 
   const DraftMatch({
@@ -206,6 +204,7 @@ class DraftMatch {
     this.aWins,
     this.bWins,
     this.draws,
+    this.reportedByDeviceId,
     this.status = MatchStatus.pending,
   });
 
@@ -220,6 +219,7 @@ class DraftMatch {
     int? aWins,
     int? bWins,
     int? draws,
+    String? reportedByDeviceId,
     MatchStatus? status,
     bool clearPlayerB = false,
   }) {
@@ -231,6 +231,7 @@ class DraftMatch {
       aWins: aWins ?? this.aWins,
       bWins: bWins ?? this.bWins,
       draws: draws ?? this.draws,
+      reportedByDeviceId: reportedByDeviceId ?? this.reportedByDeviceId,
       status: status ?? this.status,
     );
   }
@@ -254,6 +255,7 @@ class DraftMatch {
     if (aWins != null) 'aw': aWins,
     if (bWins != null) 'bw': bWins,
     if (draws != null) 'dr': draws,
+    if (reportedByDeviceId != null) 'rd': reportedByDeviceId,
     's': status.name,
   };
 
@@ -266,6 +268,7 @@ class DraftMatch {
       aWins: json['aw'] as int?,
       bWins: json['bw'] as int?,
       draws: json['dr'] as int?,
+      reportedByDeviceId: json['rd'] as String?,
       status: MatchStatus.fromString(json['s'] as String),
     );
   }
