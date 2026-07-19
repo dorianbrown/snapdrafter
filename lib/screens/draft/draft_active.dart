@@ -465,7 +465,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
     final canReport = notifier.canReportResult(roundNumber);
     final hasReported = notifier.hasReportedResult(roundNumber);
 
-    return SingleChildScrollView(
+    return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

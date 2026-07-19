@@ -11,11 +11,13 @@ void main() {
       state8 = DraftState.create(
         name: 'Test Draft 8',
         leaderDeviceId: 'leader-001',
+        leaderPlayerName: 'Host',
         seatCount: 8,
       );
       state4 = DraftState.create(
         name: 'Test Draft 4',
         leaderDeviceId: 'leader-001',
+        leaderPlayerName: 'Host',
         seatCount: 4,
       );
     });
@@ -54,18 +56,21 @@ void main() {
         final state32 = DraftState.create(
           name: 'Big',
           leaderDeviceId: 'l',
+          leaderPlayerName: 'Host',
           seatCount: 32,
         );
         expect(state32.session.totalRounds, 5); // log2(32)=5
         final state64 = DraftState.create(
           name: 'Huge',
           leaderDeviceId: 'l',
+          leaderPlayerName: 'Host',
           seatCount: 64,
         );
         expect(state64.session.totalRounds, 6); // log2(64)=6, capped at 6 = 6
         final state128 = DraftState.create(
           name: 'Huge2',
           leaderDeviceId: 'l',
+          leaderPlayerName: 'Host',
           seatCount: 128,
         );
         expect(state128.session.totalRounds, 6); // log2(128)=7, capped at 6 = 6
@@ -75,6 +80,7 @@ void main() {
         final state = DraftState.create(
           name: 'Draft',
           leaderDeviceId: 'l',
+          leaderPlayerName: 'Host',
           seatCount: 8,
           setCode: 'DMU',
           cubeId: 'my-cube',
@@ -87,6 +93,7 @@ void main() {
         final state = DraftState.create(
           name: 'Draft',
           leaderDeviceId: 'l',
+          leaderPlayerName: 'Host',
           seatCount: 8,
           roundDurationSeconds: 600,
         );
@@ -538,6 +545,7 @@ void main() {
       session = DraftState.create(
         name: 'Test',
         leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
         seatCount: 8,
       ).session;
     });

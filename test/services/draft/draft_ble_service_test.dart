@@ -12,6 +12,7 @@ void main() {
       testState = DraftState.create(
         name: 'Test Draft',
         leaderDeviceId: 'leader-001',
+        leaderPlayerName: 'Host',
         seatCount: 8,
         setCode: 'DMU',
       );

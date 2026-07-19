@@ -549,6 +549,7 @@ class DraftState {
   static DraftState create({
     required String name,
     required String leaderDeviceId,
+    required String leaderPlayerName,
     String? setCode,
     String? cubeId,
     required int seatCount,
@@ -573,7 +574,7 @@ class DraftState {
       players: [
         DraftPlayer(
           deviceId: leaderDeviceId,
-          playerName: '',
+          playerName: leaderPlayerName,
           deviceName: '',
           joinOrder: 0,
           seatNumber: 1,

@@ -328,7 +328,7 @@ void main() {
       follower = _createFollower(fake);
       testState = DraftState.create(
         name: 'Test',
-        leaderDeviceId: 'leader-device',
+        leaderDeviceId: 'leader-device', leaderPlayerName: 'Host',
         seatCount: 4,
       );
     });
@@ -474,7 +474,7 @@ void main() {
       follower = _createFollower(fake);
       testState = DraftState.create(
         name: 'Test',
-        leaderDeviceId: 'leader-device',
+        leaderDeviceId: 'leader-device', leaderPlayerName: 'Host',
         seatCount: 4,
       );
     });
@@ -510,7 +510,7 @@ void main() {
 
     test('writes JSON payload to command characteristic', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', seatCount: 4);
+      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -537,7 +537,7 @@ void main() {
 
     test('DropRequest is serialized and written', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', seatCount: 4);
+      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -553,7 +553,7 @@ void main() {
 
     test('MatchResult is serialized and written', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', seatCount: 4);
+      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -586,7 +586,7 @@ void main() {
 
     test('disconnects from connected device', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', seatCount: 4);
+      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -608,7 +608,7 @@ void main() {
 
     test('disconnect failure during stop is swallowed', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', seatCount: 4);
+      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -637,7 +637,7 @@ void main() {
 
     test('emits connection state from platform stream', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'Test', leaderDeviceId: 'l', seatCount: 4);
+      final testState = DraftState.create(name: 'Test', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
 
       final states = <bool>[];
       follower.leaderConnected.listen(states.add);

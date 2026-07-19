@@ -92,6 +92,7 @@ class FakeDraftBleFollower extends DraftBleService {
     return connectResult ?? DraftState.create(
       name: 'Fake Draft',
       leaderDeviceId: deviceId,
+      leaderPlayerName: 'Host',
       seatCount: 4,
     );
   }
@@ -106,6 +107,7 @@ class FakeDraftBleFollower extends DraftBleService {
     return reconnectResult ?? DraftState.create(
       name: 'Fake Draft',
       leaderDeviceId: deviceId,
+      leaderPlayerName: 'Host',
       seatCount: 4,
     );
   }
@@ -582,11 +584,11 @@ void main() {
     test('joinDraft stops previous BLE service before connecting', () async {
       final firstFake = FakeDraftBleFollower();
       firstFake.connectResult = DraftState.create(
-        name: 'Test', leaderDeviceId: 'leader-1', seatCount: 4,
+        name: 'Test', leaderDeviceId: 'leader-1', leaderPlayerName: 'Host', seatCount: 4,
       );
       final secondFake = FakeDraftBleFollower();
       secondFake.connectResult = DraftState.create(
-        name: 'Test', leaderDeviceId: 'leader-2', seatCount: 4,
+        name: 'Test', leaderDeviceId: 'leader-2', leaderPlayerName: 'Host', seatCount: 4,
       );
 
       int callCount = 0;
@@ -763,7 +765,7 @@ void main() {
 
     test('reconnect succeeds on first attempt', () async {
       fakeFollower.reconnectResult = DraftState.create(
-        name: 'Reconnected', leaderDeviceId: 'leader-device', seatCount: 4,
+        name: 'Reconnected', leaderDeviceId: 'leader-device', leaderPlayerName: 'Host', seatCount: 4,
       );
 
       await notifier.joinDraft(

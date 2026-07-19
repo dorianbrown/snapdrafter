@@ -99,6 +99,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     final state = DraftState.create(
       name: name,
       leaderDeviceId: _myDeviceId,
+      leaderPlayerName: playerName,
       setCode: setCode,
       cubeId: cubeId,
       seatCount: seatCount,
@@ -321,7 +322,7 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     // Update player win/loss/draw records when the match is confirmed.
     if (newStatus == MatchStatus.confirmed) {
-      _updatePlayerRecords(match, result.roundNumber);
+      _updatePlayerRecords(updatedMatch, result.roundNumber);
     }
   }
 
