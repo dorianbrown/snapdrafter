@@ -249,10 +249,18 @@ class DraftBleFollower extends DraftBleService {
   /// re-subscribing to the state characteristic, which triggers a fresh
   /// notification push from the leader. This avoids Android's BLE read cache
   /// when GATT reads return stale data.
+  ///
+  /// Cancels the previous [DraftBleFollower._stateValueSub] before starting
+  /// and re-establishes it as the permanent notification listener so that
+  /// ongoing state pushes continue working after this call returns.
   @override
   Future<DraftState?> resubscribeAndReadState() async {
     final deviceId = _leaderDeviceId;
     if (deviceId == null) return null;
+
+    await _stateValueSub?.cancel();
+    _stateValueSub = null;
+    _streamChunker.reset();
 
     try {
       await _ble.unsubscribe(
@@ -263,14 +271,22 @@ class DraftBleFollower extends DraftBleService {
     } catch (_) {}
 
     final completer = Completer<DraftState>();
-    StreamSubscription<Uint8List>? sub;
 
-    sub = _ble
+    _stateValueSub = _ble
         .characteristicValueStream(deviceId, DraftBleService.stateCharUuid)
         .listen((bytes) {
-      final decoded = DraftBleService.decodeState(bytes);
-      if (decoded != null && !completer.isCompleted) {
-        completer.complete(decoded);
+      if (BleChunkedStream.isChunked(bytes)) {
+        print('[BLE_FOLLOWER] received chunk (${bytes.length} bytes)');
+        _streamChunker.feed(bytes);
+        while (_streamChunker.hasCompleteMessage) {
+          final assembled = _streamChunker.data;
+          if (assembled == null) continue;
+          print('[BLE_FOLLOWER] reassembled state notification (${assembled.length} bytes)');
+          _processState(assembled, completer);
+        }
+      } else {
+        print('[BLE_FOLLOWER] received state notification (${bytes.length} bytes)');
+        _processState(bytes, completer);
       }
     });
 
@@ -295,8 +311,6 @@ class DraftBleFollower extends DraftBleService {
     } catch (e) {
       print('[BLE_FOLLOWER] resubscribe FAILED: $e');
       return null;
-    } finally {
-      sub.cancel();
     }
   }
 
@@ -344,7 +358,9 @@ class DraftBleFollower extends DraftBleService {
     if (_leaderDeviceId != null) {
       try {
         await _ble.disconnect(_leaderDeviceId!);
-      } catch (_) {}
+      } catch (e) {
+        print('[BLE_FOLLOWER] disconnect FAILED: $e');
+      }
     }
     _leaderDeviceId = null;
     await _leaderConnectedCtrl.close();

@@ -425,10 +425,14 @@ class DraftBleLeader extends DraftBleService {
     _subscribedStateDeviceIds.clear();
     try {
       await UniversalBlePeripheral.stopAdvertising();
-    } catch (_) {}
+    } catch (e) {
+      print('[BLE_ADV] stopAdvertising FAILED: $e');
+    }
     try {
       await UniversalBlePeripheral.clearServices();
-    } catch (_) {}
+    } catch (e) {
+      print('[BLE_ADV] clearServices FAILED: $e');
+    }
     await _followerConnectedCtrl?.close();
     await _followerDisconnectedCtrl?.close();
     _followerConnectedCtrl = null;

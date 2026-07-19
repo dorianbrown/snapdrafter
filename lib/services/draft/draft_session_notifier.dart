@@ -586,10 +586,15 @@ class DraftSessionNotifier extends ChangeNotifier {
   /// Polls the leader for updated state via a GATT read.
   /// Useful as a fallback when notification-based pushes are unreliable
   /// (e.g. cross-platform BLE). Called periodically by follower UI screens.
+  ///
+  /// Uses a plain GATT read ([readCurrentState]) instead of the more
+  /// intrusive [resubscribeAndReadState] to avoid disrupting the BLE
+  /// notification subscription every poll cycle, which can overwhelm the
+  /// leader's peripheral stack on iOS.
   Future<void> pollState() async {
     if (!isFollower || _state == null || _bleService == null) return;
     try {
-      final updated = await _bleService!.resubscribeAndReadState();
+      final updated = await _bleService!.readCurrentState();
       if (updated != null &&
           updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
         _state = updated;
@@ -629,7 +634,10 @@ class DraftSessionNotifier extends ChangeNotifier {
   void dispose() {
     _role = DraftRole.none;
     _state = null;
-    _bleService?.stop();
+    if (_bleService != null) {
+      print('[NOTIFIER] dispose: stopping BLE service (fire-and-forget)');
+      _bleService!.stop();
+    }
     super.dispose();
   }
 }
