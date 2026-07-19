@@ -339,8 +339,11 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     _changeNotifier.markNeedsRefresh();
 
     if (widget.onDeckSaved != null) {
+      Navigator.of(context).pop();
       widget.onDeckSaved!(newDeck);
       if (mounted) {
+        Navigator.of(context)
+            .popUntil(ModalRoute.withName('scan_deck'));
         Navigator.of(context).pop();
       }
     } else {

@@ -129,6 +129,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     if (!mounted) return;
     await Navigator.of(context).push(
       MaterialPageRoute(
+        settings: const RouteSettings(name: 'scan_deck'),
         builder: (context) => DeckScanner(
           prefill: DeckUpsert(
             cards: const [],
@@ -142,9 +143,6 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
               'draft:${session.sessionId}:${notifier.myDeviceId}',
             );
             setState(() => _deckSubmitted = true);
-            if (mounted) {
-              Navigator.of(context).pop();
-            }
           },
         ),
       ),
