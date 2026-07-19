@@ -105,27 +105,31 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen> {
     }
 
     if (session.phase == DraftPhase.cancelled) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('The host cancelled the draft')),
           );
-          notifier.leaveDraft();
-          Navigator.of(context)
-              .popUntil((route) => route.isFirst || route.settings.name == 'draft_lobby');
+          await notifier.leaveDraft();
+          if (mounted) {
+            Navigator.of(context)
+                .popUntil((route) => route.isFirst || route.settings.name == 'draft_lobby');
+          }
         }
       });
     }
 
     final myPlayer = state.getPlayer(notifier.myDeviceId);
     if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('You were removed from the draft')),
           );
-          notifier.leaveDraft();
-          Navigator.of(context).pop();
+          await notifier.leaveDraft();
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
         }
       });
     }

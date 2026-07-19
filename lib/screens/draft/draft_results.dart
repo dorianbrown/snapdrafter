@@ -65,9 +65,11 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () {
-                      notifier.leaveDraft();
-                      Navigator.of(context).popUntil((route) => route.isFirst);
+                    onPressed: () async {
+                      await notifier.leaveDraft();
+                      if (context.mounted) {
+                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      }
                     },
                     child: const Text('Done'),
                   ),
