@@ -191,8 +191,8 @@ class DraftBleFollower extends DraftBleService {
     final services = await _ble.discoverServices(deviceId);
     print('[BLE_FOLLOWER] discovered ${services.length} services');
 
-    print('[BLE_FOLLOWER] subscribing to state characteristic (indications)...');
-    await _ble.subscribeIndications(
+    print('[BLE_FOLLOWER] subscribing to state characteristic (notifications)...');
+    await _ble.subscribeNotifications(
       deviceId,
       DraftBleService.serviceUuid,
       DraftBleService.stateCharUuid,
@@ -275,7 +275,7 @@ class DraftBleFollower extends DraftBleService {
     });
 
     try {
-      await _ble.subscribeIndications(
+      await _ble.subscribeNotifications(
         deviceId,
         DraftBleService.serviceUuid,
         DraftBleService.stateCharUuid,

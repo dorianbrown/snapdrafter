@@ -347,7 +347,7 @@ class DraftBleLeader extends DraftBleService {
     print('[BLE_ADV] pushing ${chunks.length} chunks (${bytes.length} B total) to${deviceId != null ? " $deviceId" : " all"} on $characteristicId');
     for (var i = 0; i < chunks.length; i++) {
       if (i > 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 60));
+        await Future<void>.delayed(const Duration(milliseconds: 15));
       }
       try {
         await UniversalBlePeripheral.updateCharacteristicValue(

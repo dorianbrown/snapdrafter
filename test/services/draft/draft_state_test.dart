@@ -799,7 +799,7 @@ void main() {
           status: MatchStatus.confirmed,
         );
         final json = match.toJson();
-        final decoded = DraftMatch.fromJson(json);
+        final decoded = DraftMatch.fromJson(json, match.roundNumber);
 
         expect(decoded.matchId, match.matchId);
         expect(decoded.roundNumber, match.roundNumber);
@@ -818,8 +818,7 @@ void main() {
           status: MatchStatus.confirmed,
         );
         final json = match.toJson();
-        final decoded = DraftMatch.fromJson(json);
-
+        final decoded = DraftMatch.fromJson(json, match.roundNumber);
         expect(decoded.playerBId, isNull);
         expect(decoded.aWins, isNull);
         expect(decoded.bWins, isNull);

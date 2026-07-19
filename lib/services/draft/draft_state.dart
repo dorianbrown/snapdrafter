@@ -245,7 +245,6 @@ class DraftMatch {
 
   Map<String, dynamic> toJson() => {
     'i': matchId,
-    'r': roundNumber,
     'a': playerAId,
     if (playerBId != null) 'b': playerBId,
     if (aWins != null) 'aw': aWins,
@@ -254,10 +253,10 @@ class DraftMatch {
     's': status.name,
   };
 
-  factory DraftMatch.fromJson(Map<String, dynamic> json) {
+  factory DraftMatch.fromJson(Map<String, dynamic> json, [int? roundNumber]) {
     return DraftMatch(
       matchId: json['i'] as String,
-      roundNumber: json['r'] as int,
+      roundNumber: json['r'] as int? ?? roundNumber ?? 0,
       playerAId: json['a'] as String,
       playerBId: json['b'] as String?,
       aWins: json['aw'] as int?,
@@ -304,20 +303,21 @@ class DraftRound {
   Map<String, dynamic> toJson() => {
     'r': roundNumber,
     'm': matches.map((m) => m.toJson()).toList(),
-    'c': complete,
+    if (complete) 'c': complete,
     if (roundStartTime != null)
-      't': roundStartTime!.toUtc().toIso8601String(),
+      't': roundStartTime!.toUtc().millisecondsSinceEpoch,
   };
 
   factory DraftRound.fromJson(Map<String, dynamic> json) {
+    final rn = json['r'] as int;
     return DraftRound(
-      roundNumber: json['r'] as int,
+      roundNumber: rn,
       matches: (json['m'] as List<dynamic>)
-          .map((m) => DraftMatch.fromJson(m as Map<String, dynamic>))
+          .map((m) => DraftMatch.fromJson(m as Map<String, dynamic>, rn))
           .toList(),
       complete: json['c'] as bool? ?? false,
       roundStartTime: json['t'] != null
-          ? DateTime.parse(json['t'] as String)
+          ? DateTime.fromMillisecondsSinceEpoch(json['t'] as int, isUtc: true)
           : null,
     );
   }
@@ -385,7 +385,7 @@ class DraftSession {
     'h': phase.name,
     't': totalRounds,
     'd': roundDurationSeconds,
-    'a': createdAt.toIso8601String(),
+    'a': createdAt.toUtc().millisecondsSinceEpoch,
   };
 
   factory DraftSession.fromJson(Map<String, dynamic> json) {
@@ -398,7 +398,7 @@ class DraftSession {
       phase: DraftPhase.fromString(json['h'] as String),
       totalRounds: json['t'] as int,
       roundDurationSeconds: json['d'] as int? ?? 300,
-      createdAt: DateTime.parse(json['a'] as String),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(json['a'] as int, isUtc: true),
     );
   }
 }
