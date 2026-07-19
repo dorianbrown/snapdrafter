@@ -104,11 +104,7 @@ class DraftBleLeader extends DraftBleService {
       throw Exception('Peripheral mode not supported on this device');
     }
 
-    final readiness = await UniversalBlePeripheral.getAvailabilityState();
-    print('[BLE_ADV] peripheral readiness: $readiness');
-    if (readiness != PeripheralReadinessState.ready) {
-      throw Exception('Bluetooth not ready for advertising');
-    }
+    await _waitForPeripheralReadiness();
 
     // Register GATT service with meta (read/notify), state (read/notify),
     // and command (write) characteristics.
@@ -262,6 +258,31 @@ class DraftBleLeader extends DraftBleService {
 
     final registeredServices = await UniversalBlePeripheral.getServices();
     print('[BLE_ADV] registered services on server: $registeredServices');
+  }
+
+  Future<void> _waitForPeripheralReadiness() async {
+    const maxAttempts = 20;
+    const delay = Duration(milliseconds: 250);
+
+    for (var i = 0; i < maxAttempts; i++) {
+      final readiness = await UniversalBlePeripheral.getAvailabilityState();
+      print('[BLE_ADV] peripheral readiness (attempt ${i + 1}): $readiness');
+
+      switch (readiness) {
+        case PeripheralReadinessState.ready:
+          return;
+        case PeripheralReadinessState.unsupported:
+        case PeripheralReadinessState.unauthorized:
+          throw Exception('Bluetooth not available: $readiness');
+        case PeripheralReadinessState.unknown:
+        case PeripheralReadinessState.bluetoothOff:
+          if (i + 1 < maxAttempts) {
+            await Future<void>.delayed(delay);
+          }
+      }
+    }
+
+    throw Exception('Bluetooth not ready for advertising (timeout)');
   }
 
   // -------------------------------------------------------------------------

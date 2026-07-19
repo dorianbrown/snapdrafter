@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:universal_ble/universal_ble.dart';
+
 import '../../services/draft/draft_session_notifier.dart';
 import 'draft_management.dart';
 
@@ -24,6 +26,7 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
   void initState() {
     super.initState();
     _loadPrefs();
+    UniversalBlePeripheral.getCapabilities();
   }
 
   Future<void> _loadPrefs() async {
