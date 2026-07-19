@@ -68,7 +68,7 @@ class NotificationService {
       channelDescription: _channelDescription,
       importance: Importance.max,
       priority: Priority.max,
-      category: AndroidNotificationCategory.alarm,
+      category: AndroidNotificationCategory.event,
       enableVibration: true,
       playSound: true,
       visibility: NotificationVisibility.public,
