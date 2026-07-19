@@ -564,7 +564,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
     final oppWins = (isPlayerA ? match.bWins : match.aWins) ?? 0;
 
     return Card(
-      color: Colors.orange.shade50,
+      color: Theme.of(context).colorScheme.secondaryContainer,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
