@@ -363,6 +363,8 @@ class DraftBleFollower extends DraftBleService {
       }
     }
     _leaderDeviceId = null;
-    await _leaderConnectedCtrl.close();
+    if (!_leaderConnectedCtrl.isClosed) {
+      await _leaderConnectedCtrl.close();
+    }
   }
 }
