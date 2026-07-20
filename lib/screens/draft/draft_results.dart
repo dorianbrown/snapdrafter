@@ -23,7 +23,7 @@ class DraftResultsScreen extends StatefulWidget {
   State<DraftResultsScreen> createState() => _DraftResultsScreenState();
 }
 
-enum _CcState { none, checking, authenticated, expired, submitting, complete }
+enum _CcState { none, checking, notConfigured, authenticated, expired, submitting, complete }
 
 class _DraftResultsScreenState extends State<DraftResultsScreen> {
   final DeckRepository _deckRepository = DeckRepository();
@@ -336,7 +336,10 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
     final prefs = await SharedPreferences.getInstance();
     final credsJson = prefs.getString('cc_auth_$cubeId');
-    if (credsJson == null) return;
+    if (credsJson == null) {
+      if (mounted) setState(() => _ccState = _CcState.notConfigured);
+      return;
+    }
 
     final creds = CubeCobraCredentials.fromJson(
       jsonDecode(credsJson) as Map<String, dynamic>,
@@ -370,6 +373,8 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
       case _CcState.none:
       case _CcState.checking:
         return const SizedBox.shrink();
+      case _CcState.notConfigured:
+        return _buildCubeCobraNotConfiguredCard();
       case _CcState.authenticated:
         return _buildCubeCobraSubmitCard(notifier);
       case _CcState.expired:
@@ -379,6 +384,170 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
       case _CcState.complete:
         return _buildCubeCobraCompleteCard();
     }
+  }
+
+  Widget _buildCubeCobraNotConfiguredCard() {
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                SvgPicture.asset(
+                  'assets/app_icons/monochrome_cubecobra.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black54,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Submit to CubeCobra',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Sign in to CubeCobra in Settings to submit draft records.',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              child: OutlinedButton.icon(
+                onPressed: _showInlineSignInDialog,
+                icon: const Icon(Icons.login, size: 18),
+                label: const Text('Sign In to CubeCobra'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showInlineSignInDialog() {
+    final notifier = context.read<DraftSessionNotifier>();
+    final cubeId = notifier.state?.session.cubeId;
+    if (cubeId == null) return;
+
+    final usernameCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool signingIn = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text('CubeCobra Sign In'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Sign in to enable draft record submissions.',
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: usernameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Username or Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: passwordCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                    textInputAction: TextInputAction.done,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: signingIn
+                      ? null
+                      : () async {
+                          final username = usernameCtrl.text.trim();
+                          final password = passwordCtrl.text;
+                          if (username.isEmpty || password.isEmpty) return;
+
+                          setDialogState(() => signingIn = true);
+
+                          try {
+                            final cookie = await login(username, password);
+                            final creds = CubeCobraCredentials(
+                              cubeId: cubeId,
+                              username: username,
+                              cookie: cookie,
+                            );
+
+                            final prefs = await SharedPreferences.getInstance();
+                            await prefs.setString(
+                              'cc_auth_$cubeId',
+                              jsonEncode(creds.toJson()),
+                            );
+
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+
+                            if (mounted) {
+                              setState(() {
+                                _ccCubecobraId = cubeId;
+                                _ccUsername = username;
+                                _ccCookie = cookie;
+                                _ccState = _CcState.authenticated;
+                              });
+                            }
+                          } on CubeCobraApiException catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text(e.message)),
+                              );
+                            }
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Sign in failed: $e')),
+                              );
+                            }
+                          } finally {
+                            if (ctx.mounted) {
+                              setDialogState(() => signingIn = false);
+                            }
+                          }
+                        },
+                  child: signingIn
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Sign In'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   Widget _buildCubeCobraReAuthCard() {
@@ -484,6 +653,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     final eligibleCount = players
         .where((p) => p.status == PlayerStatus.accepted)
         .length;
+    final canSubmit = submittedCount > 0;
 
     return Card(
       margin: const EdgeInsets.only(top: 16),
@@ -547,14 +717,16 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
             SizedBox(
               height: 40,
               child: ElevatedButton.icon(
-                onPressed: allSubmitted
+                onPressed: canSubmit
                     ? () => _submitToCubeCobra(state.session.name)
                     : null,
                 icon: const Icon(Icons.cloud_upload, size: 18),
                 label: Text(
-                  allSubmitted
-                      ? 'Submit All to CubeCobra ($eligibleCount decks)'
-                      : '$submittedCount/$eligibleCount players ready',
+                  canSubmit
+                      ? allSubmitted
+                          ? 'Submit All to CubeCobra ($eligibleCount decks)'
+                          : 'Submit $submittedCount of $eligibleCount decks'
+                      : 'No decklists available',
                 ),
               ),
             ),
@@ -705,12 +877,34 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     });
 
     try {
+      final playerNames = {
+        for (final p in state.players) p.deviceId: p.playerName,
+      };
+
+      final rounds = <Map<String, dynamic>>[];
+      for (final round in state.rounds) {
+        final roundMatches = <Map<String, dynamic>>[];
+        for (final match in round.matches) {
+          if (match.isBye || match.aWins == null || match.bWins == null) continue;
+          final p1Name = playerNames[match.playerAId] ?? match.playerAId;
+          final p2Name = playerNames[match.playerBId] ?? match.playerBId!;
+          roundMatches.add({
+            'p1': p1Name,
+            'p2': p2Name,
+            'results': [match.aWins, match.bWins, 0],
+          });
+        }
+        if (roundMatches.isNotEmpty) {
+          rounds.add({'matches': roundMatches});
+        }
+      }
+
       final recordJson = jsonEncode({
         'name': draftName,
         'date': DateTime.now().millisecondsSinceEpoch,
         'players': players.map((p) => {'name': p.playerName}).toList(),
         'description': '',
-        'matches': [],
+        'matches': rounds,
         'trophy': [],
       });
 
