@@ -13,6 +13,7 @@ import '../../data/repositories/deck_repository.dart';
 import '../../services/cubecobra_api.dart';
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
+import '../../utils/deck_change_notifier.dart';
 import '../deck_scanner.dart';
 import 'decklist_preview_sheet.dart';
 
@@ -287,6 +288,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     final savedDeck = await _deckRepository.saveNewDeck(upsert);
     await _deckRepository.addTagToDeck(savedDeck.id, state.session.name);
     setState(() => _savedPlayerIds.add(player.deviceId));
+    DeckChangeNotifier().markNeedsRefresh();
   }
 
   Future<void> _saveAllDecklists(
@@ -317,8 +319,9 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
       );
 
       final savedDeck = await _deckRepository.saveNewDeck(upsert);
-      await _deckRepository.addTagToDeck(savedDeck.id, draftName);
+      await _deckRepository.addTagToDeck(savedDeck.id, state!.session.name);
       _savedPlayerIds.add(player.deviceId);
+      DeckChangeNotifier().markNeedsRefresh();
     }
 
     if (mounted) {
