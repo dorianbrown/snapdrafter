@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart' hide Card;
-import 'package:collection/collection.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 
 import '/data/models/card.dart';
 import '/data/models/deck_upsert.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/repositories/card_repository.dart';
+import '/utils/card_matcher.dart';
 
 class DeckTextEditor extends StatefulWidget {
   final String? initialText;
@@ -136,19 +136,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
         final count = int.parse(regexMatch.first[1]!);
         final cardName = regexMatch.first[2]!;
 
-        print(cardName.split(" // "));
-
-        // Find matching card
-        Card? matchedCard = allCards.firstWhereOrNull((card) {
-          if (card.name.contains(" // ")) {
-            return card.name.contains(" // ")
-                ? card.name.split(" // ").any((name) => name.toLowerCase() == cardName.split(" // ")[0].toLowerCase())
-                : card.name.toLowerCase() == cardName.toLowerCase();
-          }
-          else {
-            return card.name.toLowerCase() == cardName.toLowerCase();
-          }
-        });
+        Card? matchedCard = findCardByName(cardName, allCards);
 
         if (matchedCard == null) {
           errors.add("Card not found: '$cardName'");

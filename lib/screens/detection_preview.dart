@@ -6,6 +6,7 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import '../utils/utils.dart';
+import '../utils/card_matcher.dart';
 import 'deck_viewer.dart';
 import 'image_processing_screen.dart';
 import '/models/detection.dart';
@@ -206,16 +207,13 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                       initialValue: TextEditingValue(text: detections[index].card?.name ?? ""),
                       optionsViewOpenDirection: OptionsViewOpenDirection.down,
                       optionsBuilder: (val) {
-                        if (val.text == "") {
+                        if (val.text.isEmpty) {
                           return const Iterable<String>.empty();
                         }
-                        return allCards
-                            .where((el) => el.name.toLowerCase().contains(val.text.toLowerCase()))
-                            .map((el) => el.name)
-                            .toList();
+                        return searchCardNames(val.text, allCards);
                       },
                       onSelected: (option) {
-                        Card newCard = allCards.firstWhere((x) => x.name == option);
+                        Card newCard = findCardByName(option, allCards)!;
                         setState(() {
                           detections[index].card = newCard;
                         });
