@@ -169,15 +169,13 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     final modelFile = await rootBundle.load(modelPath);
     final modelBuffer = modelFile.buffer.asUint8List();
 
-    List<Future<List<List<int>>>> futureDetections =
-        [0, 90, 180, 270].map((rot) {
-      Uint8List detectionBytes =
-          img.encodePng(img.copyRotate(inputImage, angle: rot));
-      return compute(_titleDetection,
-          {'inputBytes': detectionBytes, 'modelBuffer': modelBuffer});
-    }).toList();
+    final pngBytes = img.encodePng(inputImage);
 
-    List<List<List<int>>> allDetections = await Future.wait(futureDetections);
+    final allDetections = await compute(_runAllOrientations, {
+      'encodedImage': pngBytes,
+      'modelBuffer': modelBuffer,
+      'rotations': [0, 90, 180, 270],
+    });
 
     // Choose best orientation by number of detections
     int maxDetections = 0;
@@ -374,69 +372,71 @@ Future<img.Image> processInputImage(String fp) async {
   return decodedImage;
 }
 
-Future<List<List<int>>> _titleDetection(Map argMap) async {
+Future<List<List<List<int>>>> _runAllOrientations(Map argMap) async {
+  final Uint8List encodedImage = argMap['encodedImage'];
+  final Uint8List modelBuffer = argMap['modelBuffer'];
+  final List<int> rotations = argMap['rotations'];
   final double detectionThreshold = 0.5;
-  final inputBytes = argMap['inputBytes'];
-  final modelBuffer = argMap['modelBuffer'];
 
+  final inputImage = img.decodePng(encodedImage)!;
   final detector = Interpreter.fromBuffer(modelBuffer);
-  final inputImage = img.decodePng(inputBytes)!;
 
-  // Getting input/output shapes
-  final input = detector.getInputTensor(0); // BWHC
-  final output = detector.getOutputTensor(0); // BXYXYC
-  int inputW = input.shape[1];
-  int inputH = input.shape[2];
+  final input = detector.getInputTensor(0);
+  final output = detector.getOutputTensor(0);
+  final int inputH = input.shape[1];
+  final int inputW = input.shape[2];
 
-  // Resizing image for model
-  final resizedImage = img.copyResize(
-    inputImage,
-    width: inputH,
-    height: inputH,
-    maintainAspect: true,
-    backgroundColor: img.ColorRgba8(0, 0, 0, 255),
-  );
+  final allDetections = <List<List<int>>>[];
 
-  // Initializing input/output tensors
-  final inputTensor =
-      List<double>.filled(input.shape.reduce((a, b) => a * b), 0)
-          .reshape(input.shape);
-  final outputTensor =
-      List<double>.filled(output.shape.reduce((a, b) => a * b), -1)
-          .reshape(output.shape);
+  for (final rot in rotations) {
+    final rotated = img.copyRotate(inputImage, angle: rot);
 
-  // Filling input tensor with image data
-  for (int y = 0; y < inputH; y++) {
-    for (int x = 0; x < inputW; x++) {
-      final pixel = resizedImage.getPixel(x, y);
-      inputTensor[0][y][x][0] = pixel.r / 255.0;
-      inputTensor[0][y][x][1] = pixel.g / 255.0;
-      inputTensor[0][y][x][2] = pixel.b / 255.0;
+    final resizedImage = img.copyResize(
+      rotated,
+      width: inputH,
+      height: inputH,
+      maintainAspect: true,
+      backgroundColor: img.ColorRgba8(0, 0, 0, 255),
+    );
+
+    final inputTensor =
+        List<double>.filled(input.shape.reduce((a, b) => a * b), 0)
+            .reshape(input.shape);
+    final outputTensor =
+        List<double>.filled(output.shape.reduce((a, b) => a * b), -1)
+            .reshape(output.shape);
+
+    for (int y = 0; y < inputH; y++) {
+      for (int x = 0; x < inputW; x++) {
+        final pixel = resizedImage.getPixel(x, y);
+        inputTensor[0][y][x][0] = pixel.r / 255.0;
+        inputTensor[0][y][x][1] = pixel.g / 255.0;
+        inputTensor[0][y][x][2] = pixel.b / 255.0;
+      }
     }
+
+    detector.run(inputTensor, outputTensor);
+
+    bool isPortrait = rotated.width < rotated.height;
+    int scalingFactor = isPortrait ? rotated.height : rotated.width;
+    double widthPadding =
+        isPortrait ? (rotated.height - rotated.width) / 2 : 0.0;
+    double heightPadding =
+        !isPortrait ? (rotated.width - rotated.height) / 2 : 0.0;
+
+    List<List<int>> detections = (outputTensor[0] as List<List<double>>)
+        .where((element) => (element[4] > detectionThreshold))
+        .map((el) => [
+              (el[0] * scalingFactor - widthPadding).toInt(),
+              (el[1] * scalingFactor - heightPadding).toInt(),
+              (el[2] * scalingFactor - widthPadding).toInt(),
+              (el[3] * scalingFactor - heightPadding).toInt()
+            ])
+        .toList();
+
+    allDetections.add(detections);
   }
 
-  // Running of actual Yolo detection model
-  detector.run(inputTensor, outputTensor);
   detector.close();
-
-  // Converting output detection dimensions back to full
-  // image dimensions
-  bool isPortrait = inputImage.width < inputImage.height;
-  int scalingFactor = isPortrait ? inputImage.height : inputImage.width;
-  double widthPadding =
-      isPortrait ? (inputImage.height - inputImage.width) / 2 : 0.0;
-  double heightPadding =
-      !isPortrait ? (inputImage.width - inputImage.height) / 2 : 0.0;
-
-  List<List<int>> detections = (outputTensor[0] as List<List<double>>)
-      .where((element) => (element[4] > detectionThreshold))
-      .map((el) => [
-            (el[0] * scalingFactor - widthPadding).toInt(),
-            (el[1] * scalingFactor - heightPadding).toInt(),
-            (el[2] * scalingFactor - widthPadding).toInt(),
-            (el[3] * scalingFactor - heightPadding).toInt()
-          ])
-      .toList();
-
-  return detections;
+  return allDetections;
 }
