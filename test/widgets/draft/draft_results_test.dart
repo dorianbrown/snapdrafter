@@ -82,7 +82,7 @@ void main() {
     await tester.pump();
 
     expect(
-      find.widgetWithText(AppBar, 'Completed Draft \u2014 Results'),
+      find.widgetWithText(AppBar, 'Completed Draft:  Results'),
       findsOneWidget,
     );
   });
