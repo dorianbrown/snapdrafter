@@ -173,6 +173,10 @@ class DraftSessionNotifier extends ChangeNotifier {
   Future<void> advanceRound() async {
     if (!isLeader || _state == null) return;
 
+    if (_state!.rounds.isNotEmpty) {
+      _finalizeReportedMatches(_state!.rounds.last);
+    }
+
     final nextRoundNumber = _state!.rounds.length + 1;
     if (nextRoundNumber > _state!.session.totalRounds) {
       _state = _state!
@@ -319,7 +323,6 @@ class DraftSessionNotifier extends ChangeNotifier {
           status: MatchStatus.reported,
         );
         _updateMatch(result.roundNumber, matchIndex, updated);
-        _updatePlayerRecords(updated, result.roundNumber);
 
         _notifyMatchResultSubmitted(reporterId, updated);
 
@@ -389,6 +392,17 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = _state!.copyWith(players: players).bumpSequence();
     _bleService!.pushState(_state!);
     notifyListeners();
+  }
+
+  void _finalizeReportedMatches(DraftRound round) {
+    for (int i = 0; i < round.matches.length; i++) {
+      final match = round.matches[i];
+      if (match.status == MatchStatus.reported) {
+        final confirmed = match.copyWith(status: MatchStatus.confirmed);
+        _updateMatch(round.roundNumber, i, confirmed);
+        _updatePlayerRecords(confirmed, round.roundNumber);
+      }
+    }
   }
 
   // -------------------------------------------------------------------------

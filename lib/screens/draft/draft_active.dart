@@ -554,22 +554,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
             )
           else if (myMatch.status == MatchStatus.reported &&
               myMatch.reportedByDeviceId != notifier.myDeviceId)
-            _buildConfirmationCard(notifier, roundNumber, myMatch)
-          else
-            const Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.grey),
-                    SizedBox(width: 8),
-                    Expanded(
-                      child: Text('Waiting for opponent to confirm'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _buildConfirmationCard(notifier, roundNumber, myMatch),
           const SizedBox(height: 16),
           Card(
             child: Padding(
