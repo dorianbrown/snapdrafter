@@ -35,21 +35,22 @@ class MyDecksOverview extends StatefulWidget {
   MyDecksOverviewState createState() => MyDecksOverviewState();
 }
 
-class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
+class MyDecksOverviewState extends State<MyDecksOverview> {
   final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
-  late Future<List<Deck>> decksFuture;
-  late Future<List<Set>> setsFuture;
-  late Future<List<Cube>> cubesFuture;
   late DeckRepository deckRepository;
   late SetRepository setRepository;
   late CubeRepository cubeRepository;
   late CardRepository cardRepository;
-  late Future buildFuture;
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
   bool _hasSeenOverviewTutorial = false;
   bool _debugEnabled = false;
   List<String> allTags = [];
+  List<Deck> _decks = [];
+  List<Set> _sets = [];
+  List<Cube> _cubes = [];
+  bool _isLoading = true;
+  int _refreshGen = 0;
 
   @override
   void initState() {
@@ -57,20 +58,40 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
     deckRepository = DeckRepository();
     setRepository = SetRepository();
     cubeRepository = CubeRepository();
-    decksFuture = deckRepository.getAllDecks();
-    setsFuture = setRepository.getAllSets();
-    cubesFuture = cubeRepository.getAllCubes();
+    cardRepository = CardRepository();
 
     _changeNotifier.addListener(_refreshIfNeeded);
-    decksFuture.then((_) {
-      setState(() {});
-    });
-    cardRepository = CardRepository();
-    cardRepository.getAllCards();
+    _loadInitialData();
     _loadFirstDeckStatus();
     _loadTags();
+    cardRepository.getAllCards();
 
     WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
+  }
+
+  Future<void> _loadInitialData() async {
+    final gen = ++_refreshGen;
+    try {
+      final results = await Future.wait([
+        deckRepository.getAllDecks(),
+        setRepository.getAllSets(),
+        cubeRepository.getAllCubes(),
+      ]);
+      if (mounted && gen == _refreshGen) {
+        setState(() {
+          _decks = results[0] as List<Deck>;
+          _sets = results[1] as List<Set>;
+          _cubes = results[2] as List<Cube>;
+          _isLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadTags() async {
@@ -101,11 +122,23 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
   }
 
   void refreshDecks() async {
-    setState(() {
-      setsFuture = setRepository.getAllSets();
-      cubesFuture = cubeRepository.getAllCubes();
-      decksFuture = deckRepository.getAllDecks();
-    });
+    final gen = ++_refreshGen;
+    try {
+      final results = await Future.wait([
+        deckRepository.getAllDecks(),
+        setRepository.getAllSets(),
+        cubeRepository.getAllCubes(),
+      ]);
+      if (mounted && gen == _refreshGen) {
+        setState(() {
+          _decks = results[0] as List<Deck>;
+          _sets = results[1] as List<Set>;
+          _cubes = results[2] as List<Cube>;
+        });
+      }
+    } catch (_) {
+      // Keep existing data on error
+    }
   }
 
   @override
@@ -244,52 +277,53 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                     })),
           ]),
         ),
-        body: FutureBuilder(
-            future: Future.wait([decksFuture, setsFuture, cubesFuture]),
-            builder: (context, snapshot) {
-              Widget widget;
-              if (snapshot.connectionState != ConnectionState.done ||
-                  snapshot.data == null) {
-                widget = Center(child: CircularProgressIndicator());
-              } else {
-                // Getting state
-                final decks = snapshot.data![0] as List<Deck>;
-                final sets = snapshot.data![1] as List<Set>;
-                final cubes = snapshot.data![2] as List<Cube>;
+        body: AnimatedSwitcher(
+            duration: Duration(milliseconds: 500),
+            child: Builder(builder: (context) {
+              if (_isLoading) {
+                return const Center(
+                    key: ValueKey('loading'),
+                    child: CircularProgressIndicator());
+              }
 
-                if (decks.isEmpty) {
-                  return Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          spacing: 20,
-                          children: [
-                        Spacer(flex: 4),
-                        Text("No decks found", style: TextStyle(fontSize: 20)),
-                        Spacer(flex: 3),
-                        Text('Use the "+" button below to add a deck',
-                            style: TextStyle(
-                                fontSize: 16,
-                                fontStyle: FontStyle.italic,
-                                color: Theme.of(context).hintColor)),
-                        Spacer(flex: 3)
-                      ]));
-                }
+              if (_decks.isEmpty) {
+                return Center(
+                    key: ValueKey('empty'),
+                    child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        spacing: 20,
+                        children: [
+                      Spacer(flex: 4),
+                      Text("No decks found",
+                          style: TextStyle(fontSize: 20)),
+                      Spacer(flex: 3),
+                      Text('Use the "+" button below to add a deck',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontStyle: FontStyle.italic,
+                              color: Theme.of(context).hintColor)),
+                      Spacer(flex: 3)
+                    ]));
+              }
 
-                List<Deck> filteredDecks = currentFilter != null
-                    ? decks
-                        .where((deck) => currentFilter!.matchesDeck(deck))
-                        .toList()
-                    : decks;
-                filteredDecks.sort((a, b) => b.ymd.compareTo(a.ymd));
+              List<Deck> filteredDecks = currentFilter != null
+                  ? _decks
+                      .where((deck) => currentFilter!.matchesDeck(deck))
+                      .toList()
+                  : _decks;
+              filteredDecks.sort((a, b) => b.ymd.compareTo(a.ymd));
 
-                widget = Column(
+              return KeyedSubtree(
+                key: ValueKey('list'),
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (currentFilter != null)
                       Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 0),
-                        child: createFilterChips(currentFilter!, sets, cubes),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 0),
+                        child: createFilterChips(
+                            currentFilter!, _sets, _cubes),
                       ),
                     Expanded(
                         child: ListView.separated(
@@ -298,16 +332,14 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                           Divider(indent: 20, endIndent: 20),
                       itemBuilder: (context, index) {
                         return generateSlidableDeckTile(
-                            filteredDecks, sets, cubes, index);
+                            filteredDecks, _sets, _cubes, index);
                       },
                     ))
                   ],
-                );
-              }
-              // return widget;
-              return AnimatedSwitcher(
-                  duration: Duration(milliseconds: 500), child: widget);
-            }));
+                ),
+              );
+            }))
+    );
   }
 
   void showTextDeckCreator() {
@@ -385,28 +417,18 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
       contentPadding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
       content: StatefulBuilder(
         builder: (context, setDialogState) {
-          return FutureBuilder(
-            future: Future.wait([decksFuture, setsFuture, cubesFuture]),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) return CircularProgressIndicator();
+          final availableSets = _sets
+              .where((set) => _decks.any((deck) => deck.setId == set.code))
+              .toList();
+          final availableCubes = _cubes
+              .where((cube) => _decks
+                  .any((deck) => deck.cubecobraId == cube.cubecobraId))
+              .toList();
 
-              final decksData = snapshot.data![0] as List<Deck>;
-              final setsData = snapshot.data![1] as List<Set>;
-              final cubesData = snapshot.data![2] as List<Cube>;
-
-              final availableSets = setsData
-                  .where(
-                      (set) => decksData.any((deck) => deck.setId == set.code))
-                  .toList();
-              final availableCubes = cubesData
-                  .where((cube) => decksData
-                      .any((deck) => deck.cubecobraId == cube.cubecobraId))
-                  .toList();
-
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
                   Text("Date Range"),
                   SizedBox(
                     height: 5,
@@ -563,8 +585,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> with RouteAware {
                   ),
                 ],
               );
-            },
-          );
         },
       ),
       actions: [
