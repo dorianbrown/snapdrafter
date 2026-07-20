@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:universal_ble/universal_ble.dart';
 
+import '../../data/models/cube.dart';
+import '../../data/repositories/cube_repository.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import 'draft_management.dart';
 
@@ -22,6 +24,10 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
   final _roundMinCtrl = TextEditingController(text: '50');
   bool _creating = false;
 
+  List<Cube> _cubes = [];
+  String? _selectedCubecobraId;
+  bool _cubesLoading = true;
+
   @override
   void initState() {
     super.initState();
@@ -31,9 +37,12 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
 
   Future<void> _loadPrefs() async {
     final prefs = await SharedPreferences.getInstance();
+    final cubes = await CubeRepository().getAllCubes();
     setState(() {
       _nameCtrl.text = '${prefs.getString("username") ?? "Player"}\'s Draft';
       _playerCtrl.text = prefs.getString("username") ?? '';
+      _cubes = cubes;
+      _cubesLoading = false;
     });
   }
 
@@ -62,6 +71,7 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
         seatCount: seatCount,
         playerName: _playerCtrl.text.trim(),
         roundDurationSeconds: roundMin * 60,
+        cubeId: _selectedCubecobraId,
       );
 
       if (mounted) {
@@ -128,6 +138,31 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
                 },
               ),
               const SizedBox(height: 16),
+              if (_cubesLoading)
+                const LinearProgressIndicator()
+              else if (_cubes.isNotEmpty)
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedCubecobraId,
+                  decoration: const InputDecoration(
+                    labelText: 'Cube (optional)',
+                    border: OutlineInputBorder(),
+                    helperText: 'Select for CubeCobra draft record submission',
+                  ),
+                  isExpanded: true,
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text('None'),
+                    ),
+                    ..._cubes.map((cube) => DropdownMenuItem<String>(
+                      value: cube.cubecobraId,
+                      child: Text(cube.name),
+                    )),
+                  ],
+                  onChanged: (v) => _selectedCubecobraId = v,
+                ),
+              if (_cubes.isNotEmpty)
+                const SizedBox(height: 16),
               TextFormField(
                 controller: _roundMinCtrl,
                 decoration: const InputDecoration(

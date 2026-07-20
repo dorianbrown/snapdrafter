@@ -1,10 +1,15 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart' hide Card;
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';
 import '/data/models/cube.dart';
 import '/data/models/card.dart';
+import '/data/models/cubecobra_config.dart';
 import '/data/repositories/cube_repository.dart';
+import '/services/cubecobra_api.dart';
 
 class CubeSettings extends StatefulWidget {
   const CubeSettings({super.key});
@@ -15,13 +20,40 @@ class CubeSettings extends StatefulWidget {
 
 class _CubeSettingsState extends State<CubeSettings> {
   late CubeRepository cubeRepository;
+  late SharedPreferences _prefs;
 
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
+  final Map<String, CubeCobraCredentials?> _ccAuth = {};
 
   @override
   initState() {
     super.initState();
     cubeRepository = CubeRepository();
+    _initPrefs();
+  }
+
+  Future<void> _initPrefs() async {
+    _prefs = await SharedPreferences.getInstance();
+    await _loadCubecobraAuth();
+  }
+
+  Future<void> _loadCubecobraAuth() async {
+    final cubes = await cubeRepository.getAllCubes();
+    for (final cube in cubes) {
+      final json = _prefs.getString('cc_auth_${cube.cubecobraId}');
+      if (json != null) {
+        try {
+          _ccAuth[cube.cubecobraId] = CubeCobraCredentials.fromJson(
+            jsonDecode(json) as Map<String, dynamic>,
+          );
+        } catch (_) {
+          _ccAuth[cube.cubecobraId] = null;
+        }
+      } else {
+        _ccAuth[cube.cubecobraId] = null;
+      }
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -47,17 +79,36 @@ class _CubeSettingsState extends State<CubeSettings> {
                         shrinkWrap: true,
                         itemCount: cubes.length,
                         itemBuilder: (listBuilderContext, index) {
+                          final cube = cubes[index];
+                          final signedIn = _ccAuth[cube.cubecobraId] != null;
                           return ListTile(
-                            title: Text(cubes[index].name),
-                            subtitle: Text(cubes[index].ymd),
-                            trailing: IconButton(
-                                onPressed: () async {
-                                  await cubeRepository.deleteCube(cubes[index].cubecobraId);
-                                  setState(() {});
-                                },
-                                icon: Icon(Icons.delete)
+                            title: Text(cube.name),
+                            subtitle: Text(
+                              signedIn
+                                  ? 'Signed in to CubeCobra'
+                                  : cube.ymd,
+                            ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (signedIn)
+                                  const Icon(Icons.check_circle,
+                                      color: Colors.green, size: 18),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                    onPressed: () async {
+                                      await cubeRepository.deleteCube(cube.cubecobraId);
+                                      setState(() {});
+                                    },
+                                    icon: Icon(Icons.delete)
+                                ),
+                              ],
                             ),
                             tileColor: Colors.white12,
+                            onLongPress: () => _showCubecobraAuthDialog(
+                              cube.cubecobraId,
+                              cube.name,
+                            ),
                           );
                         },
                       );
@@ -73,6 +124,122 @@ class _CubeSettingsState extends State<CubeSettings> {
               ],
             )
         )
+    );
+  }
+
+  void _showCubecobraAuthDialog(String cubecobraId, String cubeName) {
+    final usernameCtrl = TextEditingController();
+    final passwordCtrl = TextEditingController();
+
+    final existing = _ccAuth[cubecobraId];
+    if (existing != null) {
+      usernameCtrl.text = existing.username;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        bool signingIn = false;
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: Text('CubeCobra Sign In'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Sign in to CubeCobra for $cubeName.'),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: usernameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Username or Email',
+                      border: OutlineInputBorder(),
+                    ),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 8),
+                  TextFormField(
+                    controller: passwordCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Password',
+                      border: OutlineInputBorder(),
+                    ),
+                    obscureText: true,
+                    textInputAction: TextInputAction.done,
+                  ),
+                ],
+              ),
+              actions: [
+                if (existing != null)
+                  TextButton(
+                    onPressed: () async {
+                      await _prefs.remove('cc_auth_$cubecobraId');
+                      _ccAuth.remove(cubecobraId);
+                      setState(() {});
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                    },
+                    child: const Text('Sign Out'),
+                  ),
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: signingIn
+                      ? null
+                      : () async {
+                          final username = usernameCtrl.text.trim();
+                          final password = passwordCtrl.text;
+                          if (username.isEmpty || password.isEmpty) return;
+
+                          setDialogState(() => signingIn = true);
+
+                          try {
+                            final cookie = await login(username, password);
+                            final creds = CubeCobraCredentials(
+                              cubeId: cubecobraId,
+                              username: username,
+                              cookie: cookie,
+                            );
+                            await _prefs.setString(
+                              'cc_auth_$cubecobraId',
+                              jsonEncode(creds.toJson()),
+                            );
+                            _ccAuth[cubecobraId] = creds;
+                            setState(() {});
+                            if (ctx.mounted) Navigator.of(ctx).pop();
+                          } on CubeCobraApiException catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text(e.message)),
+                              );
+                            }
+                          } catch (e) {
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(ctx).showSnackBar(
+                                SnackBar(content: Text('Sign in failed: $e')),
+                              );
+                            }
+                          } finally {
+                            if (ctx.mounted) {
+                              setDialogState(() => signingIn = false);
+                            }
+                          }
+                        },
+                  child: signingIn
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Text(existing != null ? 'Re-Sign In' : 'Sign In'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -103,7 +270,10 @@ class _CubeSettingsState extends State<CubeSettings> {
                             ),
                             TextFormField(
                                 controller: cubecobraIdController,
-                                decoration: InputDecoration(hintText: "Cubecobra ID")
+                                decoration: InputDecoration(
+                                  hintText: "Cubecobra ID",
+                                  helperText: "Used for draft record submissions",
+                                )
                             ),
                             TextFormField(
                               readOnly: true,

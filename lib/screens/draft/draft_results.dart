@@ -1,10 +1,16 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/models/card.dart' as mtg;
+import '../../data/models/cubecobra_config.dart';
 import '../../data/models/deck_upsert.dart';
 import '../../data/repositories/card_repository.dart';
 import '../../data/repositories/deck_repository.dart';
+import '../../services/cubecobra_api.dart';
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import '../deck_scanner.dart';
@@ -17,6 +23,8 @@ class DraftResultsScreen extends StatefulWidget {
   State<DraftResultsScreen> createState() => _DraftResultsScreenState();
 }
 
+enum _CcState { none, checking, authenticated, expired, submitting, complete }
+
 class _DraftResultsScreenState extends State<DraftResultsScreen> {
   final DeckRepository _deckRepository = DeckRepository();
   final CardRepository _cardRepository = CardRepository();
@@ -25,10 +33,18 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
   bool _deckCaptured = false;
   final Set<String> _savedPlayerIds = {};
 
+  _CcState _ccState = _CcState.none;
+  Map<String, String> _ccSubmissionStatus = {};
+  String? _ccCubecobraId;
+  String? _ccUsername;
+  String? _ccCookie;
+  String? _ccRecordId;
+
   @override
   void initState() {
     super.initState();
     _checkExistingSubmission();
+    _initCubeCobraAuth();
   }
 
   Future<void> _checkExistingSubmission() async {
@@ -132,6 +148,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                   ),
                   const SizedBox(height: 8),
                 ],
+                if (notifier.isLeader) _buildCubeCobraSection(notifier),
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(
@@ -306,6 +323,485 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  Future<void> _initCubeCobraAuth() async {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+    if (state == null || !notifier.isLeader) return;
+
+    final cubeId = state.session.cubeId;
+    if (cubeId == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final credsJson = prefs.getString('cc_auth_$cubeId');
+    if (credsJson == null) return;
+
+    final creds = CubeCobraCredentials.fromJson(
+      jsonDecode(credsJson) as Map<String, dynamic>,
+    );
+
+    bool valid;
+    try {
+      valid = await isCookieValid(creds.cookie);
+    } catch (_) {
+      valid = false;
+    }
+
+    if (mounted) {
+      setState(() {
+        _ccCubecobraId = cubeId;
+        _ccUsername = creds.username;
+        _ccCookie = creds.cookie;
+        _ccState = valid ? _CcState.authenticated : _CcState.expired;
+      });
+    }
+  }
+
+  Widget _buildCubeCobraSection(DraftSessionNotifier notifier) {
+    final state = notifier.state;
+    if (state == null) return const SizedBox.shrink();
+
+    final cubeId = state.session.cubeId;
+    if (cubeId == null) return const SizedBox.shrink();
+
+    switch (_ccState) {
+      case _CcState.none:
+      case _CcState.checking:
+        return const SizedBox.shrink();
+      case _CcState.authenticated:
+        return _buildCubeCobraSubmitCard(notifier);
+      case _CcState.expired:
+        return _buildCubeCobraReAuthCard();
+      case _CcState.submitting:
+        return _buildCubeCobraProgressCard();
+      case _CcState.complete:
+        return _buildCubeCobraCompleteCard();
+    }
+  }
+
+  Widget _buildCubeCobraReAuthCard() {
+    final passwordCtrl = TextEditingController();
+
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.sync_problem, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'CubeCobra Session Expired',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Re-enter your password for $_ccUsername to continue.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: passwordCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              obscureText: true,
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final password = passwordCtrl.text;
+                if (password.isEmpty) return;
+
+                try {
+                  final newCookie = await login(_ccUsername!, password);
+                  final creds = CubeCobraCredentials(
+                    cubeId: _ccCubecobraId!,
+                    username: _ccUsername!,
+                    cookie: newCookie,
+                  );
+
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString(
+                    'cc_auth_$_ccCubecobraId',
+                    jsonEncode(creds.toJson()),
+                  );
+
+                  if (mounted) {
+                    setState(() {
+                      _ccCookie = newCookie;
+                      _ccState = _CcState.authenticated;
+                    });
+                  }
+    } on CookieExpiredException {
+      if (mounted) {
+        setState(() => _ccState = _CcState.expired);
+      }
+      return;
+    } on CubeCobraApiException catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.message)),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Sign in failed: $e')),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.login, size: 18),
+              label: const Text('Sign In'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCubeCobraSubmitCard(DraftSessionNotifier notifier) {
+    final state = notifier.state!;
+    final players = state.players;
+    final allSubmitted = players
+        .where((p) => p.status == PlayerStatus.accepted)
+        .every((p) => p.decklistMainboard != null && p.decklistMainboard!.isNotEmpty);
+    final submittedCount = players
+        .where((p) => p.decklistMainboard != null && p.decklistMainboard!.isNotEmpty)
+        .length;
+    final eligibleCount = players
+        .where((p) => p.status == PlayerStatus.accepted)
+        .length;
+
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                SvgPicture.asset(
+                  'assets/app_icons/monochrome_cubecobra.svg',
+                  width: 24,
+                  height: 24,
+                  colorFilter: ColorFilter.mode(
+                    Theme.of(context).textTheme.bodyMedium?.color ?? Colors.black54,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Submit to CubeCobra',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Signed in as $_ccUsername',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            ...players
+                .where((p) => p.status == PlayerStatus.accepted)
+                .map((p) {
+              final hasDeck = p.decklistMainboard != null &&
+                  p.decklistMainboard!.isNotEmpty;
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasDeck ? Icons.check_circle : Icons.radio_button_unchecked,
+                      size: 16,
+                      color: hasDeck ? Colors.green : Colors.grey,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      p.playerName,
+                      style: TextStyle(
+                        color: hasDeck ? null : Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              child: ElevatedButton.icon(
+                onPressed: allSubmitted
+                    ? () => _submitToCubeCobra(state.session.name)
+                    : null,
+                icon: const Icon(Icons.cloud_upload, size: 18),
+                label: Text(
+                  allSubmitted
+                      ? 'Submit All to CubeCobra ($eligibleCount decks)'
+                      : '$submittedCount/$eligibleCount players ready',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCubeCobraProgressCard() {
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Submitting to CubeCobra...',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ..._ccSubmissionStatus.entries.map((e) {
+              final status = e.value;
+              final isSuccess = status == 'success';
+              final isPending = status == 'pending' || status == 'submitting';
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  children: [
+                    Icon(
+                      isPending
+                          ? Icons.hourglass_top
+                          : isSuccess
+                              ? Icons.check_circle
+                              : Icons.error,
+                      size: 16,
+                      color: isPending
+                          ? Colors.orange
+                          : isSuccess
+                              ? Colors.green
+                              : Colors.red,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        e.key,
+                        style: TextStyle(
+                          color: isPending ? Colors.orange : null,
+                        ),
+                      ),
+                    ),
+                    if (!isPending && !isSuccess)
+                      Flexible(
+                        child: Text(
+                          status,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCubeCobraCompleteCard() {
+    final successCount =
+        _ccSubmissionStatus.values.where((s) => s == 'success').length;
+    final failCount = _ccSubmissionStatus.values
+        .where((s) => s != 'success' && s != 'pending' && s != 'submitting')
+        .length;
+    final total = _ccSubmissionStatus.length;
+
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  failCount > 0 ? Icons.warning_amber : Icons.check_circle,
+                  color: failCount > 0 ? Colors.orange : Colors.green,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    failCount > 0
+                        ? 'Submitted $successCount/$total decks'
+                        : 'All $successCount decks submitted',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            if (_ccRecordId != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Record: cube/record/$_ccRecordId',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _submitToCubeCobra(String draftName) async {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+    if (state == null) return;
+
+    final players = state.players
+        .where((p) =>
+            p.status == PlayerStatus.accepted &&
+            p.decklistMainboard != null &&
+            p.decklistMainboard!.isNotEmpty)
+        .toList();
+
+    if (players.isEmpty) return;
+
+    setState(() {
+      _ccState = _CcState.submitting;
+      _ccSubmissionStatus = {
+        for (final p in players) p.playerName: 'pending',
+      };
+    });
+
+    try {
+      final recordJson = jsonEncode({
+        'name': draftName,
+        'date': DateTime.now().millisecondsSinceEpoch,
+        'players': players.map((p) => {'name': p.playerName}).toList(),
+        'description': '',
+        'matches': [],
+        'trophy': [],
+      });
+
+      final recordId = await createRecord(
+        cubeId: _ccCubecobraId!,
+        cookie: _ccCookie!,
+        recordJson: recordJson,
+      );
+
+      _ccRecordId = recordId;
+
+      final token = await getShareToken(recordId, _ccCookie!);
+
+      for (final player in players) {
+        if (!mounted) return;
+
+        setState(() => _ccSubmissionStatus[player.playerName] = 'submitting');
+
+        String? error;
+        for (int attempt = 0; attempt < 3; attempt++) {
+          if (attempt > 0) {
+            await Future.delayed(Duration(seconds: attempt * 2));
+          }
+
+          try {
+            final cards =
+                await _cardRepository.getCardsByScryfallIds(player.decklistMainboard!);
+            final mainboardOracleIds = cards.map((c) => c.oracleId).toList();
+
+            if (mainboardOracleIds.isEmpty) {
+              error = 'Card data not found (update card database in Settings)';
+              break;
+            }
+
+            List<String> sideboardOracleIds = [];
+            if (player.decklistSideboard != null &&
+                player.decklistSideboard!.isNotEmpty) {
+              final sideboardCards =
+                  await _cardRepository.getCardsByScryfallIds(player.decklistSideboard!);
+              sideboardOracleIds = sideboardCards.map((c) => c.oracleId).toList();
+            }
+
+            await contributeDeck(
+              recordId: recordId,
+              token: token,
+              playerName: player.playerName,
+              mainboardOracleIds: mainboardOracleIds,
+              sideboardOracleIds: sideboardOracleIds,
+              wins: player.matchWins,
+              losses: player.matchLosses,
+              draws: player.matchDraws,
+            );
+
+            error = null;
+            break;
+          } on CubeCobraApiException catch (e) {
+            error = e.message;
+          } catch (e) {
+            error = '$e';
+          }
+        }
+
+        if (mounted) {
+          setState(() {
+            _ccSubmissionStatus[player.playerName] =
+                error ?? 'success';
+          });
+        }
+      }
+    } on CubeCobraApiException catch (e) {
+      if (mounted) {
+        setState(() => _ccState = _CcState.complete);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message)),
+        );
+      }
+      return;
+    } catch (e) {
+      if (mounted) {
+        setState(() => _ccState = _CcState.complete);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not reach CubeCobra. Check your internet connection.'),
+          ),
+        );
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _ccState = _CcState.complete);
     }
   }
 
