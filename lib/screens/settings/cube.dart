@@ -398,6 +398,23 @@ class _CubeSettingsState extends State<CubeSettings> {
 
                           try {
                             final cookie = await login(username, password);
+
+                            final authResult = await validateCubeAuth(cubecobraId, cookie);
+
+                            if (authResult == CubeAuthResult.notOwner) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'You do not own this cube. Only the cube owner can submit draft records.',
+                                    ),
+                                  ),
+                                );
+                              }
+                              setDialogState(() => signingIn = false);
+                              return;
+                            }
+
                             final creds = CubeCobraCredentials(
                               cubeId: cubecobraId,
                               username: username,

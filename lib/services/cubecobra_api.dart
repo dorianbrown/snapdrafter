@@ -14,6 +14,8 @@ class CookieExpiredException implements Exception {
   String toString() => 'CookieExpiredException: $message';
 }
 
+enum CubeAuthResult { valid, expired, notOwner }
+
 class CubeCobraApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -72,23 +74,30 @@ Future<String> login(String username, String password) async {
   }
 }
 
-Future<bool> isCookieValid(String cookie) async {
+Future<CubeAuthResult> validateCubeAuth(String cubeId, String cookie) async {
   try {
     final response = await http.get(
       Uri.parse('$_baseUrl/cube/api/mycubes'),
       headers: _formHeaders(cookie: cookie),
     );
 
-    if (response.statusCode == 200) return true;
-
-    if (response.statusCode == 403) return false;
+    if (response.statusCode == 403) return CubeAuthResult.expired;
 
     final location = response.headers['location'] ?? '';
-    if (location.contains('/user/login')) return false;
+    if (location.contains('/user/login')) return CubeAuthResult.expired;
 
-    return response.statusCode < 400;
-  } catch (e) {
-    return false;
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body) as Map<String, dynamic>;
+      final cubes = body['cubes'] as List<dynamic>? ?? [];
+      final owns = cubes.any(
+        (c) => c['id'] == cubeId || c['shortId'] == cubeId,
+      );
+      return owns ? CubeAuthResult.valid : CubeAuthResult.notOwner;
+    }
+
+    return CubeAuthResult.expired;
+  } catch (_) {
+    return CubeAuthResult.expired;
   }
 }
 

@@ -24,7 +24,7 @@ class DraftResultsScreen extends StatefulWidget {
   State<DraftResultsScreen> createState() => _DraftResultsScreenState();
 }
 
-enum _CcState { none, checking, notConfigured, authenticated, expired, submitting, complete }
+enum _CcState { none, checking, notConfigured, notOwner, authenticated, expired, submitting, complete }
 
 class _DraftResultsScreenState extends State<DraftResultsScreen> {
   final DeckRepository _deckRepository = DeckRepository();
@@ -348,11 +348,11 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
       jsonDecode(credsJson) as Map<String, dynamic>,
     );
 
-    bool valid;
+    CubeAuthResult result;
     try {
-      valid = await isCookieValid(creds.cookie);
+      result = await validateCubeAuth(cubeId, creds.cookie);
     } catch (_) {
-      valid = false;
+      result = CubeAuthResult.expired;
     }
 
     if (mounted) {
@@ -360,7 +360,11 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
         _ccCubecobraId = cubeId;
         _ccUsername = creds.username;
         _ccCookie = creds.cookie;
-        _ccState = valid ? _CcState.authenticated : _CcState.expired;
+        _ccState = switch (result) {
+          CubeAuthResult.valid => _CcState.authenticated,
+          CubeAuthResult.notOwner => _CcState.notOwner,
+          CubeAuthResult.expired => _CcState.expired,
+        };
       });
     }
   }
@@ -378,6 +382,8 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
         return const SizedBox.shrink();
       case _CcState.notConfigured:
         return _buildCubeCobraNotConfiguredCard();
+      case _CcState.notOwner:
+        return _buildCubeCobraNotOwnerCard();
       case _CcState.authenticated:
         return _buildCubeCobraSubmitCard(notifier);
       case _CcState.expired:
@@ -497,6 +503,23 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
                           try {
                             final cookie = await login(username, password);
+
+                            final authResult = await validateCubeAuth(cubeId, cookie);
+
+                            if (authResult == CubeAuthResult.notOwner) {
+                              if (ctx.mounted) {
+                                ScaffoldMessenger.of(ctx).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      'You do not own this cube. Only the cube owner can submit draft records.',
+                                    ),
+                                  ),
+                                );
+                              }
+                              setDialogState(() => signingIn = false);
+                              return;
+                            }
+
                             final creds = CubeCobraCredentials(
                               cubeId: cubeId,
                               username: username,
@@ -553,6 +576,46 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     );
   }
 
+  Widget _buildCubeCobraNotOwnerCard() {
+    return Card(
+      margin: const EdgeInsets.only(top: 16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.lock_outline, color: Colors.orange),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Not a Cube Owner',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You are signed in as $_ccUsername, but do not own this cube. Only the cube owner can submit draft records.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              height: 40,
+              child: OutlinedButton.icon(
+                onPressed: _showInlineSignInDialog,
+                icon: const Icon(Icons.login, size: 18),
+                label: const Text('Sign in with Owner Account'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCubeCobraReAuthCard() {
     final passwordCtrl = TextEditingController();
 
@@ -598,6 +661,16 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
                 try {
                   final newCookie = await login(_ccUsername!, password);
+
+                  final authResult = await validateCubeAuth(_ccCubecobraId!, newCookie);
+
+                  if (authResult == CubeAuthResult.notOwner) {
+                    if (mounted) {
+                      setState(() => _ccState = _CcState.notOwner);
+                    }
+                    return;
+                  }
+
                   final creds = CubeCobraCredentials(
                     cubeId: _ccCubecobraId!,
                     username: _ccUsername!,
