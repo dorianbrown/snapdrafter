@@ -880,7 +880,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
       final recordJson = jsonEncode({
         'name': draftName,
         'date': DateTime.now().millisecondsSinceEpoch,
-        'players': players.map((p) => {'name': p.playerName}).toList(),
+        'players': [],
         'description': 'Drafted with SnapDrafter',
         'matches': [],
         'trophy': [],

@@ -142,10 +142,14 @@ class DraftSessionNotifier extends ChangeNotifier {
     // Pair round 1 using Swiss pairings.
     final pairer = SwissPairing();
     final round1Matches = pairer.pairRound(1, seated, []);
+    final allComplete = round1Matches.every(
+      (m) => m.status != MatchStatus.pending || m.isBye,
+    );
     final round1 = DraftRound(
       roundNumber: 1,
       matches: round1Matches,
       roundStartTime: DateTime.now(),
+      complete: allComplete,
     );
 
     _state = _state!
@@ -188,10 +192,14 @@ class DraftSessionNotifier extends ChangeNotifier {
       acceptedPlayers,
       _state!.rounds,
     );
+    final allComplete = matches.every(
+      (m) => m.status != MatchStatus.pending || m.isBye,
+    );
     final round = DraftRound(
       roundNumber: nextRoundNumber,
       matches: matches,
       roundStartTime: DateTime.now(),
+      complete: allComplete,
     );
 
     _state = _state!
