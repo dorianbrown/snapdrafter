@@ -9,7 +9,8 @@ Card? findCardByName(String name, List<Card> allCards) {
 
   match ??= _first(allCards, (card) =>
       card.name.contains(' // ') &&
-      card.name.split(' // ').any((face) => face.toLowerCase() == lower));
+      (card.name.toLowerCase() == lower ||
+       card.name.split(' // ').any((face) => face.toLowerCase() == lower)));
 
   match ??= _first(allCards, (card) =>
       card.title.toLowerCase() == lower);
