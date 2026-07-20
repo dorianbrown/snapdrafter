@@ -13,6 +13,7 @@ import '../../data/repositories/deck_repository.dart';
 import '../../services/cubecobra_api.dart';
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
+import '../../widgets/reconnecting_card.dart';
 import '../../utils/deck_change_notifier.dart';
 import '../deck_scanner.dart';
 import 'decklist_preview_sheet.dart';
@@ -93,6 +94,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
+                if (notifier.isReconnecting) const ReconnectingCard(),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),

@@ -476,45 +476,43 @@ class DraftState {
     }
   }
 
+  /// Returns the average match-win percentage of the given player's opponents.
+  /// Used as a tiebreaker in standings and for display.
+  double opponentMatchWinPercent(String playerId) {
+    final oppDeviceIds = <String>[];
+    for (final round in rounds) {
+      for (final match in round.matches) {
+        if (match.playerBId == null) continue;
+        if (match.playerAId == playerId) {
+          oppDeviceIds.add(match.playerBId!);
+        } else if (match.playerBId == playerId) {
+          oppDeviceIds.add(match.playerAId);
+        }
+      }
+    }
+    if (oppDeviceIds.isEmpty) return 0.0;
+    final oppMWP = oppDeviceIds.map((oppId) {
+      final opp = getPlayer(oppId);
+      if (opp == null) return 0.0;
+      final totalMatches = opp.matchWins + opp.matchLosses + opp.matchDraws;
+      if (totalMatches == 0) return 0.0;
+      return (opp.matchWins * 3 + opp.matchDraws) / (totalMatches * 3);
+    }).toList();
+    return oppMWP.reduce((a, b) => a + b) / oppMWP.length;
+  }
+
   /// Calculates tournament standings sorted by:
   ///   1. Match points (3 per win, 1 per draw)
   ///   2. Opponent match-win percentage (OMW% — primary tiebreaker)
   ///   3. Game win percentage (secondary tiebreaker)
   List<DraftPlayer> get standings {
     final active = acceptedPlayers;
-    final opponents = <String, List<String>>{};
-    final gameWinRecords = <String, List<int>>{};
-
-    for (final round in rounds) {
-      for (final match in round.matches) {
-        if (match.playerBId == null) continue;
-        opponents.putIfAbsent(match.playerAId, () => []).add(match.playerBId!);
-        opponents.putIfAbsent(match.playerBId!, () => []).add(match.playerAId);
-        if (match.aWins != null && match.bWins != null) {
-          gameWinRecords.putIfAbsent(match.playerAId, () => []).add(match.aWins!);
-          gameWinRecords.putIfAbsent(match.playerBId!, () => []).add(match.bWins!);
-        }
-      }
-    }
-
-    double? opponentMatchWinPercent(String playerId) {
-      final opps = opponents[playerId];
-      if (opps == null || opps.isEmpty) return 0.0;
-      final oppMWP = opps.map((oppId) {
-        final opp = getPlayer(oppId);
-        if (opp == null) return 0.0;
-        final totalMatches = opp.matchWins + opp.matchLosses + opp.matchDraws;
-        if (totalMatches == 0) return 0.0;
-        return (opp.matchWins * 3 + opp.matchDraws) / (totalMatches * 3);
-      }).toList();
-      return oppMWP.reduce((a, b) => a + b) / oppMWP.length;
-    }
 
     final sorted = [...active]..sort((a, b) {
       final pointsCompare = b.matchPoints.compareTo(a.matchPoints);
       if (pointsCompare != 0) return pointsCompare;
-      final omwpA = opponentMatchWinPercent(a.deviceId) ?? 0.0;
-      final omwpB = opponentMatchWinPercent(b.deviceId) ?? 0.0;
+      final omwpA = opponentMatchWinPercent(a.deviceId);
+      final omwpB = opponentMatchWinPercent(b.deviceId);
       final omwpCompare = omwpB.compareTo(omwpA);
       if (omwpCompare != 0) return omwpCompare;
       return b.gameWinPercentage.compareTo(a.gameWinPercentage);

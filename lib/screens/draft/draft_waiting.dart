@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
+import '../../widgets/reconnecting_card.dart';
 import 'draft_active.dart';
 
 class DraftWaitingScreen extends StatefulWidget {
@@ -188,23 +189,7 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen> {
                 ),
               ),
               const SizedBox(height: 16),
-              if (notifier.isReconnecting)
-                const Card(
-                  color: Colors.orange,
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        SizedBox(
-                          width: 14, height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        ),
-                        SizedBox(width: 12),
-                        Text('Reconnecting...', style: TextStyle(color: Colors.white)),
-                      ],
-                    ),
-                  ),
-                ),
+              if (notifier.isReconnecting) const ReconnectingCard(),
               const SizedBox(height: 8),
               Text('Players (${state.players.length})',
                   style: Theme.of(context).textTheme.titleMedium),
