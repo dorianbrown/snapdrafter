@@ -88,7 +88,17 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
         .toList();
 
     return Scaffold(
-      appBar: AppBar(title: Text('${session.name} \u2014 Results')),
+      appBar: AppBar(
+        title: Text('${session.name} \u2014 Results'),
+        leading: BackButton(
+          onPressed: () async {
+            await notifier.leaveDraft();
+            if (context.mounted) {
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            }
+          },
+        ),
+      ),
       body: standings.isEmpty
           ? const Center(child: Text('No standings available'))
           : ListView(
@@ -123,21 +133,6 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                   return _buildStandingRow(rank, player, notifier);
                 }),
                 const SizedBox(height: 16),
-                if (!hasSubmitted) ...[
-                  SizedBox(
-                    height: 48,
-                    child: ElevatedButton.icon(
-                      onPressed:
-                          _deckCaptured ? _shareDecklist : _scanDeck,
-                      icon: Icon(_deckCaptured
-                          ? Icons.share
-                          : Icons.camera_alt),
-                      label:
-                          Text(_deckCaptured ? 'Share Decklist' : 'Scan My Deck'),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
                 if (unsavedPlayers.isNotEmpty) ...[
                   SizedBox(
                     height: 48,
@@ -152,23 +147,22 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                   const SizedBox(height: 8),
                 ],
                 if (notifier.isLeader) _buildCubeCobraSection(notifier),
-                SizedBox(
-                  height: 48,
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await notifier.leaveDraft();
-                      if (context.mounted) {
-                        Navigator.of(context)
-                            .popUntil((route) => route.isFirst);
-                      }
-                    },
-                    child: const Text('Done'),
-                  ),
-                ),
                 const SizedBox(height: 16),
               ],
             ),
-    );
+        floatingActionButton: hasSubmitted
+            ? FloatingActionButton.extended(
+                onPressed: null,
+                label: const Text('Submitted'),
+                icon: const Icon(Icons.check),
+              )
+            : FloatingActionButton.extended(
+                onPressed:
+                    _deckCaptured ? _shareDecklist : _scanDeck,
+                label: Text(_deckCaptured ? 'Share Decklist' : 'Scan My Deck'),
+                icon: Icon(_deckCaptured ? Icons.share : Icons.camera_alt),
+              ),
+      );
   }
 
   void _scanDeck() async {

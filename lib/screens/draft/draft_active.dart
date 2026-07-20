@@ -263,7 +263,47 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
             ),
           ],
         ),
+        floatingActionButton: _buildFab(notifier, state, currentRound),
       ),
+    );
+  }
+
+  Widget _buildFab(DraftSessionNotifier notifier, DraftState state, DraftRound? currentRound) {
+    if (notifier.isLeader && currentRound != null && currentRound.complete) {
+      final isLastRound = state.rounds.length >= state.session.totalRounds;
+      return FloatingActionButton.extended(
+        onPressed: () => notifier.advanceRound(),
+        icon: const Icon(Icons.arrow_forward),
+        label: Text(isLastRound
+            ? 'Finish Draft'
+            : 'Advance to Round ${state.rounds.length + 1}'),
+        backgroundColor: Colors.green,
+        foregroundColor: Colors.white,
+      );
+    }
+
+    if (currentRound != null) {
+      final roundNumber = currentRound.roundNumber;
+      final myMatch = state.getMyMatch(notifier.myDeviceId, roundNumber);
+      if (myMatch != null &&
+          !myMatch.isBye &&
+          notifier.canReportResult(roundNumber) &&
+          !notifier.hasReportedResult(roundNumber)) {
+        return FloatingActionButton.extended(
+          onPressed: () =>
+              _showReportResultDialog(notifier, roundNumber, myMatch),
+          icon: const Icon(Icons.edit_note),
+          label: const Text('Report Match Result'),
+          backgroundColor: Colors.deepPurple,
+          foregroundColor: Colors.white,
+        );
+      }
+    }
+
+    return FloatingActionButton(
+      onPressed: () => _showStandingsSheet(state),
+      tooltip: 'Current Standings',
+      child: const Icon(Icons.leaderboard),
     );
   }
 
@@ -323,34 +363,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
             const SizedBox(height: 16),
           ],
           ...otherMatches.map((m) => _buildMatchTile(state, m)),
-          const SizedBox(height: 24),
-          if (currentRound.complete)
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () => notifier.advanceRound(),
-                icon: const Icon(Icons.arrow_forward),
-                label: Text(
-                  state.rounds.length >= state.session.totalRounds
-                      ? 'Finish Draft'
-                      : 'Advance to Round ${state.rounds.length + 1}',
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            )
-          else
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: null,
-                icon: const Icon(Icons.lock),
-                label: Text(
-                    'Waiting for results (${currentRound.matches.where((m) => m.status != MatchStatus.confirmed && !m.isBye).length} remaining)'),
-              ),
-            ),
         ],
       ),
     );
@@ -483,7 +495,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
         : myMatch.playerAId;
     final opponent = opponentId != null ? state.getPlayer(opponentId) : null;
 
-    final canReport = notifier.canReportResult(roundNumber);
     final hasReported = notifier.hasReportedResult(roundNumber);
 
     return Padding(
@@ -524,20 +535,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                     SizedBox(width: 8),
                     Text('Match result submitted'),
                   ],
-                ),
-              ),
-            )
-          else if (canReport)
-            SizedBox(
-              height: 48,
-              child: ElevatedButton.icon(
-                onPressed: () => _showReportResultDialog(
-                    notifier, roundNumber, myMatch),
-                icon: const Icon(Icons.edit_note, size: 18),
-                label: const Text('Report Match Result'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  foregroundColor: Colors.white,
                 ),
               ),
             )

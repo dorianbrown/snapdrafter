@@ -157,17 +157,6 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 children: [
                   Text('Players (${state.players.length})',
                       style: Theme.of(context).textTheme.titleMedium),
-                  const Spacer(),
-                  if (isFull)
-                    ElevatedButton.icon(
-                      onPressed: () => notifier.closeLobby(),
-                      icon: const Icon(Icons.play_arrow, size: 18),
-                      label: const Text('Start Draft'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -185,6 +174,13 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                 ...state.players.map((p) => _buildPlayerTile(p, notifier)),
             ],
           ),
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: isFull ? () => notifier.closeLobby() : null,
+          label: const Text('Start Draft'),
+          icon: const Icon(Icons.play_arrow),
+          backgroundColor: isFull ? Colors.green : null,
+          foregroundColor: isFull ? Colors.white : null,
         ),
       ),
     );
