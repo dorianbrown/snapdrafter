@@ -24,12 +24,10 @@ class CubeCobraApiException implements Exception {
 }
 
 String _extractCookie(String setCookieHeader) {
-  final parts = setCookieHeader.split(';');
-  for (final part in parts) {
-    final trimmed = part.trim();
-    if (trimmed.toLowerCase().startsWith('connect.sid=')) {
-      return trimmed.substring('connect.sid='.length);
-    }
+  final match = RegExp(r'connect\.sid=([^;]+)', caseSensitive: false)
+      .firstMatch(setCookieHeader);
+  if (match != null) {
+    return match.group(1)!;
   }
   throw CubeCobraApiException('No connect.sid cookie found in response');
 }
