@@ -96,7 +96,7 @@ class DeckScannerState extends State<DeckScanner> {
           onMediaCaptureEvent: (mediaCapture) {
             mediaCapture.captureRequest.when(
               single: (SingleCaptureRequest singeCaptureRequest) async {
-                if (mediaCapture.status == MediaCaptureStatus.capturing) {
+                if (mediaCapture.status == MediaCaptureStatus.success) {
                   String filePath = singeCaptureRequest.path!;
                   Navigator.of(context).push(MaterialPageRoute(
                       builder: (context) => deckImageProcessing(
@@ -105,8 +105,6 @@ class DeckScannerState extends State<DeckScanner> {
                             prefill: widget.prefill,
                             onDeckSaved: widget.onDeckSaved,
                           )));
-                } else if (mediaCapture.status == MediaCaptureStatus.success) {
-                  debugPrint("Finished writing image file");
                 }
               },
             );

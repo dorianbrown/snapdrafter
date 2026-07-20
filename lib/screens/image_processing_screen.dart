@@ -8,7 +8,6 @@ import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter_litert/flutter_litert.dart' hide Detection;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import 'package:path_provider/path_provider.dart';
 
 import 'detection_preview.dart';
 import '/utils/utils.dart';
@@ -347,21 +346,12 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
           interpolation: img.Interpolation.cubic);
     }
 
-    // Convert img.Image to MLKit inputImage
-    // TODO: Figure out how to do this in memory
-    Directory tmpDir = await getTemporaryDirectory();
-    File tmpFile = File('${tmpDir.path}/thumbnail_${x1}_${x2}_${y1}_$y2.png');
-    await img.encodeImageFile(tmpFile.path, detectionImg);
-    final detectionImage = InputImage.fromFilePath(tmpFile.path);
-    // final detectionImage = InputImage.fromBytes(
-    //     bytes: detectionImg.getBytes(order: img.ChannelOrder.bgra),
-    //     metadata: InputImageMetadata(
-    //         size: Size(detectionImg.width.toDouble(), detectionImg.height.toDouble()),
-    //         rotation: InputImageRotation.rotation0deg,
-    //         format: InputImageFormat.bgra8888,
-    //         bytesPerRow: 4 * detectionImg.width
-    //     )
-    // );
+    // Convert img.Image to MLKit inputImage in memory
+    final detectionImage = InputImage.fromBitmap(
+      bitmap: detectionImg.getBytes(order: img.ChannelOrder.rgba),
+      width: detectionImg.width,
+      height: detectionImg.height,
+    );
 
     // Run MLKit text recognition
     try {
@@ -377,13 +367,6 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 }
 
 Future<img.Image> processInputImage(String fp) async {
-  // Try reading file until it exists
-  int i = 0;
-  while (!File(fp).existsSync()) {
-    i++;
-    debugPrint("Attempt to read image file $i");
-    await Future.delayed(Duration(milliseconds: 100));
-  }
   Uint8List fileBytes = await File(fp).readAsBytes();
   final decodedImage = img.decodeImage(fileBytes)!;
   debugPrint(
