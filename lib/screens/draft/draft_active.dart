@@ -6,6 +6,8 @@ import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import '../../services/draft/notification_service.dart';
 import '../../widgets/reconnecting_card.dart';
+import '../../widgets/draft/match_result_dialog.dart';
+import '../../widgets/draft/standings_sheet.dart';
 import 'draft_results.dart';
 
 class DraftActiveScreen extends StatefulWidget {
@@ -247,7 +249,11 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
             IconButton(
               icon: const Icon(Icons.leaderboard),
               tooltip: 'Current Standings',
-              onPressed: () => _showStandingsSheet(state),
+              onPressed: () => showStandingsSheet(
+                  context: context,
+                  state: state,
+                  myDeviceId: notifier.myDeviceId,
+                ),
             ),
           ],
         ),
@@ -290,8 +296,12 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
           notifier.canReportResult(roundNumber) &&
           !notifier.hasReportedResult(roundNumber)) {
         return FloatingActionButton.extended(
-          onPressed: () =>
-              _showReportResultDialog(notifier, roundNumber, myMatch),
+          onPressed: () => showMatchResultDialog(
+            context: context,
+            notifier: notifier,
+            roundNumber: roundNumber,
+            matchId: myMatch.matchId,
+          ),
           icon: const Icon(Icons.edit_note),
           label: const Text('Report Match Result'),
           backgroundColor: Colors.deepPurple,
@@ -301,7 +311,11 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
     }
 
     return FloatingActionButton(
-      onPressed: () => _showStandingsSheet(state),
+      onPressed: () => showStandingsSheet(
+        context: context,
+        state: state,
+        myDeviceId: notifier.myDeviceId,
+      ),
       tooltip: 'Current Standings',
       child: const Icon(Icons.leaderboard),
     );
@@ -604,8 +618,11 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => _showReportResultDialog(
-                        notifier, roundNumber, match,
+                    onPressed: () => showMatchResultDialog(
+                        context: context,
+                        notifier: notifier,
+                        roundNumber: roundNumber,
+                        matchId: match.matchId,
                         initialMyWins: myWins,
                         initialOpponentWins: oppWins),
                     icon: const Icon(Icons.edit, size: 16),
@@ -632,186 +649,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
               ],
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showReportResultDialog(
-      DraftSessionNotifier notifier, int roundNumber, DraftMatch match,
-      {int initialMyWins = 0, int initialOpponentWins = 0}) {
-    int myWins = initialMyWins;
-    int opponentWins = initialOpponentWins;
-    final maxWins = 3;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('Report Match Result'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text('Your Wins', style: TextStyle(fontWeight: FontWeight.w500)),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: myWins > 0
-                        ? () => setDialogState(() => myWins--)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                  ),
-                  Text('$myWins',
-                      style:
-                          const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    onPressed: myWins + opponentWins < maxWins
-                        ? () => setDialogState(() => myWins++)
-                        : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              const Text('Opponent Wins',
-                  style: TextStyle(fontWeight: FontWeight.w500)),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                    onPressed: opponentWins > 0
-                        ? () => setDialogState(() => opponentWins--)
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline),
-                  ),
-                  Text('$opponentWins',
-                      style:
-                          const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    onPressed: myWins + opponentWins < maxWins
-                        ? () => setDialogState(() => opponentWins++)
-                        : null,
-                    icon: const Icon(Icons.add_circle_outline),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                notifier.submitResult(
-                  roundNumber: roundNumber,
-                  matchId: match.matchId,
-                  myWins: myWins,
-                  opponentWins: opponentWins,
-                );
-                Navigator.pop(ctx);
-              },
-              child: const Text('Submit'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showStandingsSheet(DraftState state) {
-    final standings = state.standings;
-    final myDeviceId = context.read<DraftSessionNotifier>().myDeviceId;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildSheetHandle(),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('Current Standings',
-                style: Theme.of(context).textTheme.titleMedium),
-          ),
-          Flexible(
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: standings.length,
-              itemBuilder: (ctx, index) {
-                final rank = index + 1;
-                final player = standings[index];
-                final isMe = player.deviceId == myDeviceId;
-                final omw = state.opponentMatchWinPercent(player.deviceId);
-                final gw = player.gameWinPercentage;
-
-                Color? rankColor;
-                if (rank == 1) rankColor = Colors.amber;
-                if (rank == 2) rankColor = Colors.grey.shade400;
-                if (rank == 3) rankColor = Colors.brown.shade300;
-
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: rankColor ?? Colors.grey.shade200,
-                    radius: 16,
-                    child: Text(
-                      '$rank',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 13,
-                        color: rank <= 3 ? Colors.black87 : Colors.grey,
-                      ),
-                    ),
-                  ),
-                  title: Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          player.playerName,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontWeight: rank == 1
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                      if (isMe)
-                        const Text(' (you)',
-                            style: TextStyle(color: Colors.grey, fontSize: 12)),
-                      const Spacer(),
-                      Text('${player.matchPoints} pts',
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                  subtitle: Text(
-                    'W-L-D: ${player.matchWins}-${player.matchLosses}-${player.matchDraws}'
-                    '  |  OMW: ${(omw * 100).toStringAsFixed(0)}%'
-                    '  |  GW: ${(gw * 100).toStringAsFixed(0)}%',
-                    style: const TextStyle(fontSize: 11),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSheetHandle() {
-    return Center(
-      child: Container(
-        width: 32,
-        height: 4,
-        margin: const EdgeInsets.symmetric(vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(2),
         ),
       ),
     );

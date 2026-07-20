@@ -505,32 +505,7 @@ class DraftSessionNotifier extends ChangeNotifier {
         JoinRequest(playerName: playerName, deviceName: _myDeviceId),
       );
 
-      for (var attempt = 0; attempt < 3; attempt++) {
-        await Future<void>.delayed(const Duration(milliseconds: 300));
-        try {
-          final updated = await follower.readCurrentState();
-          if (updated != null) {
-            print('[NOTIFIER] READ fallback $attempt: seq=${updated.sequenceNumber} '
-                '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
-            if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-              print('[NOTIFIER] READ fallback APPLIED newer state');
-              _state = updated;
-              notifyListeners();
-              break;
-            }
-          }
-        } catch (_) {}
-      }
-      
-      if (_state != null) {
-        final fresh = await follower.resubscribeAndReadState();
-        if (fresh != null &&
-            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-          print('[NOTIFIER] resubscribe fallback APPLIED newer state');
-          _state = fresh;
-          notifyListeners();
-        }
-      }
+      await _waitForStateUpdate();
     } catch (_) {
       // Initial connect failed; let the reconnect loop retry in the background.
       _role = DraftRole.follower;
@@ -609,34 +584,7 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     await _bleService!.sendCommand(cmd);
 
-    for (var attempt = 0; attempt < 3; attempt++) {
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      try {
-        final updated = await _bleService!.readCurrentState();
-        if (updated != null) {
-          print('[NOTIFIER] submitResult READ $attempt: seq=${updated.sequenceNumber} '
-              '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
-          if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-            print('[NOTIFIER] submitResult READ APPLIED newer state');
-            _state = updated;
-            notifyListeners();
-            break;
-          }
-        }
-      } catch (_) {}
-    }
-
-    if (_state != null) {
-      try {
-        final fresh = await _bleService!.resubscribeAndReadState();
-        if (fresh != null &&
-            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-          print('[NOTIFIER] submitResult resubscribe APPLIED newer state');
-          _state = fresh;
-          notifyListeners();
-        }
-      } catch (_) {}
-    }
+    await _waitForStateUpdate();
   }
 
   /// Sends a [SubmitDecklist] command. Followers send over BLE; the leader
@@ -659,34 +607,7 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     await _bleService!.sendCommand(cmd);
 
-    for (var attempt = 0; attempt < 3; attempt++) {
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      try {
-        final updated = await _bleService!.readCurrentState();
-        if (updated != null) {
-          print('[NOTIFIER] submitDecklist READ $attempt: seq=${updated.sequenceNumber} '
-              '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
-          if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-            print('[NOTIFIER] submitDecklist READ APPLIED newer state');
-            _state = updated;
-            notifyListeners();
-            break;
-          }
-        }
-      } catch (_) {}
-    }
-
-    if (_state != null) {
-      try {
-        final fresh = await _bleService!.resubscribeAndReadState();
-        if (fresh != null &&
-            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-          print('[NOTIFIER] submitDecklist resubscribe APPLIED newer state');
-          _state = fresh;
-          notifyListeners();
-        }
-      } catch (_) {}
-    }
+    await _waitForStateUpdate();
   }
 
   /// Polls the leader for updated state via a GATT read.
@@ -704,6 +625,36 @@ class DraftSessionNotifier extends ChangeNotifier {
       if (updated != null &&
           updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
         _state = updated;
+        notifyListeners();
+      }
+    } catch (_) {}
+  }
+
+  /// After sending a command to the leader, polls for the updated state
+  /// via GATT read (up to 3 retries), falling back to a full resubscribe
+  /// if polling returns no newer state.
+  Future<void> _waitForStateUpdate() async {
+    if (_state == null) return;
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      try {
+        final updated = await _bleService!.readCurrentState();
+        if (updated != null &&
+            updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+          _state = updated;
+          notifyListeners();
+          return;
+        }
+      } catch (_) {}
+    }
+
+    if (_state == null) return;
+    try {
+      final fresh = await _bleService!.resubscribeAndReadState();
+      if (fresh != null &&
+          fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+        _state = fresh;
         notifyListeners();
       }
     } catch (_) {}

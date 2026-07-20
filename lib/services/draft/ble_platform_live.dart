@@ -109,3 +109,103 @@ class LiveBleCentral implements BleCentral {
     );
   }
 }
+
+/// Production [BlePeripheral] implementation that delegates directly to
+/// [UniversalBlePeripheral].
+class LiveBlePeripheral implements BlePeripheral {
+  @override
+  Stream<BlePeripheralConnectionStateChanged> get connectionStateStream =>
+      UniversalBlePeripheral.connectionStateStream;
+
+  @override
+  Stream<BlePeripheralCharacteristicSubscriptionChanged>
+      get characteristicSubscriptionStream =>
+          UniversalBlePeripheral.characteristicSubscriptionStream;
+
+  @override
+  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream =>
+      UniversalBlePeripheral.advertisingStateStream;
+
+  @override
+  Stream<BlePeripheralMtuChanged> get mtuChangedStream =>
+      UniversalBlePeripheral.mtuChangedStream;
+
+  @override
+  Future<BlePeripheralCapabilities> getCapabilities() {
+    return UniversalBlePeripheral.getCapabilities();
+  }
+
+  @override
+  Future<void> addService(BlePeripheralService service) {
+    return UniversalBlePeripheral.addService(service);
+  }
+
+  @override
+  void setReadRequestHandlers(
+    PeripheralReadRequestResult? Function(
+            String deviceId, String characteristicId, int offset, Uint8List? value)?
+        handler,
+  ) {
+    UniversalBlePeripheral.setReadRequestHandlers(handler);
+  }
+
+  @override
+  void setWriteRequestHandlers(
+    PeripheralWriteRequestResult Function(
+            String deviceId, String characteristicId, int offset, Uint8List? value)?
+        handler,
+  ) {
+    UniversalBlePeripheral.setWriteRequestHandlers(handler);
+  }
+
+  @override
+  Future<void> startAdvertising({
+    required List<String> services,
+    String? localName,
+    PeripheralPlatformConfig? platformConfig,
+  }) {
+    return UniversalBlePeripheral.startAdvertising(
+      services: services,
+      localName: localName,
+      platformConfig: platformConfig,
+    );
+  }
+
+  @override
+  Future<void> stopAdvertising() {
+    return UniversalBlePeripheral.stopAdvertising();
+  }
+
+  @override
+  Future<void> clearServices() {
+    return UniversalBlePeripheral.clearServices();
+  }
+
+  @override
+  Future<List<String>> getServices() {
+    return UniversalBlePeripheral.getServices();
+  }
+
+  @override
+  Future<PeripheralReadinessState> getAvailabilityState() {
+    return UniversalBlePeripheral.getAvailabilityState();
+  }
+
+  @override
+  Future<void> updateCharacteristicValue({
+    required String characteristicId,
+    required Uint8List value,
+    String? deviceId,
+  }) {
+    return UniversalBlePeripheral.updateCharacteristicValue(
+      characteristicId: characteristicId,
+      value: value,
+      deviceId: deviceId,
+    );
+  }
+
+  @override
+  Future<int?> getMaximumNotifyLength(String deviceId) {
+    return UniversalBlePeripheral.getMaximumNotifyLength(deviceId);
+  }
+}
