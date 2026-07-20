@@ -9,7 +9,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
-import 'package:image/image.dart' as img;
+import 'dart:ui' as ui;
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -226,9 +226,10 @@ class DeckViewerState extends State<DeckViewer> {
     if (cachedShareImageBytes != null) {
       imageBytes = cachedShareImageBytes;
     } else {
-      img.Image image = await generateDeckImage(deck);
-      // Convert to memory bytes
-      imageBytes = Uint8List.fromList(img.encodePng(image));
+      ui.Image image = await generateDeckImage(deck);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      imageBytes = byteData!.buffer.asUint8List();
+      image.dispose();
       cachedShareImageBytes = imageBytes;
     }
 
