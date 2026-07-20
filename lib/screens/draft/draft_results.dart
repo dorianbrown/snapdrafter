@@ -899,6 +899,33 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
       final token = await getShareToken(recordId, _ccCookie!);
 
+      final playerNames = {
+        for (final p in state.players) p.deviceId: p.playerName,
+      };
+
+      for (final round in state.rounds) {
+        final roundMatches = <Map<String, dynamic>>[];
+        for (final match in round.matches) {
+          if (match.isBye || match.aWins == null || match.bWins == null) continue;
+          final p1Name = playerNames[match.playerAId] ?? match.playerAId;
+          final p2Name = playerNames[match.playerBId] ?? match.playerBId!;
+          roundMatches.add({
+            'p1': p1Name,
+            'p2': p2Name,
+            'results': [match.aWins, match.bWins, 0],
+          });
+        }
+        if (roundMatches.isNotEmpty) {
+          try {
+            await addMatchRound(
+              recordId,
+              _ccCookie!,
+              jsonEncode({'matches': roundMatches}),
+            );
+          } catch (_) {}
+        }
+      }
+
       for (final player in players) {
         if (!mounted) return;
 

@@ -1,12 +1,11 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart' hide Card;
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '/utils/utils.dart';
-import '/utils/deck_change_notifier.dart';
 import '/data/models/cube.dart';
-import '/data/models/card.dart';
+import '/data/models/card.dart' as mtg;
 import '/data/models/cubecobra_config.dart';
 import '/data/repositories/cube_repository.dart';
 import '/services/cubecobra_api.dart';
@@ -22,23 +21,35 @@ class _CubeSettingsState extends State<CubeSettings> {
   late CubeRepository cubeRepository;
   late SharedPreferences _prefs;
 
-  final DeckChangeNotifier _notifier = DeckChangeNotifier();
+  List<Cube> _cubes = [];
+  bool _cubesLoading = true;
   final Map<String, CubeCobraCredentials?> _ccAuth = {};
 
   @override
   initState() {
     super.initState();
     cubeRepository = CubeRepository();
-    _initPrefs();
+    _init();
   }
 
-  Future<void> _initPrefs() async {
+  Future<void> _init() async {
     _prefs = await SharedPreferences.getInstance();
-    await _loadCubecobraAuth();
+    await _refreshCubes();
   }
 
-  Future<void> _loadCubecobraAuth() async {
+  Future<void> _refreshCubes() async {
     final cubes = await cubeRepository.getAllCubes();
+    await _loadAuth(cubes);
+    if (mounted) {
+      setState(() {
+        _cubes = cubes;
+        _cubesLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadAuth(List<Cube> cubes) async {
+    _ccAuth.clear();
     for (final cube in cubes) {
       final json = _prefs.getString('cc_auth_${cube.cubecobraId}');
       if (json != null) {
@@ -53,81 +64,281 @@ class _CubeSettingsState extends State<CubeSettings> {
         _ccAuth[cube.cubecobraId] = null;
       }
     }
-    if (mounted) setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(title: const Text('Cube Settings')),
-        body: Container(
-            padding: EdgeInsets.symmetric(vertical: 40, horizontal: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              spacing: 10,
-              children: [
-                Text("My Cubes"),
-                FutureBuilder(
-                  future: cubeRepository.getAllCubes(),
-                  builder: (futureContext, snapshot) {
-                    if (snapshot.connectionState != ConnectionState.done) {
-                      return CircularProgressIndicator();
-                    }
-                    else {
-                      final cubes = snapshot.data as List<Cube>;
-                      return ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: cubes.length,
-                        itemBuilder: (listBuilderContext, index) {
-                          final cube = cubes[index];
-                          final signedIn = _ccAuth[cube.cubecobraId] != null;
-                          return ListTile(
-                            title: Text(cube.name),
-                            subtitle: Text(
-                              signedIn
-                                  ? 'Signed in to CubeCobra'
-                                  : cube.ymd,
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                if (signedIn)
-                                  const Icon(Icons.check_circle,
-                                      color: Colors.green, size: 18),
-                                const SizedBox(width: 8),
-                                IconButton(
-                                    onPressed: () async {
-                                      await cubeRepository.deleteCube(cube.cubecobraId);
-                                      setState(() {});
-                                    },
-                                    icon: Icon(Icons.delete)
-                                ),
-                              ],
-                            ),
-                            tileColor: Colors.white12,
-                            onLongPress: () => _showCubecobraAuthDialog(
-                              cube.cubecobraId,
-                              cube.name,
-                            ),
-                          );
-                        },
-                      );
-                    }
-                  },
-                ),
-                ListView(
-                  shrinkWrap: true,
-                  children: [
-                    generateAddCubeListTile()
-                  ],
-                )
-              ],
-            )
-        )
+      appBar: AppBar(title: const Text('Cube Settings')),
+      body: _cubesLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _cubes.isEmpty
+              ? _buildEmptyState()
+              : _buildCubeList(),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddCubeDialog,
+        icon: const Icon(Icons.add),
+        label: const Text('Add Cube'),
+      ),
     );
   }
 
-  void _showCubecobraAuthDialog(String cubecobraId, String cubeName) {
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
+            const SizedBox(height: 16),
+            Text(
+              'No cubes added yet',
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Add a cube to enable CubeCobra draft record submissions.',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCubeList() {
+    return RefreshIndicator(
+      onRefresh: _refreshCubes,
+      child: ListView.builder(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        itemCount: _cubes.length,
+        itemBuilder: (context, index) {
+          final cube = _cubes[index];
+          final signedIn = _ccAuth[cube.cubecobraId] != null;
+          return _buildCubeCard(cube, signedIn);
+        },
+      ),
+    );
+  }
+
+  Widget _buildCubeCard(Cube cube, bool signedIn) {
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _showCubeOptions(cube, signedIn),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      cube.name,
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  _buildAuthChip(cube, signedIn),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    onPressed: () => _confirmDeleteCube(cube),
+                    icon: const Icon(Icons.delete_outline, size: 20),
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Delete cube',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Text(
+                    cube.cubecobraId,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Icon(Icons.style_outlined, size: 14, color: Colors.grey.shade500),
+                  const SizedBox(width: 4),
+                  Text(
+                    '${cube.cards.length} cards',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.grey,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAuthChip(Cube cube, bool signedIn) {
+    if (signedIn) {
+      return GestureDetector(
+        onTap: () => _showCubeOptions(cube, true),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.green.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.check_circle, size: 14, color: Colors.green.shade700),
+              const SizedBox(width: 4),
+              Text(
+                'Signed in',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return GestureDetector(
+      onTap: () => _showAuthDialog(cube.cubecobraId, cube.name),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.login, size: 14, color: Colors.grey),
+            const SizedBox(width: 4),
+            Text(
+              'Sign in',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showCubeOptions(Cube cube, bool signedIn) {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  cube.name,
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'ID: ${cube.cubecobraId}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${cube.cards.length} cards · Added ${cube.ymd}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                if (signedIn) ...[
+                  FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _showAuthDialog(cube.cubecobraId, cube.name);
+                    },
+                    icon: const Icon(Icons.refresh, size: 18),
+                    label: const Text('Re-sign in'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await _prefs.remove('cc_auth_${cube.cubecobraId}');
+                      _ccAuth.remove(cube.cubecobraId);
+                      if (ctx.mounted) Navigator.of(ctx).pop();
+                      setState(() {});
+                    },
+                    icon: const Icon(Icons.logout, size: 18),
+                    label: const Text('Sign out'),
+                  ),
+                ] else ...[
+                  FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      _showAuthDialog(cube.cubecobraId, cube.name);
+                    },
+                    icon: const Icon(Icons.login, size: 18),
+                    label: const Text('Sign in to CubeCobra'),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.of(ctx).pop();
+                    _confirmDeleteCube(cube);
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Delete Cube'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _confirmDeleteCube(Cube cube) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Cube'),
+        content: Text('Remove "${cube.name}" and its card list? This will not affect any CubeCobra records.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              await cubeRepository.deleteCube(cube.cubecobraId);
+              await _prefs.remove('cc_auth_${cube.cubecobraId}');
+              if (ctx.mounted) Navigator.of(ctx).pop();
+              await _refreshCubes();
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAuthDialog(String cubecobraId, String cubeName) {
     final usernameCtrl = TextEditingController();
     final passwordCtrl = TextEditingController();
 
@@ -143,7 +354,7 @@ class _CubeSettingsState extends State<CubeSettings> {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
             return AlertDialog(
-              title: Text('CubeCobra Sign In'),
+              title: const Text('CubeCobra Sign In'),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,16 +382,6 @@ class _CubeSettingsState extends State<CubeSettings> {
                 ],
               ),
               actions: [
-                if (existing != null)
-                  TextButton(
-                    onPressed: () async {
-                      await _prefs.remove('cc_auth_$cubecobraId');
-                      _ccAuth.remove(cubecobraId);
-                      setState(() {});
-                      if (ctx.mounted) Navigator.of(ctx).pop();
-                    },
-                    child: const Text('Sign Out'),
-                  ),
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(),
                   child: const Text('Cancel'),
@@ -207,8 +408,8 @@ class _CubeSettingsState extends State<CubeSettings> {
                               jsonEncode(creds.toJson()),
                             );
                             _ccAuth[cubecobraId] = creds;
-                            setState(() {});
                             if (ctx.mounted) Navigator.of(ctx).pop();
+                            setState(() {});
                           } on CubeCobraApiException catch (e) {
                             if (ctx.mounted) {
                               ScaffoldMessenger.of(ctx).showSnackBar(
@@ -243,91 +444,120 @@ class _CubeSettingsState extends State<CubeSettings> {
     );
   }
 
-  ListTile generateAddCubeListTile() {
-    return ListTile(
-      title: Text("Add a Cube"),
-      leading: Icon(Icons.add),
-      onTap: () {
-        showDialog(
-            context: context,
-            builder: (_) {
+  void _showAddCubeDialog() {
+    final idCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    List<mtg.Card>? cubeCards;
+    bool fetching = false;
+    String? error;
 
-              List<Card> cubeList = [];
-              TextEditingController nameController = TextEditingController();
-              TextEditingController cubeListController = TextEditingController();
-              TextEditingController cubecobraIdController = TextEditingController();
-
-              return AlertDialog(
-                  title: Text("Add a Cube"),
-                  content: StatefulBuilder(
-                      builder: (context, setState) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            TextFormField(
-                                controller: nameController,
-                                decoration: InputDecoration(hintText: "Cube Name")
-                            ),
-                            TextFormField(
-                                controller: cubecobraIdController,
-                                decoration: InputDecoration(
-                                  hintText: "Cubecobra ID",
-                                  helperText: "Used for draft record submissions",
-                                )
-                            ),
-                            TextFormField(
-                              readOnly: true,
-                              keyboardType: TextInputType.multiline,
-                              maxLines: 10,
-                              minLines: 1,
-                              controller: cubeListController,
-                            ),
-                            if (cubeList.isNotEmpty)
-                              Text("Cube cards found: ${cubeList.length}"),
-                            SizedBox(height: 10,),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                OutlinedButton(
-                                    onPressed: () async {
-                                      String cubecobraId = cubecobraIdController.text;
-                                      cubeList = await fetchCubecobraList(cubecobraId);
-                                      String textList = (cubeList
-                                          .map((card) => card.name)
-                                          .toList()..sort())
-                                          .join("\n");
-                                      setState(() {
-                                        cubeListController.text = textList;
-                                      });
-                                    },
-                                    child: Text("Get List")
-                                )
-                              ],
-                            )
-                          ],
-                        );
-                      }
-                  ),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: Text("Close")
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              title: const Text('Add Cube'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: idCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'CubeCobra ID',
+                      hintText: 'e.g. premodernplus',
+                      border: OutlineInputBorder(),
                     ),
-                    TextButton(
-                        onPressed: () {
-                          String name = nameController.text;
-                          String ymd = convertDatetimeToYMD(DateTime.now());
-                          String cubecobraId = cubecobraIdController.text;
-                          cubeRepository.saveNewCube(name, ymd, cubecobraId, cubeList);
-                          _notifier.markNeedsRefresh();
-                          Navigator.of(context).pop();
-                          setState(() {});
-                        },
-                        child: Text("Save")
-                    )
-                  ]
-              );
-            }
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  if (cubeCards == null)
+                    SizedBox(
+                      height: 40,
+                      child: OutlinedButton.icon(
+                        onPressed: fetching
+                            ? null
+                            : () async {
+                                final id = idCtrl.text.trim();
+                                if (id.isEmpty) return;
+
+                                setDialogState(() {
+                                  fetching = true;
+                                  error = null;
+                                });
+
+                                try {
+                                  cubeCards = await fetchCubecobraList(id);
+                                } catch (e) {
+                                  error = '$e';
+                                }
+
+                                setDialogState(() => fetching = false);
+                              },
+                        icon: fetching
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.cloud_download, size: 18),
+                        label: Text(fetching ? 'Loading...' : 'Fetch Cube'),
+                      ),
+                    ),
+                  if (cubeCards != null) ...[
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Icon(Icons.check_circle, size: 18, color: Colors.green.shade600),
+                        const SizedBox(width: 8),
+                        Text(
+                          '${cubeCards!.length} cards found',
+                          style: TextStyle(color: Colors.green.shade700),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Cube Name',
+                        border: OutlineInputBorder(),
+                      ),
+                      textInputAction: TextInputAction.done,
+                    ),
+                  ],
+                  if (error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      error!,
+                      style: const TextStyle(color: Colors.red, fontSize: 13),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(),
+                  child: const Text('Cancel'),
+                ),
+                if (cubeCards != null)
+                  FilledButton(
+                    onPressed: () {
+                      final id = idCtrl.text.trim();
+                      final name = nameCtrl.text.trim().isNotEmpty
+                          ? nameCtrl.text.trim()
+                          : id;
+                      final ymd = convertDatetimeToYMD(DateTime.now());
+                      cubeRepository.saveNewCube(name, ymd, id, cubeCards!);
+                      Navigator.of(ctx).pop();
+                      _refreshCubes();
+                    },
+                    child: const Text('Save'),
+                  ),
+              ],
+            );
+          },
         );
       },
     );

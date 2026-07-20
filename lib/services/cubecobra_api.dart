@@ -201,6 +201,35 @@ Future<void> contributeDeck({
   }
 }
 
+Future<void> addMatchRound(String recordId, String cookie, String roundJson) async {
+  final response = await http.post(
+    Uri.parse('$_baseUrl/cube/records/edit/round/add/$recordId'),
+    headers: _formHeaders(cookie: cookie),
+    body: {
+      'round': roundJson,
+      'nickname': 'Your Nickname',
+    },
+  );
+
+  if (response.statusCode == 302) {
+    final location = response.headers['location'] ?? '';
+    if (location.contains('/user/login')) {
+      throw CubeCobraApiException('Session expired');
+    }
+    if (location.contains('/404')) {
+      throw CubeCobraApiException('Record not found');
+    }
+    return;
+  }
+
+  if (response.statusCode != 200 && response.statusCode != 302) {
+    throw CubeCobraApiException(
+      'Failed to add match round',
+      statusCode: response.statusCode,
+    );
+  }
+}
+
 String? _extractFlash(http.Response response) {
   final setCookie = response.headers['set-cookie'];
   if (setCookie != null) {

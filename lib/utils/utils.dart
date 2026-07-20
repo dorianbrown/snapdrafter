@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:fuzzywuzzy/ratios/simple_ratio.dart';
@@ -80,31 +78,17 @@ Future<List<Card>> fetchCubecobraList(String cubecobraId) async {
   CardRepository cardRepository = CardRepository();
 
   final response = await http.get(
-    Uri.parse("https://cubecobra.com/cube/api/cubecardnames/$cubecobraId/mainboard"),
+    Uri.parse("https://cubecobra.com/cube/api/cubelist/$cubecobraId"),
     headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
   );
   if (response.statusCode == 200) {
-    final body = jsonDecode(response.body);
-    List<String> cubeList = unpackCubeMap(body["cardnames"]);
+    List<String> cubeList = response.body
+        .split('\n')
+        .where((line) => line.trim().isNotEmpty)
+        .toList();
     final cards = await cardRepository.getAllCards();
-    // With double sided cards cubecobra only used front side. This solves the issue,
-    // but might cause some issues in the future.
     return cards.where((card) => cubeList.contains(card.name) || cubeList.contains(card.title)).toList();
   } else {
-    throw Exception('Failed to load album');
+    throw Exception('Failed to load cube list');
   }
-}
-
-List<String> unpackCubeMap(Map<String, dynamic> map) {
-  List<String> tailList = [];
-
-  for (String key in map.keys) {
-    if (key == "\$") {
-      tailList += [""];
-    } else {
-      final tails = unpackCubeMap(map[key]);
-      tailList += tails.map((tail) => "$key$tail").toList();
-    }
-  }
-  return tailList;
 }
