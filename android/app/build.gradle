@@ -18,14 +18,20 @@ android {
     namespace = "com.dbrown.mtg_draft_tracker"
     compileSdk = 36
 
-    def latestNdk = System.getenv("ANDROID_NDK_LATEST_HOME")
-    if (latestNdk) {
-        ndkPath latestNdk
+    def runnerNdkHome = System.getenv("ANDROID_NDK_HOME")
+    if (runnerNdkHome) {
+        ndkPath runnerNdkHome
         def props = new Properties()
-        props.load(new File("$latestNdk/source.properties").newInputStream())
+        props.load(new File("$runnerNdkHome/source.properties").newInputStream())
         ndkVersion props['Pkg.Revision']
     } else {
         ndkVersion flutter.ndkVersion
+    }
+
+    externalNativeBuild {
+        cmake {
+            version "3.31.5"
+        }
     }
 
     compileOptions {
