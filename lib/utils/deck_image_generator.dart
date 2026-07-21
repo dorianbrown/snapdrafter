@@ -342,14 +342,16 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   // NonBasic Lands
   int landsOffsetY = 2 * cardHeight + (maxStackCreatures + maxStackNonCreatures) * cardStackOffset;
   if (nonBasicLands.isNotEmpty) {
-    final availableSpan = basicLeftEdge - pageMargin;
     final nonBasicSpacing = nonBasicLands.length > 1
-        ? (availableSpan - cardWidth) / (nonBasicLands.length - 1)
+        ? (basicLeftEdge - cardWidth) / (nonBasicLands.length - 1)
         : 0.0;
     for (int j = 0; j < nonBasicLands.length; j++) {
+      final xBase = nonBasicLands.length == 1
+          ? ((basicLeftEdge - cardWidth) / 2).round()
+          : (j * nonBasicSpacing).round();
       _drawCard(canvas, cardImageMap[nonBasicLands[j]]!, 0, 0,
         yOffset: landsOffsetY,
-        xOffset: (j * nonBasicSpacing).round(),
+        xOffset: xBase,
         colOffset: leftColTrim,
         centerOffset: centerOffset,
       );
