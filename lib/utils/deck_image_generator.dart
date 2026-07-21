@@ -61,19 +61,30 @@ Future<Image> generateDeckImage(Deck deck) async {
     cardStackOffset = cardHeight ~/ 8.5;
   }
 
+  int effectiveImageWidth = imageWidth;
+  int leftColTrim = 0;
+  if (!isSmallDeck) {
+    final classification = _classifyCards(deck.cards);
+    final trimmable = _findTrimmableCols(classification.creatures, classification.noncreatures);
+    if (trimmable.left + trimmable.right < nCol) {
+      leftColTrim = trimmable.left;
+      effectiveImageWidth = imageWidth - (trimmable.left + trimmable.right) * (cardWidth + cardMargin);
+    }
+  }
+
   final totalHeight = isSmallDeck
       ? _computeSmallDeckHeight(deck.cards.length)
       : _computeLargeDeckHeight(deck.cards);
 
   final recorder = PictureRecorder();
-  final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, imageWidth.toDouble(), totalHeight.toDouble()));
+  final canvas = Canvas(recorder, Rect.fromLTWH(0, 0, effectiveImageWidth.toDouble(), totalHeight.toDouble()));
 
   // Background gradient
   canvas.drawImage(bgImage, Offset.zero, Paint());
 
   // White header rect
   canvas.drawRect(
-    Rect.fromLTWH(0, 0, imageWidth.toDouble(), pageHeaderMargin.toDouble()),
+    Rect.fromLTWH(0, 0, effectiveImageWidth.toDouble(), pageHeaderMargin.toDouble()),
     Paint()..color = const Color(0xFFFFFFFF),
   );
 
@@ -137,7 +148,7 @@ Future<Image> generateDeckImage(Deck deck) async {
     brandingImage,
     Rect.fromLTWH(0, 0, brandingImage.width.toDouble(), brandingImage.height.toDouble()),
     Rect.fromLTWH(
-      imageWidth - 2 * qrHeight - edgePadding + 35,
+      effectiveImageWidth - 2 * qrHeight - edgePadding + 35,
       edgePadding + 65,
       2 * qrHeight,
       qrHeight,
@@ -149,11 +160,11 @@ Future<Image> generateDeckImage(Deck deck) async {
   if (isSmallDeck) {
     _drawSmallDeckCards(canvas, deck, cardImageMap, smallNCol);
   } else {
-    _drawLargeDeckCards(canvas, deck, cardImageMap, diceImages);
+    _drawLargeDeckCards(canvas, deck, cardImageMap, diceImages, effectiveImageWidth, leftColTrim);
   }
 
   final picture = recorder.endRecording();
-  final result = await picture.toImage(imageWidth, totalHeight);
+  final result = await picture.toImage(effectiveImageWidth, totalHeight);
 
   // Dispose all intermediate images
   bgImage.dispose();
@@ -227,6 +238,33 @@ void _drawSmallDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   return (creatures: creatures, noncreatures: noncreatures, nonBasicLands: nonBasicLands, basics: basics);
 }
 
+({int left, int right}) _findTrimmableCols(
+  Map<String, List<Card>> creatures,
+  Map<String, List<Card>> noncreatures,
+) {
+  const bucketKeys = ["0-1", "2", "3", "4", "5", "6+"];
+
+  int left = 0;
+  for (final key in bucketKeys) {
+    if (creatures[key]!.isEmpty && noncreatures[key]!.isEmpty) {
+      left++;
+    } else {
+      break;
+    }
+  }
+
+  int right = 0;
+  for (final key in bucketKeys.reversed) {
+    if (creatures[key]!.isEmpty && noncreatures[key]!.isEmpty) {
+      right++;
+    } else {
+      break;
+    }
+  }
+
+  return (left: left, right: right);
+}
+
 String _manaKey(int manaValue) {
   if (manaValue > 5) return "6+";
   if (manaValue < 2) return "0-1";
@@ -247,7 +285,7 @@ int _computeLargeDeckHeight(List<Card> cards) {
   return pageHeaderMargin + landsOffsetY + cardHeight + 75;
 }
 
-void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap, List<Image> diceImages) {
+void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap, List<Image> diceImages, int effectiveImageWidth, int leftColTrim) {
   final classification = _classifyCards(deck.cards);
   final creatures = classification.creatures;
   final noncreatures = classification.noncreatures;
@@ -262,7 +300,7 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   for (final bucket in creatures.values) {
     int k = 0;
     for (final card in bucket) {
-      _drawCard(canvas, cardImageMap[card]!, row, k);
+      _drawCard(canvas, cardImageMap[card]!, row, k, colOffset: leftColTrim);
       k++;
     }
     row++;
@@ -274,31 +312,40 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
     int k = 0;
     for (final card in bucket) {
       _drawCard(canvas, cardImageMap[card]!, row, k,
-        yOffset: cardHeight + maxStackCreatures * cardStackOffset);
+        yOffset: cardHeight + maxStackCreatures * cardStackOffset,
+        colOffset: leftColTrim);
       k++;
     }
     row++;
   }
 
+  // Compute basic land fan position early to inform nonbasic layout
+  final basicCounts = basics.groupFoldBy((el) => el, (int? previous, element) => (previous ?? 0) + 1);
+  const edgePadding = 50;
+  final numBasics = basicCounts.length;
+  final basicLeftEdge = numBasics > 0
+      ? effectiveImageWidth - edgePadding - cardWidth - (numBasics - 1) * (cardWidth ~/ 2)
+      : effectiveImageWidth - edgePadding;
+
   // NonBasic Lands
   int landsOffsetY = 2 * cardHeight + (maxStackCreatures + maxStackNonCreatures) * cardStackOffset;
-  int j = 0;
-  for (final card in nonBasicLands) {
-    _drawCard(canvas, cardImageMap[card]!, 0, 0,
-      yOffset: landsOffsetY,
-      xOffset: j * (cardStackOffset * 1.5).floor(),
-    );
-    j++;
+  if (nonBasicLands.isNotEmpty) {
+    final availableSpan = basicLeftEdge - pageMargin;
+    final nonBasicSpacing = nonBasicLands.length > 1
+        ? (availableSpan - cardWidth) / (nonBasicLands.length - 1)
+        : 0.0;
+    for (int j = 0; j < nonBasicLands.length; j++) {
+      _drawCard(canvas, cardImageMap[nonBasicLands[j]]!, 0, 0,
+        yOffset: landsOffsetY,
+        xOffset: (j * nonBasicSpacing).round(),
+        colOffset: leftColTrim,
+      );
+    }
   }
 
   // Basic Lands
-  final basicCounts = basics.groupFoldBy((el) => el, (int? previous, element) => (previous ?? 0) + 1);
-  const edgePadding = 50;
-  j = 0;
-  final numBasics = basicCounts.length;
-  final initialOffsetX = imageWidth - edgePadding - cardWidth - (numBasics - 1) * (cardWidth ~/ 2);
-
-  for (final card in basicCounts.keys) {
+  for (int j = 0; j < basicCounts.length; j++) {
+    final card = basicCounts.keys.elementAt(j);
     final count = basicCounts[card]!;
     final dice = <int>[];
     int remainder = count;
@@ -311,16 +358,17 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
       }
     }
 
-    final xOffset = initialOffsetX + (cardWidth ~/ 2) * j;
+    final xOffset = basicLeftEdge + (cardWidth ~/ 2) * j;
     _drawCard(canvas, cardImageMap[card]!, 0, 0,
       yOffset: landsOffsetY,
       xOffset: xOffset,
+      colOffset: leftColTrim,
     );
 
     for (int i = 0; i < dice.length; i++) {
-      int diceOffsetX = initialOffsetX + (cardWidth ~/ 2) * j + cardWidth ~/ 5;
+      int diceOffsetX = basicLeftEdge + (cardWidth ~/ 2) * j + cardWidth ~/ 5;
       if (j == basicCounts.length - 1) {
-        diceOffsetX = initialOffsetX + (cardWidth ~/ 2) * j + cardWidth ~/ 2.4;
+        diceOffsetX = basicLeftEdge + (cardWidth ~/ 2) * j + cardWidth ~/ 2.4;
       }
 
       final diceImg = diceImages[dice[i] - 1];
@@ -336,12 +384,11 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
         Paint(),
       );
     }
-    j++;
   }
 }
 
-void _drawCard(Canvas canvas, Image card, int row, int k, {int yOffset = 0, int xOffset = 0}) {
-  final dstX = (pageMargin + (cardWidth + cardMargin) * row + xOffset).toDouble();
+void _drawCard(Canvas canvas, Image card, int row, int k, {int yOffset = 0, int xOffset = 0, int colOffset = 0}) {
+  final dstX = (pageMargin + (cardWidth + cardMargin) * (row - colOffset) + xOffset).toDouble();
   final dstY = (pageHeaderMargin + 50 + cardStackOffset * k + yOffset).toDouble();
   final dstRect = Rect.fromLTWH(dstX, dstY, cardWidth.toDouble(), cardHeight.toDouble());
   final rrect = RRect.fromRectAndRadius(dstRect, Radius.circular(cardHeight / 27));
