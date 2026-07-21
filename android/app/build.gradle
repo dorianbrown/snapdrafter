@@ -17,7 +17,13 @@ dependencies {
 android {
     namespace = "com.dbrown.mtg_draft_tracker"
     compileSdk = 36
-    ndkVersion = "28.2.13676358"
+
+    def latestNdk = System.getenv("ANDROID_NDK_LATEST_HOME")
+    if (latestNdk) {
+        ndkPath latestNdk
+    } else {
+        ndkVersion flutter.ndkVersion
+    }
 
     compileOptions {
         coreLibraryDesugaringEnabled true
