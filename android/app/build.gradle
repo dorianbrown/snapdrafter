@@ -16,17 +16,8 @@ dependencies {
 
 android {
     namespace = "com.dbrown.mtg_draft_tracker"
-    compileSdk = 36
-
-    def latestNdk = System.getenv("ANDROID_NDK_LATEST_HOME")
-    if (latestNdk) {
-        ndkPath latestNdk
-        def props = new Properties()
-        props.load(new File("$latestNdk/source.properties").newInputStream())
-        ndkVersion props['Pkg.Revision']
-    } else {
-        ndkVersion flutter.ndkVersion
-    }
+    compileSdk = flutter.compileSdkVersion
+    ndkVersion = flutter.ndkVersion
 
     compileOptions {
         coreLibraryDesugaringEnabled true
@@ -43,7 +34,7 @@ android {
         multiDexEnabled true
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 24
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
