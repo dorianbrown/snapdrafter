@@ -349,8 +349,8 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
         : 0.0;
     for (int j = 0; j < nonBasicLands.length; j++) {
       final xBase = nonBasicLands.length == 1
-          ? ((nonBasicRight - cardWidth) / 2).round()
-          : (j * nonBasicSpacing).round();
+          ? nonBasicRight - cardWidth
+          : (nonBasicRight - cardWidth - j * nonBasicSpacing).round();
       _drawCard(canvas, cardImageMap[nonBasicLands[j]]!, 0, 0,
         yOffset: landsOffsetY,
         xOffset: xBase,
