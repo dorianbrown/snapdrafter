@@ -21,6 +21,9 @@ android {
     def latestNdk = System.getenv("ANDROID_NDK_LATEST_HOME")
     if (latestNdk) {
         ndkPath latestNdk
+        def props = new Properties()
+        props.load(new File("$latestNdk/source.properties").newInputStream())
+        ndkVersion props['Pkg.Revision']
     } else {
         ndkVersion flutter.ndkVersion
     }
