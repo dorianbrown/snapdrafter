@@ -335,19 +335,21 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   final basicCounts = basics.groupFoldBy((el) => el, (int? previous, element) => (previous ?? 0) + 1);
   const edgePadding = 50;
   final numBasics = basicCounts.length;
+  final cardOriginX = pageMargin - leftColTrim * (cardWidth + cardMargin) + centerOffset;
   final basicLeftEdge = numBasics > 0
-      ? effectiveImageWidth - edgePadding - cardWidth - (numBasics - 1) * (cardWidth ~/ 2)
-      : effectiveImageWidth - edgePadding;
+      ? effectiveImageWidth - edgePadding - cardWidth - (numBasics - 1) * (cardWidth ~/ 2) - cardOriginX
+      : effectiveImageWidth - edgePadding - cardOriginX;
 
   // NonBasic Lands
   int landsOffsetY = 2 * cardHeight + (maxStackCreatures + maxStackNonCreatures) * cardStackOffset;
   if (nonBasicLands.isNotEmpty) {
+    final nonBasicRight = numBasics > 0 ? basicLeftEdge - cardMargin * 5 : basicLeftEdge;
     final nonBasicSpacing = nonBasicLands.length > 1
-        ? (basicLeftEdge - cardWidth) / (nonBasicLands.length - 1)
+        ? (nonBasicRight - cardWidth) / (nonBasicLands.length - 1)
         : 0.0;
     for (int j = 0; j < nonBasicLands.length; j++) {
       final xBase = nonBasicLands.length == 1
-          ? ((basicLeftEdge - cardWidth) / 2).round()
+          ? ((nonBasicRight - cardWidth) / 2).round()
           : (j * nonBasicSpacing).round();
       _drawCard(canvas, cardImageMap[nonBasicLands[j]]!, 0, 0,
         yOffset: landsOffsetY,
