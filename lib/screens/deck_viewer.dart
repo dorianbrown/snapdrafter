@@ -55,8 +55,6 @@ class DeckViewerState extends State<DeckViewer> {
   late TokenRepository tokenRepository;
   late DeckRepository deckRepository;
   Map groupedTokens = {};
-  Uint8List? cachedShareImageBytes;
-
   List<String> renderValues = ["type", "3"];
   // These are used for dropdown menus controlling how decklist is displayed
   TextEditingController displayController =
@@ -222,19 +220,13 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Future shareDeck(Deck deck) async {
-    Uint8List? imageBytes;
-    if (cachedShareImageBytes != null) {
-      imageBytes = cachedShareImageBytes;
-    } else {
-      ui.Image image = await generateDeckImage(deck);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      imageBytes = byteData!.buffer.asUint8List();
-      image.dispose();
-      cachedShareImageBytes = imageBytes;
-    }
+    final ui.Image image = await generateDeckImage(deck);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final imageBytes = byteData!.buffer.asUint8List();
+    image.dispose();
 
     final params = ShareParams(
-        files: [XFile.fromData(imageBytes!, mimeType: 'image/png')]);
+        files: [XFile.fromData(imageBytes, mimeType: 'image/png')]);
 
     SharePlus.instance.share(params);
   }
@@ -571,7 +563,6 @@ class DeckViewerState extends State<DeckViewer> {
             deck.sideboard = newSideboard;
             _notifier.markNeedsRefresh();
           });
-          cachedShareImageBytes = null;
           deckRepository.updateDeck(DeckUpsert(
             id: deck.id,
             cards: newMainboard,
