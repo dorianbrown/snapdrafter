@@ -109,13 +109,13 @@ Future<Image> generateDeckImage(Deck deck) async {
     artCropImage.width.toDouble(),
     artCropH,
   );
+
   canvas.drawImageRect(
     artCropImage,
     artSrcRect,
     Rect.fromLTWH(0, 0, artDstW, pageHeaderMargin.toDouble()),
     Paint(),
   );
-  _drawVignette(canvas, 0, 0, artDstW, pageHeaderMargin.toDouble());
 
   // Diagonal white triangle separating art crop from header text
   final path = Path()
@@ -383,6 +383,7 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
       centerOffset: centerOffset,
     );
 
+    // Adding dice to basics to indicate total number
     for (int i = 0; i < dice.length; i++) {
       int diceOffsetX = basicLeftEdge + (cardWidth ~/ 2) * j + cardWidth ~/ 5;
       if (j == basicCounts.length - 1) {
@@ -420,22 +421,6 @@ void _drawCard(Canvas canvas, Image card, int row, int k, {int yOffset = 0, int 
     Paint(),
   );
   canvas.restore();
-}
-
-void _drawVignette(Canvas canvas, double x, double y, double w, double h) {
-  final center = Offset(x + w / 2, y + h / 2);
-  final radius = max(w, h) * 0.7;
-
-  canvas.drawRect(
-    Rect.fromLTWH(x, y, w, h),
-    Paint()
-      ..shader = Gradient.radial(
-        center,
-        radius,
-        [const Color(0x00000000), const Color(0xCC000000)],
-        [0.3, 1.0],
-      ),
-  );
 }
 
 Paragraph _buildParagraph(String text, double fontSize, FontWeight weight) {
