@@ -1,7 +1,5 @@
-Release 1.1.8
-- Users should get a pop-up reminding them that a new set is available before prerelease weekend.
-
-Release 1.1.7
-- You can now specify a deck's W/L/D instead of just W/L
-- Decks without a color identity now show the colorless mana symbol in the overview
-- We now get a list of set release dates from scryfall, and send you a notification when there's a new one available
+Release 1.2.0
+- Added a debug mode for easier testing of new features
+- Rewrote deck image sharing, now runs 10-20x faster
+- Some deck scanner optimizations (should be faster)
+- Updated Settings > Cubes page
