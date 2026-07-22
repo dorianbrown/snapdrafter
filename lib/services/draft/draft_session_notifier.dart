@@ -36,11 +36,17 @@ class DraftSessionNotifier extends ChangeNotifier {
     required String myDeviceId,
     DraftBleService Function()? bleLeaderFactory,
     DraftBleService Function()? bleFollowerFactory,
-    List<int> reconnectDelaysSeconds = const [2, 4, 8, 16, 32],
+    List<int>? reconnectDelaysSeconds,
   }) : _myDeviceId = myDeviceId,
        _bleLeaderFactory = bleLeaderFactory,
        _bleFollowerFactory = bleFollowerFactory,
-       _reconnectDelaysSeconds = reconnectDelaysSeconds;
+       _reconnectDelaysSeconds =
+            reconnectDelaysSeconds ?? _defaultReconnectDelays();
+
+  static List<int> _defaultReconnectDelays() {
+    // 2s, 5s, 10s, 20s, then 30s repeated to fill ~10 minutes (607 s total)
+    return const [2, 5, 10, 20, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30];
+  }
 
   // -------------------------------------------------------------------------
   // Getters
@@ -242,10 +248,10 @@ class DraftSessionNotifier extends ChangeNotifier {
     String playerName,
     String deviceName,
   ) {
-    print('[NOTIFIER] _handleJoinRequest: $playerName ($deviceId)');
+    _log('[NOTIFIER] _handleJoinRequest: $playerName ($deviceId)');
     final existing = _state!.getPlayer(deviceName);
     if (existing != null && existing.status == PlayerStatus.accepted) {
-      print('[NOTIFIER] _handleJoinRequest: player already accepted, ignoring');
+      _log('[NOTIFIER] _handleJoinRequest: player already accepted, ignoring');
       return;
     }
 
@@ -271,7 +277,7 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     _bleService!.pushState(_state!);
     notifyListeners();
-    print('[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}');
+    _log('[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}');
   }
 
   // -------------------------------------------------------------------------
@@ -478,11 +484,9 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     final follower = _bleFollowerFactory?.call() ?? DraftBleFollower();
     follower.onStatePush = (newState) {
-      print('[NOTIFIER] onStatePush: seq=${newState.sequenceNumber}, '
-          'players=${newState.players.length}, phase=${newState.session.phase.name}');
       final myPlayer = newState.getPlayer(_myDeviceId);
       if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
-        print('[NOTIFIER] onStatePush: I was dropped!');
+        _log('[NOTIFIER] onStatePush: I was dropped!');
       }
       if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
         final oldRoundCount = _state?.rounds.length ?? 0;
@@ -575,13 +579,16 @@ class DraftSessionNotifier extends ChangeNotifier {
   }
 
   /// Sends a [MatchResult] command. Followers send over BLE; the leader
-  /// processes it locally.
+  /// processes it locally. Silently ignored when reconnecting to avoid
+  /// attempting a write on a disconnected BLE link.
   Future<void> submitResult({
     required int roundNumber,
     required String matchId,
     required int myWins,
     required int opponentWins,
   }) async {
+    if (isFollower && isReconnecting) return;
+
     final cmd = MatchResult(
       roundNumber: roundNumber,
       matchId: matchId,
@@ -602,11 +609,14 @@ class DraftSessionNotifier extends ChangeNotifier {
   }
 
   /// Sends a [SubmitDecklist] command. Followers send over BLE; the leader
-  /// processes it locally.
+  /// processes it locally. Silently ignored when reconnecting to avoid
+  /// attempting a write on a disconnected BLE link.
   Future<void> submitDecklist({
     required List<String> mainboardScryfallIds,
     required List<String> sideboardScryfallIds,
   }) async {
+    if (isFollower && isReconnecting) return;
+
     final cmd = SubmitDecklist(
       mainboardScryfallIds: mainboardScryfallIds,
       sideboardScryfallIds: sideboardScryfallIds,
@@ -767,9 +777,13 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = null;
     _bleToAppId.clear();
     if (_bleService != null) {
-      print('[NOTIFIER] dispose: stopping BLE service (fire-and-forget)');
       _bleService!.stop();
     }
     super.dispose();
   }
+}
+
+void _log(String msg) {
+  // ignore: avoid_print
+  if (kDebugMode) print(msg);
 }

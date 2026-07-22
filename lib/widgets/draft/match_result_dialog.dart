@@ -20,77 +20,82 @@ void showMatchResultDialog({
   showDialog(
     context: context,
     builder: (ctx) => StatefulBuilder(
-      builder: (ctx, setDialogState) => AlertDialog(
-        title: const Text('Report Match Result'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text('Your Wins',
-                style: TextStyle(fontWeight: FontWeight.w500)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  onPressed: myWins > 0
-                      ? () => setDialogState(() => myWins--)
-                      : null,
-                  icon: const Icon(Icons.remove_circle_outline),
-                ),
-                Text('$myWins',
-                    style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold)),
-                IconButton(
-                  onPressed: myWins + opponentWins < maxWins
-                      ? () => setDialogState(() => myWins++)
-                      : null,
-                  icon: const Icon(Icons.add_circle_outline),
-                ),
-              ],
+      builder: (ctx, setDialogState) => ListenableBuilder(
+        listenable: notifier,
+        builder: (context, _) => AlertDialog(
+          title: const Text('Report Match Result'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Your Wins',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: myWins > 0
+                        ? () => setDialogState(() => myWins--)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                  Text('$myWins',
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    onPressed: myWins + opponentWins < maxWins
+                        ? () => setDialogState(() => myWins++)
+                        : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              const Text('Opponent Wins',
+                  style: TextStyle(fontWeight: FontWeight.w500)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(
+                    onPressed: opponentWins > 0
+                        ? () => setDialogState(() => opponentWins--)
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                  Text('$opponentWins',
+                      style: const TextStyle(
+                          fontSize: 24, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    onPressed: myWins + opponentWins < maxWins
+                        ? () => setDialogState(() => opponentWins++)
+                        : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
             ),
-            const SizedBox(height: 12),
-            const Text('Opponent Wins',
-                style: TextStyle(fontWeight: FontWeight.w500)),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  onPressed: opponentWins > 0
-                      ? () => setDialogState(() => opponentWins--)
-                      : null,
-                  icon: const Icon(Icons.remove_circle_outline),
-                ),
-                Text('$opponentWins',
-                    style: const TextStyle(
-                        fontSize: 24, fontWeight: FontWeight.bold)),
-                IconButton(
-                  onPressed: myWins + opponentWins < maxWins
-                      ? () => setDialogState(() => opponentWins++)
-                      : null,
-                  icon: const Icon(Icons.add_circle_outline),
-                ),
-              ],
+            ElevatedButton(
+              onPressed: notifier.isReconnecting
+                  ? null
+                  : () {
+                      notifier.submitResult(
+                        roundNumber: roundNumber,
+                        matchId: matchId,
+                        myWins: myWins,
+                        opponentWins: opponentWins,
+                      );
+                      Navigator.pop(ctx);
+                    },
+              child: const Text('Submit'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              notifier.submitResult(
-                roundNumber: roundNumber,
-                matchId: matchId,
-                myWins: myWins,
-                opponentWins: opponentWins,
-              );
-              Navigator.pop(ctx);
-            },
-            child: const Text('Submit'),
-          ),
-        ],
       ),
     ),
   );

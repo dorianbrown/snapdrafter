@@ -294,7 +294,8 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
       if (myMatch != null &&
           !myMatch.isBye &&
           notifier.canReportResult(roundNumber) &&
-          !notifier.hasReportedResult(roundNumber)) {
+          !notifier.hasReportedResult(roundNumber) &&
+          !notifier.isReconnecting) {
         return FloatingActionButton.extended(
           onPressed: () => showMatchResultDialog(
             context: context,
@@ -603,13 +604,15 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: () => showMatchResultDialog(
-                        context: context,
-                        notifier: notifier,
-                        roundNumber: roundNumber,
-                        matchId: match.matchId,
-                        initialMyWins: myWins,
-                        initialOpponentWins: oppWins),
+                    onPressed: notifier.isReconnecting
+                        ? null
+                        : () => showMatchResultDialog(
+                            context: context,
+                            notifier: notifier,
+                            roundNumber: roundNumber,
+                            matchId: match.matchId,
+                            initialMyWins: myWins,
+                            initialOpponentWins: oppWins),
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('Correct'),
                   ),
@@ -617,12 +620,14 @@ class _DraftActiveScreenState extends State<DraftActiveScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () => notifier.submitResult(
-                      roundNumber: roundNumber,
-                      matchId: match.matchId,
-                      myWins: myWins,
-                      opponentWins: oppWins,
-                    ),
+                    onPressed: notifier.isReconnecting
+                        ? null
+                        : () => notifier.submitResult(
+                            roundNumber: roundNumber,
+                            matchId: match.matchId,
+                            myWins: myWins,
+                            opponentWins: oppWins,
+                          ),
                     icon: const Icon(Icons.check, size: 16),
                     label: const Text('Confirm'),
                     style: ElevatedButton.styleFrom(
