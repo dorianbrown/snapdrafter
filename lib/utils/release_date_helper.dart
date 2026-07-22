@@ -5,8 +5,9 @@ class ReleaseDateHelper {
   static const String _upcomingReleaseDatesKey = 'upcoming_release_dates';
   static const String _lastFetchedKey = 'last_fetched_timestamp';
   static const String _promptedDatesKey = 'prompted_release_dates';
+  static const String _promptedMissingSetsKey = 'prompted_missing_sets';
   static const Duration _cacheDuration = Duration(days: 7);
-  
+
   Future<Map<String, DateTime>> getUpcomingReleaseDates() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_upcomingReleaseDatesKey);
@@ -49,6 +50,26 @@ class ReleaseDateHelper {
     current.add(setCode);
     await prefs.setString(_promptedDatesKey, jsonEncode(current.toList()));
   }
+
+  Future<Set<String>> getPromptedMissingSets() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_promptedMissingSetsKey);
+    if (jsonString == null) return {};
+
+    try {
+      final List<dynamic> list = jsonDecode(jsonString);
+      return Set<String>.from(list.cast<String>());
+    } catch (e) {
+      return {};
+    }
+  }
+
+  Future<void> addToPromptedMissingSets(Set<String> setCodes) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = await getPromptedMissingSets();
+    current.addAll(setCodes);
+    await prefs.setString(_promptedMissingSetsKey, jsonEncode(current.toList()));
+  }
   
   Future<bool> shouldFetchNewDates() async {
     final prefs = await SharedPreferences.getInstance();
@@ -62,5 +83,6 @@ class ReleaseDateHelper {
   Future<void> clearPassedDates() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_promptedDatesKey);
+    await prefs.remove(_promptedMissingSetsKey);
   }
 }

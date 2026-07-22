@@ -17,10 +17,9 @@ class UpdatePromptDialog extends StatelessWidget {
     return AlertDialog(
       title: Text('New Set${(numberOfSets > 1) ? "s" : ""} Available!'),
       content: Text(
-        '$numberOfSets new Magic set${(numberOfSets > 1) ? "s" : ""} '
-        '${(numberOfSets > 1) ? "have" : "has"} been released since you '
-        'last updated your card database.\n\nWould you like to update '
-        'now to include these new sets?',
+        '$numberOfSets additional Magic set${(numberOfSets > 1) ? "s" : ""} '
+        '${(numberOfSets > 1) ? "are" : "is"} available on Scryfall for download.\n\n'
+        'Would you like to update your card database now?',
       ),
       actions: [
         TextButton(

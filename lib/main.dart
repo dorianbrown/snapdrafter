@@ -126,31 +126,46 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
   
   Future<void> _checkForNewReleases() async {
     try {
+      int totalSetsToPrompt = 0;
 
-      // Check if we need to fetch new dates (done every 7 days)
+      // Check upcoming releases
       if (await _releaseDateHelper.shouldFetchNewDates()) {
         final newDates = await _setRepository.fetchUpcomingReleaseDates();
         await _releaseDateHelper.saveUpcomingReleaseDates(newDates);
       }
-      
-      // Get stored set release dates and check for ones we've already prompted for
+
       final upcomingDates = await _releaseDateHelper.getUpcomingReleaseDates();
       final promptedSets = await _releaseDateHelper.getPromptedSets();
       final now = DateTime.now();
 
-      final passedDates = upcomingDates.entries
-          .where((entry) => 
+      final upcomingToPrompt = upcomingDates.entries
+          .where((entry) =>
               entry.value.subtract(Duration(days: 14)).isBefore(now) &&
               !promptedSets.contains(entry.key))
           .toList();
-      
-      if (passedDates.isNotEmpty && mounted) {
-        // Show the update prompt
-        _showUpdatePrompt(passedDates);
-        
-        // Mark these as prompted so we don't show again
-        for (final entry in passedDates) {
+
+      totalSetsToPrompt += upcomingToPrompt.length;
+
+      // Check for missing released sets not in local database
+      final missingSets = await _setRepository.getMissingReleasedSets();
+      final promptedMissing = await _releaseDateHelper.getPromptedMissingSets();
+      final missingToPrompt = missingSets
+          .where((s) => !promptedMissing.contains(s['code']!))
+          .toList();
+
+      totalSetsToPrompt += missingToPrompt.length;
+
+      if (totalSetsToPrompt > 0 && mounted) {
+        _showUpdatePrompt(totalSetsToPrompt);
+
+        // Mark all as prompted
+        for (final entry in upcomingToPrompt) {
           await _releaseDateHelper.addToPromptedDates(entry.key);
+        }
+        if (missingToPrompt.isNotEmpty) {
+          await _releaseDateHelper.addToPromptedMissingSets(
+            missingToPrompt.map((s) => s['code']!).toSet(),
+          );
         }
       }
     } catch (e) {
@@ -159,14 +174,14 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
   
-  void _showUpdatePrompt(List<MapEntry<String, DateTime>> passedDates) {
+  void _showUpdatePrompt(int totalSets) {
     if (navigatorKey.currentState == null) return;
-    
+
     showDialog(
       context: navigatorKey.currentContext!,
       barrierDismissible: false,
       builder: (context) => UpdatePromptDialog(
-        numberOfSets: passedDates.length,
+        numberOfSets: totalSets,
         onUpdateNow: () {
           // Navigate to download screen
           Navigator.push(

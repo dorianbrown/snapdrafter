@@ -2,4 +2,5 @@ Release 1.2.0
 - Added a debug mode for easier testing of new features
 - Rewrote deck image sharing, now runs 10-20x faster
 - Some deck scanner optimizations (should be faster)
-- Updated Settings > Cubes page
+- Fixed the "New set available on scryfall" prompt
+- Updated Settings > Cubes page. Prep work for upcoming features
