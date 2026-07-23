@@ -135,7 +135,7 @@ jobs:
       - name: Sign APK
         id: sign_app
         run: |
-          APK_FILE=$(ls build/app/outputs/apk/release/*.aab | head -1)
+          APK_FILE=$(ls build/app/outputs/apk/release/*.apk | head -1)
           echo "$KEYSTORE" | base64 --decode > release.jks
           jarsigner -keystore release.jks \
             -storepass "$KEYSTORE_PASS" \
