@@ -8,25 +8,30 @@ class ReleaseDateHelper {
   static const String _promptedMissingSetsKey = 'prompted_missing_sets';
   static const Duration _cacheDuration = Duration(days: 7);
 
-  Future<Map<String, DateTime>> getUpcomingReleaseDates() async {
+  Future<Map<String, Map<String, String>>> getUpcomingReleaseDates() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_upcomingReleaseDatesKey);
     if (jsonString == null) return {};
     
     try {
       final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
-      return jsonMap.map((key, value) => 
-          MapEntry(key, DateTime.parse(value as String)));
+      final result = <String, Map<String, String>>{};
+      jsonMap.forEach((key, value) {
+        final inner = value as Map<String, dynamic>;
+        result[key] = {
+          "date": inner["date"] as String,
+          "name": inner["name"] as String,
+        };
+      });
+      return result;
     } catch (e) {
       return {};
     }
   }
   
-  Future<void> saveUpcomingReleaseDates(Map<String, DateTime> dates) async {
+  Future<void> saveUpcomingReleaseDates(Map<String, Map<String, String>> dates) async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonMap = dates.map((key, value) => 
-        MapEntry(key, value.toIso8601String()));
-    final jsonString = jsonEncode(jsonMap);
+    final jsonString = jsonEncode(dates);
     await prefs.setString(_upcomingReleaseDatesKey, jsonString);
     await prefs.setInt(_lastFetchedKey, DateTime.now().millisecondsSinceEpoch);
   }

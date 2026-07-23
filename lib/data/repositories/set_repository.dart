@@ -53,7 +53,7 @@ class SetRepository {
     }
   }
 
-  Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
+  Future<Map<String, Map<String, String>>> fetchUpcomingReleaseDates() async {
     final response = await http.get(
       Uri.parse('https://api.scryfall.com/sets'),
       headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
@@ -64,7 +64,7 @@ class SetRepository {
     if (response.statusCode == 200) {
       final values = json.decode(response.body);
       final now = DateTime.now();
-      final upcomingDates = <String, DateTime>{};
+      final upcomingDates = <String, Map<String, String>>{};
       
       for (final setData in values['data'] as List) {
         final releasedAt = setData["released_at"];
@@ -78,7 +78,10 @@ class SetRepository {
           final actualReleaseDate = DateTime.parse(releasedAt);
           final releaseDate = actualReleaseDate.subtract(const Duration(days: 8));
           if (actualReleaseDate.isAfter(now)) {
-            upcomingDates[setData["code"]] = releaseDate;
+            upcomingDates[setData["code"]] = {
+              "date": releaseDate.toIso8601String(),
+              "name": setData["name"] as String,
+            };
           }
         }
       }

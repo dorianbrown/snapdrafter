@@ -126,8 +126,6 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
   
   Future<void> _checkForNewReleases() async {
     try {
-      int totalSetsToPrompt = 0;
-
       // Check upcoming releases
       if (await _releaseDateHelper.shouldFetchNewDates()) {
         final newDates = await _setRepository.fetchUpcomingReleaseDates();
@@ -140,11 +138,12 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
       final upcomingToPrompt = upcomingDates.entries
           .where((entry) =>
-              entry.value.subtract(Duration(days: 14)).isBefore(now) &&
+              DateTime.parse(entry.value["date"]!)
+                  .subtract(Duration(days: 2))
+                  .isBefore(now) &&
               !promptedSets.contains(entry.key))
+          .map((entry) => {"code": entry.key, "name": entry.value["name"]!})
           .toList();
-
-      totalSetsToPrompt += upcomingToPrompt.length;
 
       // Check for missing released sets not in local database
       final missingSets = await _setRepository.getMissingReleasedSets();
@@ -153,14 +152,14 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
           .where((s) => !promptedMissing.contains(s['code']!))
           .toList();
 
-      totalSetsToPrompt += missingToPrompt.length;
+      final allSetsToPrompt = [...upcomingToPrompt, ...missingToPrompt];
 
-      if (totalSetsToPrompt > 0 && mounted) {
-        _showUpdatePrompt(totalSetsToPrompt);
+      if (allSetsToPrompt.isNotEmpty && mounted) {
+        _showUpdatePrompt(allSetsToPrompt);
 
         // Mark all as prompted
         for (final entry in upcomingToPrompt) {
-          await _releaseDateHelper.addToPromptedDates(entry.key);
+          await _releaseDateHelper.addToPromptedDates(entry["code"]!);
         }
         if (missingToPrompt.isNotEmpty) {
           await _releaseDateHelper.addToPromptedMissingSets(
@@ -174,14 +173,14 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
   
-  void _showUpdatePrompt(int totalSets) {
+  void _showUpdatePrompt(List<Map<String, String>> sets) {
     if (navigatorKey.currentState == null) return;
 
     showDialog(
       context: navigatorKey.currentContext!,
       barrierDismissible: false,
       builder: (context) => UpdatePromptDialog(
-        numberOfSets: totalSets,
+        sets: sets,
         onUpdateNow: () {
           // Navigate to download screen
           Navigator.push(
