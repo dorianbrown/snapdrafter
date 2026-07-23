@@ -25,14 +25,14 @@ jobs:
       - name: Run tests
         run: flutter test --no-pub
 
-  build_android:
+  build_android_bundle:
     needs: [test]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Set up Java
+      - name: Set up JDK
         uses: actions/setup-java@v5
         with:
           java-version: 21
@@ -62,7 +62,7 @@ jobs:
         run: |
           OFFSET=40
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
-          flutter build appbundle --build-number $BUILD_NUM --no-pub
+          flutter build appbundle --release --build-number $BUILD_NUM --no-pub
 
       - name: Sign App Bundle
         id: sign_app
@@ -92,6 +92,68 @@ jobs:
           whatsNewDirectory: ./whatsnew
           tracks: internal
           status: completed
+
+  build_android_apk:
+    needs: [test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up JDK
+        uses: actions/setup-java@v5
+        with:
+          java-version: 21
+          distribution: "temurin"
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version-file: pubspec.yaml
+          cache: true
+
+      - name: Cache Gradle
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'android/gradle.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      - name: Pub Get
+        run: flutter pub get
+
+      - name: Build Unsigned App Bundle
+        run: |
+          OFFSET=40
+          BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
+          flutter build apk --release --build-number $BUILD_NUM --no-pub
+
+      - name: Sign APK
+        id: sign_app
+        run: |
+          APK_FILE=$(ls build/app/outputs/apk/release/*.aab | head -1)
+          echo "$KEYSTORE" | base64 --decode > release.jks
+          jarsigner -keystore release.jks \
+            -storepass "$KEYSTORE_PASS" \
+            -keypass "$KEY_PASS" \
+            "$AAB_FILE" "$ALIAS"
+          rm release.jks
+          echo "signedReleaseFile=$APK_FILE" >> "$GITHUB_OUTPUT"
+        env:
+          KEYSTORE: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASS: ${{ secrets.KEY_PASSWORD }}
+          ALIAS: ${{ secrets.KEY_ALIAS }}
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v2
+        with:
+          name: app-release.apk
+          path: ${{steps.sign_app.outputs.signedReleaseFile}}
 
   build_ios:
     needs: [test]
