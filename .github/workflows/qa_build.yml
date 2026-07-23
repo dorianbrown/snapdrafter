@@ -126,7 +126,7 @@ jobs:
       - name: Pub Get
         run: flutter pub get
 
-      - name: Build Unsigned App Bundle
+      - name: Build Unsigned APK
         run: |
           OFFSET=40
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
