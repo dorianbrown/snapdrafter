@@ -140,7 +140,7 @@ jobs:
           jarsigner -keystore release.jks \
             -storepass "$KEYSTORE_PASS" \
             -keypass "$KEY_PASS" \
-            "$AAB_FILE" "$ALIAS"
+            "$APK_FILE" "$ALIAS"
           rm release.jks
           echo "signedReleaseFile=$APK_FILE" >> "$GITHUB_OUTPUT"
         env:
