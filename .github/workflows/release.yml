@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   build_android_bundle:
+    name: Build & Deploy Android Bundle
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,6 +78,7 @@ jobs:
           status: completed
 
   build_android_apk:
+    name: Build & Deploy Android APK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -144,6 +146,7 @@ jobs:
           files: ${{steps.sign_app.outputs.signedReleaseFile}}
 
   build_ios:
+    name: Build & Deploy iOS
     runs-on: macos-15
     steps:
       - name: Checkout
