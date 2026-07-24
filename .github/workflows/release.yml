@@ -44,7 +44,7 @@ jobs:
 
       - name: Build Unsigned App Bundle
         run: |
-          OFFSET=170
+          OFFSET=204
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
           flutter build appbundle --release --build-number $BUILD_NUM --no-pub
 
@@ -112,7 +112,7 @@ jobs:
 
       - name: Build Unsigned APK
         run: |
-          OFFSET=170
+          OFFSET=204
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
           flutter build apk --release --build-number $BUILD_NUM --no-pub
 
@@ -196,7 +196,7 @@ jobs:
 
       - name: Build App IPA
         run: |
-          OFFSET=170
+          OFFSET=204
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
 
           BASE_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
