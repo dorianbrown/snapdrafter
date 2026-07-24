@@ -4,19 +4,26 @@ class UpdatePromptDialog extends StatelessWidget {
   final List<Map<String, String>> sets;
   final VoidCallback onUpdateNow;
   final VoidCallback onRemindLater;
-  
+
   const UpdatePromptDialog({
     super.key,
     required this.sets,
     required this.onUpdateNow,
     required this.onRemindLater,
   });
-  
+
   @override
   Widget build(BuildContext context) {
-    final setNames = sets
+    var mappedSets = sets
         .map((s) => ' \u2022 ${s['name']} (${s['code']!.toUpperCase()})')
-        .join('\n');
+        .toList();
+
+    var setNames = '';
+    if (mappedSets.length > 5) {
+      setNames = '${mappedSets.sublist(0, 5).join('\n')}\n \u2022 ...';
+    } else {
+      setNames = mappedSets.join('\n');
+    }
 
     return AlertDialog(
       title: Text('New Set${(sets.length > 1) ? "s" : ""} Available!'),

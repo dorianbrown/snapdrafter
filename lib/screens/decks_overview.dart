@@ -14,7 +14,6 @@ import '/models/filter.dart';
 import '/widgets/deck_tile.dart';
 import 'deck_viewer.dart';
 import 'deck_scanner.dart';
-import 'settings/download_screen.dart';
 import 'image_processing_screen.dart';
 import 'settings.dart';
 import 'draft/draft_lobby.dart';
@@ -1058,8 +1057,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
     bool hasSeenWelcomePopup = prefs.getBool("welcome_popup_seen") ?? false;
 
     if (!hasSeenWelcomePopup) {
-      prefs.setBool("welcome_popup_seen", true);
-
       TextStyle titleStyle =
           TextStyle(fontSize: 16, fontWeight: FontWeight.bold);
       double paragraphBreak = 4;
@@ -1115,10 +1112,9 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
           ),
           actions: [
             TextButton(
-                onPressed: () {
+                onPressed: () async {
                   Navigator.of(context).pop();
-                  Navigator.of(context).pushReplacement(MaterialPageRoute(
-                      builder: (context) => DownloadScreen()));
+                  await prefs.setBool("welcome_popup_seen", true);
                 },
                 child: Text("Close")),
           ],
@@ -1126,4 +1122,5 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
       );
     }
   }
+
 }

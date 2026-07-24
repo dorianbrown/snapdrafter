@@ -86,8 +86,9 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     _setRepository = SetRepository();
     
     // Run the release date check after the app is initialized
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForNewReleases();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _waitForWelcomeDismissed();
+      await _checkForNewReleases();
     });
 
     _intentDataStreamSubscription = FlutterSharingIntent.instance.getMediaStream()
@@ -124,6 +125,14 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
   
+  Future<void> _waitForWelcomeDismissed() async {
+    final prefs = await SharedPreferences.getInstance();
+    while (!(prefs.getBool("welcome_popup_seen") ?? false)) {
+      await Future.delayed(Duration(milliseconds: 500));
+      await prefs.reload();
+    }
+  }
+
   Future<void> _checkForNewReleases() async {
     try {
       // Check upcoming releases
