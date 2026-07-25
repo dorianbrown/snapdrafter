@@ -160,7 +160,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                 Spacer(flex: 7),
                 Text("No card titles detected", style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
                 Spacer(flex: 1),
-                Text("Make sure the cards are oriented in the upwards direction",
+                Text("Try and make sure the titles are clearly visible",
                   style: TextStyle(
                     fontSize: 16,
                     fontStyle: FontStyle.italic,
@@ -176,7 +176,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         Column(
           children: [
             Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 4),
+              padding: EdgeInsets.fromLTRB(16, 10, 16, 10),
               child: Text(
                 '${detections.where((d) => d.card != null).length} of ${detections.length} cards matched',
                 style: TextStyle(
@@ -190,7 +190,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               child: ListView.separated(
                 controller: _scrollController,
                 separatorBuilder: (context, index) => Divider(indent: 10, endIndent: 10,),
-                padding: EdgeInsets.all(5),
+                padding: EdgeInsets.only(top: 10, bottom: 10),
                 itemCount: detections.length,
                 itemBuilder: (context, index) {
                   final detection = detections[index];
@@ -203,7 +203,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                     background: Container(
                       decoration: BoxDecoration(
                         color: Colors.red,
-                        borderRadius: BorderRadius.circular(12),
+                        // borderRadius: BorderRadius.circular(12),
                       ),
                       alignment: Alignment.centerRight,
                       padding: EdgeInsets.only(right: 20),
@@ -217,31 +217,49 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                     child: IntrinsicHeight(
                       child: Row(
                         children: [
-                          Container(
-                            width: 4,
-                            decoration: BoxDecoration(
-                              color: statusColor,
+                          Expanded(
+                            flex: 1,
+                            child: Row(
+                              children: [
+                                SizedBox(width: 2,),
+                                Container(
+                                  width: 4,
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Expanded(
+                                  child: Center(
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: detection.textImage != null
+                                              ? ConstrainedBox(
+                                            constraints: BoxConstraints(
+                                              maxWidth: MediaQuery.of(context).size.width * 0.35,
+                                              maxHeight: 32,
+                                            ),
+                                            child: Image.memory(
+                                              img.encodePng(detection.textImage!),
+                                              height: 32,
+                                              fit: BoxFit.contain,
+                                            ),
+                                          )
+                                              : SizedBox(width: 32, height: 32),
+                                        ),
+                                        SizedBox(width: 15),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          SizedBox(width: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: detection.textImage != null
-                                ? ConstrainedBox(
-                              constraints: BoxConstraints(
-                                maxWidth: MediaQuery.of(context).size.width * 0.35,
-                                maxHeight: 32,
-                              ),
-                              child: Image.memory(
-                                img.encodePng(detection.textImage!),
-                                height: 32,
-                                fit: BoxFit.contain,
-                              ),
-                            )
-                                : SizedBox(width: 32, height: 32),
-                          ),
-                          SizedBox(width: 15),
                           Expanded(
+                            flex: 1,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisSize: MainAxisSize.min,
@@ -270,11 +288,11 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                                       style: const TextStyle(fontSize: 13),
                                       decoration: const InputDecoration(
                                           isDense: true,
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
                                           border: UnderlineInputBorder(
                                           ),
-                                          enabledBorder: OutlineInputBorder(
-                                              borderSide: BorderSide(color: Colors.white30)
+                                          enabledBorder: UnderlineInputBorder(
+                                              borderSide: BorderSide(color: Colors.white54)
                                           )
                                       ),
                                     );
