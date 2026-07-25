@@ -214,108 +214,106 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                         detections.removeAt(index);
                       });
                     },
-                    child: Container(
-                      // margin: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
-                        borderRadius: BorderRadius.circular(12),
-                        // boxShadow: [
-                        //   BoxShadow(
-                        //     color: Colors.black26,
-                        //     blurRadius: 4,
-                        //     offset: Offset(0, 2),
-                        //   ),
-                        // ],
-                      ),
-                      child: IntrinsicHeight(
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 4,
-                              decoration: BoxDecoration(
-                                color: statusColor,
-                                // borderRadius: BorderRadius.horizontal(left: Radius.circular(12)),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 4,
+                            decoration: BoxDecoration(
+                              color: statusColor,
+                            ),
+                          ),
+                          SizedBox(width: 10),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: detection.textImage != null
+                                ? ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: MediaQuery.of(context).size.width * 0.35,
+                                maxHeight: 32,
                               ),
-                            ),
-                            SizedBox(width: 10),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: detection.textImage != null
-                                  ? ConstrainedBox(
-                                      constraints: BoxConstraints(
-                                        maxWidth: MediaQuery.of(context).size.width * 0.35,
-                                        maxHeight: 32,
+                              child: Image.memory(
+                                img.encodePng(detection.textImage!),
+                                height: 32,
+                                fit: BoxFit.contain,
+                              ),
+                            )
+                                : SizedBox(width: 32, height: 32),
+                          ),
+                          SizedBox(width: 15),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(height: 4),
+                                Autocomplete<String>(
+                                  initialValue: TextEditingValue(text: detection.card?.name ?? ""),
+                                  optionsViewOpenDirection: OptionsViewOpenDirection.down,
+                                  optionsBuilder: (val) {
+                                    if (val.text.isEmpty) {
+                                      return const Iterable<String>.empty();
+                                    }
+                                    return searchCardNames(val.text, allCards);
+                                  },
+                                  onSelected: (option) {
+                                    Card newCard = findCardByName(option, allCards)!;
+                                    setState(() {
+                                      detections[index].card = newCard;
+                                    });
+                                  },
+                                  fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
+                                    return TextField(
+                                      controller: controller,
+                                      focusNode: focusNode,
+                                      onSubmitted: (value) => onSubmitted(),
+                                      style: const TextStyle(fontSize: 13),
+                                      decoration: const InputDecoration(
+                                          isDense: true,
+                                          contentPadding: EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+                                          border: UnderlineInputBorder(
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                              borderSide: BorderSide(color: Colors.white30)
+                                          )
                                       ),
-                                      child: Image.memory(
-                                        img.encodePng(detection.textImage!),
-                                        height: 32,
-                                        fit: BoxFit.contain,
+                                    );
+                                  },
+                                ),
+                                SizedBox(height: 5),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    if (detection.ocrText.isNotEmpty)
+                                      Text(
+                                        '${detection.ocrText}: ',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Theme.of(context).hintColor,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                    )
-                                  : SizedBox(width: 32, height: 32),
-                            ),
-                            SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Autocomplete<String>(
-                                    initialValue: TextEditingValue(text: detection.card?.name ?? ""),
-                                    optionsViewOpenDirection: OptionsViewOpenDirection.down,
-                                    optionsBuilder: (val) {
-                                      if (val.text.isEmpty) {
-                                        return const Iterable<String>.empty();
-                                      }
-                                      return searchCardNames(val.text, allCards);
-                                    },
-                                    onSelected: (option) {
-                                      Card newCard = findCardByName(option, allCards)!;
-                                      setState(() {
-                                        detections[index].card = newCard;
-                                      });
-                                    },
-                                  ),
-                                  // SizedBox(height: 2),
-                                  Row(
-                                    children: [
-                                      if (detection.ocrText.isNotEmpty)
-                                        Expanded(
-                                          child: Text(
-                                            detection.ocrText,
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              color: Theme.of(context).hintColor,
-                                              fontStyle: FontStyle.italic,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
+                                    if (score != null)
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                        child: Text(
+                                          '$score%',
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            color: statusColor,
                                           ),
                                         ),
-                                      if (score != null)
-                                        Container(
-                                          padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                          // decoration: BoxDecoration(
-                                          //   color: statusColor.withAlpha(30),
-                                          //   borderRadius: BorderRadius.circular(8),
-                                          // ),
-                                          child: Text(
-                                            '$score%',
-                                            style: TextStyle(
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                              color: statusColor,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ),
-                            SizedBox(width: 4),
-                          ],
-                        ),
+                          ),
+                          SizedBox(width: 10),
+                        ],
                       ),
                     ),
                   );
