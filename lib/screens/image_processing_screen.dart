@@ -270,46 +270,46 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
             match.score > 5 ? allCards[choicesToCardsMap[match.index]!] : null)
         .toList();
 
-    // Add annotations to image
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
-    final overlayColor = img.ColorRgba8(255, 242, 0, 255);
 
     List<Detection> detectionOutput = [];
 
     for (var i = 0; i < detections.length; i++) {
       var [x1, y1, x2, y2] = detections[i];
-      // Draw bounding box around detected title
-      img.drawRect(
-        outputImage,
-        x1: x1,
-        y1: y1,
-        x2: x2,
-        y2: y2,
-        color: overlayColor,
-        thickness: 5,
-      );
-      // Add text to image
-      img.drawString(outputImage, matchedCards[i]?.name ?? "",
-          font: img.arial48,
-          x: x1,
-          y: y1 - 55, // Place text above box
-          color: overlayColor);
 
-      // Create output list
+      final score = matches[i].score;
+      final color = matchedCards[i] == null
+          ? img.ColorRgba8(158, 158, 158, 255)
+          : score > 70
+              ? img.ColorRgba8(76, 175, 80, 255)
+              : score > 40
+                  ? img.ColorRgba8(255, 193, 7, 255)
+                  : img.ColorRgba8(244, 67, 54, 255);
+
+      img.drawRect(outputImage,
+          x1: x1, y1: y1, x2: x2, y2: y2,
+          color: color, thickness: 5);
+
+      img.drawString(outputImage, matchedCards[i]?.name ?? "",
+          font: img.arial48, x: x1, y: y1 - 55, color: color);
+
       detectionOutput.add(Detection(
           card: matchedCards[i],
           ocrText: detectionText[i],
           ocrDistance: matches[i].score,
           textImage: img.copyCrop(inputImageCopy,
-              x: x1, y: y1, width: x2 - x1, height: y2 - y1)));
+              x: x1, y: y1, width: x2 - x1, height: y2 - y1),
+          x1: x1,
+          y1: y1,
+          x2: x2,
+          y2: y2));
     }
 
-    // Add count of cards to image
     img.drawString(outputImage, "Total Cards: ${matchedCards.length}",
         font: img.arial48,
         x: outputImage.width - 400,
         y: outputImage.height - 150,
-        color: overlayColor);
+        color: img.ColorRgba8(255, 242, 0, 255));
 
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
