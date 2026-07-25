@@ -121,6 +121,23 @@ class DraftSessionNotifier extends ChangeNotifier {
     _bleService = leader;
     _role = DraftRole.leader;
     _state = state;
+
+    leader.followerConnected?.listen((_) {
+      if (isLeader && _bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
+        _bleService!.pauseAdvertising();
+      }
+    });
+
+    leader.followerDisconnected?.listen((_) {
+      if (_role == DraftRole.leader && _state != null && isActive) {
+        leader.resumeAdvertising();
+      }
+    });
+
+    if (leader.connectedDeviceCount + 1 >= seatCount) {
+      leader.pauseAdvertising();
+    }
+
     notifyListeners();
   }
 
@@ -277,6 +294,11 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     _bleService!.pushState(_state!);
     notifyListeners();
+
+    if (_bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
+      _bleService!.pauseAdvertising();
+    }
+
     _log('[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}');
   }
 

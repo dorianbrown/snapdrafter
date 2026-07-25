@@ -54,6 +54,9 @@ class DraftBleLeader extends DraftBleService {
   Uint8List? _currentMetaBytes;
   Uint8List? _currentStateBytes;
 
+  bool _advertisingPaused = false;
+  String? _savedLocalName;
+
   DraftBleLeader({BlePeripheral? ble}) : _ble = ble ?? LiveBlePeripheral();
   DraftState? _currentState;
 
@@ -61,8 +64,16 @@ class DraftBleLeader extends DraftBleService {
   final _stateChunkers = <String, BleChunkedStream>{};
   final _mtuKnownDevices = <String>{};
 
+  @override
   Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
+
+  @override
   Stream<String>? get followerDisconnected => _followerDisconnectedCtrl?.stream;
+
+  @override
+  int get connectedDeviceCount => _connectedDevices.length;
+
+  bool get isAdvertising => !_advertisingPaused;
 
   /// Callback invoked when a follower writes a [DraftCommand] to the
   /// command characteristic.
@@ -255,6 +266,8 @@ class DraftBleLeader extends DraftBleService {
         android: PeripheralAndroidOptions(addServicesInScanResponse: true),
       ),
     );
+    _savedLocalName = localName;
+    _advertisingPaused = false;
     _log('[BLE_ADV] advertising started successfully');
   }
 
@@ -285,6 +298,40 @@ class DraftBleLeader extends DraftBleService {
     }
 
     throw Exception('Bluetooth not ready for advertising (timeout)');
+  }
+
+  // -------------------------------------------------------------------------
+  // Advertising lifecycle
+  // -------------------------------------------------------------------------
+
+  @override
+  Future<void> pauseAdvertising() async {
+    if (_advertisingPaused) return;
+    _log('[BLE_ADV] pauseAdvertising');
+    try {
+      await _ble.stopAdvertising();
+      _advertisingPaused = true;
+    } catch (e) {
+      _log('[BLE_ADV] pauseAdvertising FAILED: $e');
+    }
+  }
+
+  @override
+  Future<void> resumeAdvertising() async {
+    if (!_advertisingPaused) return;
+    _log('[BLE_ADV] resumeAdvertising');
+    try {
+      await _ble.startAdvertising(
+        services: [DraftBleService.serviceUuid],
+        localName: _savedLocalName,
+        platformConfig: PeripheralPlatformConfig(
+          android: PeripheralAndroidOptions(addServicesInScanResponse: true),
+        ),
+      );
+      _advertisingPaused = false;
+    } catch (e) {
+      _log('[BLE_ADV] resumeAdvertising FAILED: $e');
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -452,6 +499,8 @@ class DraftBleLeader extends DraftBleService {
     _followerDisconnectedCtrl = null;
     _connectedDevices.clear();
     _currentState = null;
+    _savedLocalName = null;
+    _advertisingPaused = false;
   }
 }
 
