@@ -10,6 +10,7 @@ import 'package:flutter_litert/flutter_litert.dart' hide Detection;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import 'detection_preview.dart';
+import '/utils/card_matcher.dart';
 import '/utils/utils.dart';
 
 import '/data/repositories/card_repository.dart';
@@ -265,10 +266,17 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     setState(() => currentStep += 1);
 
-    List<Card?> matchedCards = matches
-        .map((match) =>
-            match.score > 5 ? allCards[choicesToCardsMap[match.index]!] : null)
-        .toList();
+    List<Card?> matchedCards = matches.map((match) {
+      if (match.score <= 5) return null;
+      final matchedCard = allCards[choicesToCardsMap[match.index]!];
+      if (matchedCard.name.contains(' // ')) {
+        final exactMatch = findCardByName(choices[match.index], allCards);
+        if (exactMatch != null && !exactMatch.name.contains(' // ')) {
+          return exactMatch;
+        }
+      }
+      return matchedCard;
+    }).toList();
 
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
 
