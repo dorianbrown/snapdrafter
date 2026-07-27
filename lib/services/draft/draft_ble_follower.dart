@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 import 'ble_chunked.dart';
 import 'draft_ble_service.dart';
@@ -96,7 +95,7 @@ class DraftBleFollower extends DraftBleService {
         ),
       ),
     ).catchError((error) {
-      _log('[BLE_SCAN] startScan failed: $error');
+      print('[BLE_SCAN] startScan failed: $error');
       ctrl.addError(error);
     });
 
@@ -143,13 +142,16 @@ class DraftBleFollower extends DraftBleService {
       DraftBleService.stateCharUuid,
     ).listen((bytes) {
       if (BleChunkedStream.isChunked(bytes)) {
+        print('[BLE_FOLLOWER] received chunk (${bytes.length} bytes)');
         _streamChunker.feed(bytes);
         while (_streamChunker.hasCompleteMessage) {
           final assembled = _streamChunker.data;
           if (assembled == null) continue;
+          print('[BLE_FOLLOWER] reassembled state notification (${assembled.length} bytes)');
           _processState(assembled, stateCompleter);
         }
       } else {
+        print('[BLE_FOLLOWER] received state notification (${bytes.length} bytes)');
         _processState(bytes, stateCompleter);
       }
     });
@@ -178,20 +180,24 @@ class DraftBleFollower extends DraftBleService {
     String deviceId,
     Completer<DraftState> stateCompleter,
   ) async {
-    _log('[BLE_FOLLOWER] connecting to $deviceId...');
+    print('[BLE_FOLLOWER] connecting to $deviceId...');
     await _ble.connect(deviceId);
+    print('[BLE_FOLLOWER] connected to $deviceId');
 
     final negotiatedMtu = await _ble.requestMtu(deviceId, 512);
-    _log('[BLE_FOLLOWER] connected to $deviceId (MTU: $negotiatedMtu)');
+    print('[BLE_FOLLOWER] negotiated MTU: $negotiatedMtu');
 
-    await _ble.discoverServices(deviceId);
+    print('[BLE_FOLLOWER] discovering services...');
+    final services = await _ble.discoverServices(deviceId);
+    print('[BLE_FOLLOWER] discovered ${services.length} services');
 
+    print('[BLE_FOLLOWER] subscribing to state characteristic (notifications)...');
     await _ble.subscribeNotifications(
       deviceId,
       DraftBleService.serviceUuid,
       DraftBleService.stateCharUuid,
     );
-    _log('[BLE_FOLLOWER] subscribed, waiting for initial state...');
+    print('[BLE_FOLLOWER] subscribed, waiting for initial state...');
 
     final state = await stateCompleter.future.timeout(
       const Duration(seconds: 5),
@@ -205,12 +211,14 @@ class DraftBleFollower extends DraftBleService {
   void _processState(Uint8List bytes, Completer<DraftState> stateCompleter) {
     final newState = DraftBleService.decodeState(bytes);
     if (newState == null) {
-      _log('[BLE_FOLLOWER] failed to decode state bytes');
+      print('[BLE_FOLLOWER] failed to decode state bytes');
       return;
     }
     if (!stateCompleter.isCompleted) {
-      _log('[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}');
+      print('[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}');
       stateCompleter.complete(newState);
+    } else {
+      print('[BLE_FOLLOWER] subsequent state push: seq=${newState.sequenceNumber}, players=${newState.players.length}');
     }
     onStatePush?.call(newState);
   }
@@ -228,7 +236,7 @@ class DraftBleFollower extends DraftBleService {
     }
     final json = jsonEncode(cmd.toJson());
     final bytes = Uint8List.fromList(utf8.encode(json));
-    _log('[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $_leaderDeviceId (${json.length} chars)');
+    print('[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $_leaderDeviceId (${json.length} chars)');
     await _ble.write(
       _leaderDeviceId!,
       DraftBleService.serviceUuid,
@@ -268,13 +276,16 @@ class DraftBleFollower extends DraftBleService {
         .characteristicValueStream(deviceId, DraftBleService.stateCharUuid)
         .listen((bytes) {
       if (BleChunkedStream.isChunked(bytes)) {
+        print('[BLE_FOLLOWER] received chunk (${bytes.length} bytes)');
         _streamChunker.feed(bytes);
         while (_streamChunker.hasCompleteMessage) {
           final assembled = _streamChunker.data;
           if (assembled == null) continue;
+          print('[BLE_FOLLOWER] reassembled state notification (${assembled.length} bytes)');
           _processState(assembled, completer);
         }
       } else {
+        print('[BLE_FOLLOWER] received state notification (${bytes.length} bytes)');
         _processState(bytes, completer);
       }
     });
@@ -292,9 +303,13 @@ class DraftBleFollower extends DraftBleService {
       } on TimeoutException {
         state = null;
       }
+      if (state != null) {
+        print('[BLE_FOLLOWER] resubscribe got seq=${state.sequenceNumber}, '
+            'players=${state.players.length}, phase=${state.session.phase.name}');
+      }
       return state;
     } catch (e) {
-      _log('[BLE_FOLLOWER] resubscribe FAILED: $e');
+      print('[BLE_FOLLOWER] resubscribe FAILED: $e');
       return null;
     }
   }
@@ -309,9 +324,13 @@ class DraftBleFollower extends DraftBleService {
         DraftBleService.serviceUuid,
         DraftBleService.stateCharUuid,
       );
-      return DraftBleService.decodeState(bytes);
+      print('[BLE_FOLLOWER] READ state complete, ${bytes.length} bytes');
+      final decoded = DraftBleService.decodeState(bytes);
+      print('[BLE_FOLLOWER] READ decoded state: seq=${decoded?.sequenceNumber}, '
+          'players=${decoded?.players.length}, phase=${decoded?.session.phase.name}');
+      return decoded;
     } catch (e) {
-      _log('[BLE_FOLLOWER] READ state FAILED: $e');
+      print('[BLE_FOLLOWER] READ state FAILED: $e');
       return null;
     }
   }
@@ -340,7 +359,7 @@ class DraftBleFollower extends DraftBleService {
       try {
         await _ble.disconnect(_leaderDeviceId!);
       } catch (e) {
-        _log('[BLE_FOLLOWER] disconnect FAILED: $e');
+        print('[BLE_FOLLOWER] disconnect FAILED: $e');
       }
     }
     _leaderDeviceId = null;
@@ -348,9 +367,4 @@ class DraftBleFollower extends DraftBleService {
       await _leaderConnectedCtrl.close();
     }
   }
-}
-
-void _log(String msg) {
-  // ignore: avoid_print
-  if (kDebugMode) print(msg);
 }

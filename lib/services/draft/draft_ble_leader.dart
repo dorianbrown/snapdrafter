@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 import 'ble_chunked.dart';
 import 'ble_platform.dart';
@@ -54,26 +53,15 @@ class DraftBleLeader extends DraftBleService {
   Uint8List? _currentMetaBytes;
   Uint8List? _currentStateBytes;
 
-  bool _advertisingPaused = false;
-  String? _savedLocalName;
-
   DraftBleLeader({BlePeripheral? ble}) : _ble = ble ?? LiveBlePeripheral();
   DraftState? _currentState;
 
-  final _metaChunkers = <String, BleChunkedStream>{};
-  final _stateChunkers = <String, BleChunkedStream>{};
+  final _metaChunker = BleChunkedStream();
+  final _stateChunker = BleChunkedStream();
   final _mtuKnownDevices = <String>{};
 
-  @override
   Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
-
-  @override
   Stream<String>? get followerDisconnected => _followerDisconnectedCtrl?.stream;
-
-  @override
-  int get connectedDeviceCount => _connectedDevices.length;
-
-  bool get isAdvertising => !_advertisingPaused;
 
   /// Callback invoked when a follower writes a [DraftCommand] to the
   /// command characteristic.
@@ -118,13 +106,16 @@ class DraftBleLeader extends DraftBleService {
     _followerDisconnectedCtrl = StreamController<String>.broadcast();
 
     final caps = await _ble.getCapabilities();
-    _log('[BLE_ADV] peripheral capabilities: supportsPeripheralMode=${caps.supportsPeripheralMode}');
+    print('[BLE_ADV] peripheral capabilities: supportsPeripheralMode=${caps.supportsPeripheralMode}');
     if (!caps.supportsPeripheralMode) {
       throw Exception('Peripheral mode not supported on this device');
     }
 
     await _waitForPeripheralReadiness();
 
+    // Register GATT service with meta (read/notify), state (read/notify),
+    // and command (write) characteristics.
+    print('[BLE_ADV] adding service...');
     try {
       await _ble.addService(
         BlePeripheralService(
@@ -156,8 +147,9 @@ class DraftBleLeader extends DraftBleService {
           ],
         ),
       );
+      print('[BLE_ADV] service added: ${DraftBleService.serviceUuid}');
     } catch (e) {
-      _log('[BLE_ADV] addService FAILED: $e');
+      print('[BLE_ADV] addService FAILED: $e');
       rethrow;
     }
 
@@ -195,11 +187,11 @@ class DraftBleLeader extends DraftBleService {
         _connectedDevices.add(event.deviceId);
         _followerConnectedCtrl?.add(event.deviceId);
         _queryMtuForDevice(event.deviceId);
-        _log('[BLE_ADV] follower CONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
+        print('[BLE_ADV] follower CONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
       } else {
         _connectedDevices.remove(event.deviceId);
         _followerDisconnectedCtrl?.add(event.deviceId);
-        _log('[BLE_ADV] follower DISCONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
+        print('[BLE_ADV] follower DISCONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
       }
     });
 
@@ -218,7 +210,7 @@ class DraftBleLeader extends DraftBleService {
         } else {
           _subscribedStateDeviceIds.remove(event.deviceId);
         }
-        _log('[BLE_ADV] state char ${event.isSubscribed ? "SUBSCRIBED" : "UNSUBSCRIBED"}: ${event.deviceId} (total=${_subscribedStateDeviceIds.length})');
+        print('[BLE_ADV] state char ${event.isSubscribed ? "SUBSCRIBED" : "UNSUBSCRIBED"}: ${event.deviceId} (total=${_subscribedStateDeviceIds.length})');
       }
       if (!event.isSubscribed) return;
       if (event.characteristicId == DraftBleService.stateCharUuid && _currentState != null) {
@@ -233,7 +225,7 @@ class DraftBleLeader extends DraftBleService {
               ? _currentMetaBytes
               : null;
       if (bytes == null) {
-        _log('[BLE_ADV] no bytes available for ${event.characteristicId} (stateLen=${_currentStateBytes?.length}, metaLen=${_currentMetaBytes?.length})');
+        print('[BLE_ADV] no bytes available for ${event.characteristicId} (stateLen=${_currentStateBytes?.length}, metaLen=${_currentMetaBytes?.length})');
         return;
       }
       await _queryMtuForDevice(event.deviceId);
@@ -244,12 +236,15 @@ class DraftBleLeader extends DraftBleService {
       );
     });
 
-    _advStateSub = _ble.advertisingStateStream.listen((event) {});
+    _advStateSub = _ble.advertisingStateStream.listen((event) {
+      print('[BLE_ADV] advertisingStateStream: state=${event.state}, error=${event.error}');
+    });
 
-    // Per-device chunkers avoid MTU races between devices.
+    // Reconfigure chunkers when MTU changes for a device.
     _mtuChangedSub = _ble.mtuChangedStream.listen((event) {
-      _metaChunkers.putIfAbsent(event.deviceId, () => BleChunkedStream()).reconfigure(event.mtu);
-      _stateChunkers.putIfAbsent(event.deviceId, () => BleChunkedStream()).reconfigure(event.mtu);
+      _metaChunker.reconfigure(event.mtu);
+      _stateChunker.reconfigure(event.mtu);
+      print('[BLE_ADV] MTU changed for ${event.deviceId}: ${event.mtu} (chunkPayload=${_stateChunker.maxPayloadPerChunk}, rawLimit=${_stateChunker.maxRawPayload})');
     });
 
     // Encode initial state and start advertising.
@@ -257,7 +252,7 @@ class DraftBleLeader extends DraftBleService {
     _currentStateBytes = DraftBleService.encodeState(state);
 
     final localName = state.session.name;
-    _log('[BLE_ADV] starting advertising: service=${DraftBleService.serviceUuid} localName="$localName"');
+    print('[BLE_ADV] starting advertising: service=${DraftBleService.serviceUuid} localName="$localName"');
 
     await _ble.startAdvertising(
       services: [DraftBleService.serviceUuid],
@@ -266,22 +261,19 @@ class DraftBleLeader extends DraftBleService {
         android: PeripheralAndroidOptions(addServicesInScanResponse: true),
       ),
     );
-    _savedLocalName = localName;
-    _advertisingPaused = false;
-    _log('[BLE_ADV] advertising started successfully');
+    print('[BLE_ADV] advertising started successfully');
+
+    final registeredServices = await _ble.getServices();
+    print('[BLE_ADV] registered services on server: $registeredServices');
   }
 
   Future<void> _waitForPeripheralReadiness() async {
     const maxAttempts = 20;
     const delay = Duration(milliseconds: 250);
-    var printedReady = false;
 
     for (var i = 0; i < maxAttempts; i++) {
       final readiness = await _ble.getAvailabilityState();
-      if (!printedReady) {
-        _log('[BLE_ADV] Bluetooth: ${readiness.name}');
-        printedReady = readiness == PeripheralReadinessState.ready;
-      }
+      print('[BLE_ADV] peripheral readiness (attempt ${i + 1}): $readiness');
 
       switch (readiness) {
         case PeripheralReadinessState.ready:
@@ -301,40 +293,6 @@ class DraftBleLeader extends DraftBleService {
   }
 
   // -------------------------------------------------------------------------
-  // Advertising lifecycle
-  // -------------------------------------------------------------------------
-
-  @override
-  Future<void> pauseAdvertising() async {
-    if (_advertisingPaused) return;
-    _log('[BLE_ADV] pauseAdvertising');
-    try {
-      await _ble.stopAdvertising();
-      _advertisingPaused = true;
-    } catch (e) {
-      _log('[BLE_ADV] pauseAdvertising FAILED: $e');
-    }
-  }
-
-  @override
-  Future<void> resumeAdvertising() async {
-    if (!_advertisingPaused) return;
-    _log('[BLE_ADV] resumeAdvertising');
-    try {
-      await _ble.startAdvertising(
-        services: [DraftBleService.serviceUuid],
-        localName: _savedLocalName,
-        platformConfig: PeripheralPlatformConfig(
-          android: PeripheralAndroidOptions(addServicesInScanResponse: true),
-        ),
-      );
-      _advertisingPaused = false;
-    } catch (e) {
-      _log('[BLE_ADV] resumeAdvertising FAILED: $e');
-    }
-  }
-
-  // -------------------------------------------------------------------------
   // State broadcast
   // -------------------------------------------------------------------------
 
@@ -350,10 +308,9 @@ class DraftBleLeader extends DraftBleService {
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
-    _log('[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, subscribedDevices=${_subscribedStateDeviceIds.length}');
-    _log('[BLE_ADV] current rounds: ${state.rounds}');
+    print('[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, subscribedDevices=${_subscribedStateDeviceIds.length}');
     if (_subscribedStateDeviceIds.isEmpty) {
-      _log('[BLE_ADV] pushState SKIPPED — no subscribed devices!');
+      print('[BLE_ADV] pushState SKIPPED — no subscribed devices!');
       return;
     }
 
@@ -375,13 +332,11 @@ class DraftBleLeader extends DraftBleService {
     String? deviceId,
   }) async {
     final isState = characteristicId == DraftBleService.stateCharUuid;
-    // Per-device chunkers avoid MTU races between devices.
-    final chunker = isState
-        ? _stateChunkers.putIfAbsent(deviceId!, () => BleChunkedStream())
-        : _metaChunkers.putIfAbsent(deviceId!, () => BleChunkedStream());
+    final chunker = isState ? _stateChunker : _metaChunker;
 
     // Small enough to send in one write.
     if (bytes.length <= chunker.maxRawPayload) {
+      print('[BLE_ADV] pushing raw ${bytes.length} B to${deviceId != null ? " $deviceId" : " all"} on ${characteristicId}');
       try {
         await _ble.updateCharacteristicValue(
           characteristicId: characteristicId,
@@ -389,13 +344,14 @@ class DraftBleLeader extends DraftBleService {
           deviceId: deviceId,
         );
       } catch (e) {
-        _log('[BLE_ADV] FAILED to push value: $e');
+        print('[BLE_ADV] FAILED to push value: $e');
       }
       return;
     }
 
     // Chunked transmission.
     final chunks = chunker.chunkBytes(bytes);
+    print('[BLE_ADV] pushing ${chunks.length} chunks (${bytes.length} B total) to${deviceId != null ? " $deviceId" : " all"} on $characteristicId');
     for (var i = 0; i < chunks.length; i++) {
       if (i > 0) {
         await Future<void>.delayed(const Duration(milliseconds: 15));
@@ -407,7 +363,7 @@ class DraftBleLeader extends DraftBleService {
           deviceId: deviceId,
         );
       } catch (e) {
-        _log('[BLE_ADV] FAILED to push chunk $i/${chunks.length}: $e');
+        print('[BLE_ADV] FAILED to push chunk $i/${chunks.length}: $e');
         await Future<void>.delayed(const Duration(milliseconds: 100));
         try {
           await _ble.updateCharacteristicValue(
@@ -416,7 +372,7 @@ class DraftBleLeader extends DraftBleService {
             deviceId: deviceId,
           );
         } catch (e2) {
-          _log('[BLE_ADV] RETRY FAILED for chunk $i: $e2');
+          print('[BLE_ADV] RETRY FAILED for chunk $i: $e2');
         }
       }
     }
@@ -431,12 +387,12 @@ class DraftBleLeader extends DraftBleService {
       final notifyLen = await _ble.getMaximumNotifyLength(deviceId);
       if (notifyLen != null && notifyLen > 0) {
         final mtu = notifyLen + 3;
-        _metaChunkers.putIfAbsent(deviceId, () => BleChunkedStream()).reconfigure(mtu);
-        _stateChunkers.putIfAbsent(deviceId, () => BleChunkedStream()).reconfigure(mtu);
-        _log('[BLE_ADV] queried MTU for $deviceId: notifyLen=$notifyLen (MTU=$mtu)');
+        _metaChunker.reconfigure(mtu);
+        _stateChunker.reconfigure(mtu);
+        print('[BLE_ADV] queried MTU for $deviceId: notifyLen=$notifyLen (MTU=$mtu, rawLimit=${_stateChunker.maxRawPayload})');
       }
     } catch (e) {
-      _log('[BLE_ADV] failed to query MTU for $deviceId: $e');
+      print('[BLE_ADV] failed to query MTU for $deviceId: $e');
     }
   }
 
@@ -451,10 +407,10 @@ class DraftBleLeader extends DraftBleService {
       final json = utf8.decode(value);
       final map = jsonDecode(json) as Map<String, dynamic>;
       final cmd = DraftCommand.fromJson(map);
-      _log('[BLE_ADV] command received from $deviceId: type=${cmd.runtimeType}, ${json.length} chars');
+      print('[BLE_ADV] command received from $deviceId: type=${cmd.runtimeType}, ${json.length} chars');
       onCommandReceived?.call(deviceId, cmd);
     } catch (e) {
-      _log('[BLE_ADV] Failed to parse command from $deviceId: $e');
+      print('Failed to parse command from $deviceId: $e');
     }
   }
 
@@ -472,10 +428,8 @@ class DraftBleLeader extends DraftBleService {
     _mtuChangedSub = null;
     await _connStateSub?.cancel();
     _connStateSub = null;
-    for (final c in _metaChunkers.values) { c.reset(); }
-    for (final c in _stateChunkers.values) { c.reset(); }
-    _metaChunkers.clear();
-    _stateChunkers.clear();
+    _metaChunker.reset();
+    _stateChunker.reset();
     _mtuKnownDevices.clear();
     _subscribedStateDeviceIds.clear();
     try {
@@ -487,12 +441,12 @@ class DraftBleLeader extends DraftBleService {
     try {
       await _ble.stopAdvertising();
     } catch (e) {
-      _log('[BLE_ADV] stopAdvertising FAILED: $e');
+      print('[BLE_ADV] stopAdvertising FAILED: $e');
     }
     try {
       await _ble.clearServices();
     } catch (e) {
-      _log('[BLE_ADV] clearServices FAILED: $e');
+      print('[BLE_ADV] clearServices FAILED: $e');
     }
     await _followerConnectedCtrl?.close();
     await _followerDisconnectedCtrl?.close();
@@ -500,12 +454,5 @@ class DraftBleLeader extends DraftBleService {
     _followerDisconnectedCtrl = null;
     _connectedDevices.clear();
     _currentState = null;
-    _savedLocalName = null;
-    _advertisingPaused = false;
   }
-}
-
-void _log(String msg) {
-  // ignore: avoid_print
-  if (kDebugMode) print(msg);
 }
