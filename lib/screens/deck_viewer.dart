@@ -113,7 +113,52 @@ class DeckViewerState extends State<DeckViewer> {
         overlayColor: Colors.black38.withAlpha(200),
         child: Scaffold(
           appBar: AppBar(
-            actions: generateControls(),
+            actions: [
+              Row(
+                spacing: 8,
+                children: [
+                  DropdownMenu(
+                    width: 125,
+                    label: const Text("Display"),
+                    controller: displayController,
+                    inputDecorationTheme: myInputDecorationTheme,
+                    textStyle: const TextStyle(fontSize: 12),
+                    dropdownMenuEntries: [
+                      DropdownMenuEntry(value: "image", label: "Images"),
+                      DropdownMenuEntry(value: "text", label: "Text")
+                    ],
+                    onSelected: (value) {
+                      renderValues[0] = value!;
+                      setState(() {});
+                    },
+                  ),
+                  DropdownMenu(
+                    width: 90,
+                    label: const Text("Columns"),
+                    controller: numColumnsController,
+                    inputDecorationTheme: myInputDecorationTheme,
+                    textStyle: const TextStyle(fontSize: 12),
+                    dropdownMenuEntries: [
+                      DropdownMenuEntry(value: "2", label: "2"),
+                      DropdownMenuEntry(value: "3", label: "3"),
+                      DropdownMenuEntry(value: "4", label: "4"),
+                    ],
+                    onSelected: (value) {
+                      renderValues[1] = value!;
+                      setState(() {});
+                    },
+                  ),
+                  IconButton(
+                      onPressed: deck.imagePath != null
+                          ? () => createInteractiveImageViewer(deck.imagePath!, context)
+                          : null,
+                      icon: Icon(Icons.image)),
+                  SizedBox(
+                    width: 0,
+                  )
+                ],
+              )
+            ],
           ),
           body: Container(
             alignment: Alignment.topCenter,
@@ -156,18 +201,19 @@ class DeckViewerState extends State<DeckViewer> {
                         ? () => showDeckTokens(deck.id)
                         : null),
                 Spacer(),
-                IconButton(
-                  tooltip: "Share to CubeCobra",
-                  icon: SvgPicture.asset(
-                    "assets/app_icons/monochrome_cubecobra.svg",
-                    height: 28,
-                    colorFilter: ColorFilter.mode(
-                        // Theme.of(context).iconTheme.color!,
-                        Theme.of(context).unselectedWidgetColor,
-                        BlendMode.srcIn),
-                  ),
-                  onPressed: () => shareWithCubeCobra(deck),
-                ),
+                // TODO: Broken currently
+                // IconButton(
+                //   tooltip: "Share to CubeCobra",
+                //   icon: SvgPicture.asset(
+                //     "assets/app_icons/monochrome_cubecobra.svg",
+                //     height: 28,
+                //     colorFilter: ColorFilter.mode(
+                //         // Theme.of(context).iconTheme.color!,
+                //         Theme.of(context).unselectedWidgetColor,
+                //         BlendMode.srcIn),
+                //   ),
+                //   onPressed: () => shareWithCubeCobra(deck),
+                // ),
                 IconButton(
                   tooltip: "Edit",
                   icon: Icon(Icons.edit),
@@ -432,53 +478,6 @@ class DeckViewerState extends State<DeckViewer> {
         );
       },
     );
-  }
-
-  List<Widget> generateControls() {
-    return [
-      Row(
-        spacing: 8,
-        children: [
-          DropdownMenu(
-            label: const Text("Display"),
-            controller: displayController,
-            inputDecorationTheme: myInputDecorationTheme,
-            textStyle: const TextStyle(fontSize: 12),
-            dropdownMenuEntries: [
-              DropdownMenuEntry(value: "image", label: "Images"),
-              DropdownMenuEntry(value: "text", label: "Text")
-            ],
-            onSelected: (value) {
-              renderValues[0] = value!;
-              setState(() {});
-            },
-          ),
-          DropdownMenu(
-            label: const Text("Columns"),
-            controller: numColumnsController,
-            inputDecorationTheme: myInputDecorationTheme,
-            textStyle: const TextStyle(fontSize: 12),
-            dropdownMenuEntries: [
-              DropdownMenuEntry(value: "2", label: "2"),
-              DropdownMenuEntry(value: "3", label: "3"),
-              DropdownMenuEntry(value: "4", label: "4"),
-            ],
-            onSelected: (value) {
-              renderValues[1] = value!;
-              setState(() {});
-            },
-          ),
-          IconButton(
-              onPressed: deck.imagePath != null
-                  ? () => createInteractiveImageViewer(deck.imagePath!, context)
-                  : null,
-              icon: Icon(Icons.image)),
-          SizedBox(
-            width: 0,
-          )
-        ],
-      )
-    ];
   }
 
   void showRandomHand(Deck deck) {
