@@ -677,8 +677,8 @@ class DraftSessionNotifier extends ChangeNotifier {
   }
 
   /// After sending a command to the leader, polls for the updated state
-  /// via GATT read (up to 3 retries), falling back to a full resubscribe
-  /// if polling returns no newer state.
+  /// via GATT read (up to 3 retries), then always forces a full resubscribe
+  /// to bypass Android's BLE GATT read cache and guarantee fresh state.
   Future<void> _waitForStateUpdate() async {
     if (_state == null) return;
 
@@ -690,7 +690,7 @@ class DraftSessionNotifier extends ChangeNotifier {
             updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
           _state = updated;
           notifyListeners();
-          return;
+          break;
         }
       } catch (_) {}
     }

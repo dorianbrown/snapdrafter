@@ -351,6 +351,7 @@ class DraftBleLeader extends DraftBleService {
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
     _log('[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, subscribedDevices=${_subscribedStateDeviceIds.length}');
+    _log('[BLE_ADV] current rounds: ${state.rounds}');
     if (_subscribedStateDeviceIds.isEmpty) {
       _log('[BLE_ADV] pushState SKIPPED — no subscribed devices!');
       return;
