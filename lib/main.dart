@@ -8,6 +8,7 @@ import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:snapdrafter/utils/utils.dart';
 
 import '/data/database/database_helper.dart';
+import '/data/repositories/card_repository.dart';
 import '/data/repositories/set_repository.dart';
 import '/screens/decks_overview.dart';
 import '/screens/image_processing_screen.dart';
@@ -135,6 +136,12 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
   Future<void> _checkForNewReleases() async {
     try {
+      final cardRepo = CardRepository();
+      if (await cardRepo.isCardTableEmpty() && mounted) {
+        _showUpdatePrompt([], isInitialDownload: true);
+        return;
+      }
+
       // Check upcoming releases
       if (await _releaseDateHelper.shouldFetchNewDates()) {
         final newDates = await _setRepository.fetchUpcomingReleaseDates();
@@ -182,7 +189,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
   
-  void _showUpdatePrompt(List<Map<String, String>> sets) {
+  void _showUpdatePrompt(List<Map<String, String>> sets, {bool isInitialDownload = false}) {
     if (navigatorKey.currentState == null) return;
 
     showDialog(
@@ -190,6 +197,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
       barrierDismissible: false,
       builder: (context) => UpdatePromptDialog(
         sets: sets,
+        isInitialDownload: isInitialDownload,
         onUpdateNow: () {
           // Navigate to download screen
           Navigator.push(
