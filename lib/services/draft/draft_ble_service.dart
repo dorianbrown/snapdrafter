@@ -95,6 +95,19 @@ abstract class DraftBleService {
   Future<DraftState?> resubscribeAndReadState() async => null;
 
   // -------------------------------------------------------------------------
+  // Leader: advertising lifecycle (default no-ops for follower implementations)
+  // -------------------------------------------------------------------------
+
+  int get connectedDeviceCount => 0;
+
+  Stream<String>? get followerConnected => null;
+  Stream<String>? get followerDisconnected => null;
+
+  Future<void> pauseAdvertising() async {}
+
+  Future<void> resumeAdvertising() async {}
+
+  // -------------------------------------------------------------------------
   // Cleanup
   // -------------------------------------------------------------------------
 

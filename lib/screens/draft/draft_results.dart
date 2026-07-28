@@ -137,7 +137,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 const SizedBox(height: 16),
               ],
             ),
-        floatingActionButton: hasSubmitted
+        floatingActionButton: hasSubmitted || notifier.isReconnecting
             ? null
             : FloatingActionButton.extended(
                 onPressed: _scanDeck,
