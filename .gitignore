@@ -13,6 +13,9 @@
 migrate_working_dir/
 .opencode/
 
+# We want ios to install fresh
+*/Podfile.lock
+
 # IntelliJ related
 *.iml
 *.ipr
