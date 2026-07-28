@@ -320,11 +320,6 @@ class DraftRound {
     );
   }
 
-  @override
-  String toString() {
-    return toJson().toString();
-  }
-
   Map<String, dynamic> toJson() => {
     'r': roundNumber,
     'm': matches.map((m) => m.toJson()).toList(),

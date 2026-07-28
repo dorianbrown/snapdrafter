@@ -209,17 +209,26 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen> {
             ],
           ),
         ),
-        floatingActionButton: FloatingActionButton.extended(
-          onPressed: () async {
-            final shouldDrop = await _onWillPop();
-            if (shouldDrop && mounted) {
-              Navigator.of(context).pop();
-            }
-          },
-          icon: const Icon(Icons.exit_to_app),
-          label: const Text('Drop from Draft'),
-          backgroundColor: Colors.red,
-          foregroundColor: Colors.white,
+        bottomNavigationBar: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final shouldDrop = await _onWillPop();
+                  if (shouldDrop && mounted) {
+                    Navigator.of(context).pop();
+                  }
+                },
+                icon: const Icon(Icons.exit_to_app, size: 18),
+                label: const Text('Drop from Draft'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.red,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );

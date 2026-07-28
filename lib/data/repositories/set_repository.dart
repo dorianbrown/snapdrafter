@@ -53,7 +53,7 @@ class SetRepository {
     }
   }
 
-  Future<Map<String, Map<String, String>>> fetchUpcomingReleaseDates() async {
+  Future<Map<String, DateTime>> fetchUpcomingReleaseDates() async {
     final response = await http.get(
       Uri.parse('https://api.scryfall.com/sets'),
       headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
@@ -64,7 +64,7 @@ class SetRepository {
     if (response.statusCode == 200) {
       final values = json.decode(response.body);
       final now = DateTime.now();
-      final upcomingDates = <String, Map<String, String>>{};
+      final upcomingDates = <String, DateTime>{};
       
       for (final setData in values['data'] as List) {
         final releasedAt = setData["released_at"];
@@ -75,48 +75,15 @@ class SetRepository {
           (setData["digital"] == false)
         ) {
           // Reduce the release date by 8 days, to account for prereleases
-          final actualReleaseDate = DateTime.parse(releasedAt);
-          final releaseDate = actualReleaseDate.subtract(const Duration(days: 8));
-          if (actualReleaseDate.isAfter(now)) {
-            upcomingDates[setData["code"]] = {
-              "date": releaseDate.toIso8601String(),
-              "name": setData["name"] as String,
-            };
+          final releaseDate = DateTime.parse(releasedAt).subtract(const Duration(days: 8));
+          if (releaseDate.isAfter(now)) {
+            upcomingDates[setData["code"]] = releaseDate;
           }
         }
       }
       
       debugPrint("Fetched ${upcomingDates.length} upcoming release dates");
       return upcomingDates;
-    } else {
-      throw Exception('Failed to load sets from Scryfall API');
-    }
-  }
-
-  Future<List<Map<String, String>>> getMissingReleasedSets() async {
-    final response = await http.get(
-      Uri.parse('https://api.scryfall.com/sets'),
-      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
-    );
-
-    final validSetTypes = ["expansion", "core", "masters"];
-
-    if (response.statusCode == 200) {
-      final values = json.decode(response.body);
-      final now = convertDatetimeToYMD(DateTime.now(), sep: "-");
-      final localSets = await getAllSets();
-      final localCodes = localSets.map((s) => s.code).toSet();
-
-      final missingSets = (values['data'] as List)
-          .where((x) =>
-              validSetTypes.contains(x["set_type"]) &&
-              x["digital"] == false &&
-              now.compareTo(x["released_at"]) > 0 &&
-              !localCodes.contains(x["code"]))
-          .map((x) => {"code": x["code"] as String, "name": x["name"] as String})
-          .toList();
-
-      return missingSets;
     } else {
       throw Exception('Failed to load sets from Scryfall API');
     }

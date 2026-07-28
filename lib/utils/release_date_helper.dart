@@ -5,33 +5,27 @@ class ReleaseDateHelper {
   static const String _upcomingReleaseDatesKey = 'upcoming_release_dates';
   static const String _lastFetchedKey = 'last_fetched_timestamp';
   static const String _promptedDatesKey = 'prompted_release_dates';
-  static const String _promptedMissingSetsKey = 'prompted_missing_sets';
   static const Duration _cacheDuration = Duration(days: 7);
-
-  Future<Map<String, Map<String, String>>> getUpcomingReleaseDates() async {
+  
+  Future<Map<String, DateTime>> getUpcomingReleaseDates() async {
     final prefs = await SharedPreferences.getInstance();
     final jsonString = prefs.getString(_upcomingReleaseDatesKey);
     if (jsonString == null) return {};
     
     try {
       final Map<String, dynamic> jsonMap = jsonDecode(jsonString);
-      final result = <String, Map<String, String>>{};
-      jsonMap.forEach((key, value) {
-        final inner = value as Map<String, dynamic>;
-        result[key] = {
-          "date": inner["date"] as String,
-          "name": inner["name"] as String,
-        };
-      });
-      return result;
+      return jsonMap.map((key, value) => 
+          MapEntry(key, DateTime.parse(value as String)));
     } catch (e) {
       return {};
     }
   }
   
-  Future<void> saveUpcomingReleaseDates(Map<String, Map<String, String>> dates) async {
+  Future<void> saveUpcomingReleaseDates(Map<String, DateTime> dates) async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonString = jsonEncode(dates);
+    final jsonMap = dates.map((key, value) => 
+        MapEntry(key, value.toIso8601String()));
+    final jsonString = jsonEncode(jsonMap);
     await prefs.setString(_upcomingReleaseDatesKey, jsonString);
     await prefs.setInt(_lastFetchedKey, DateTime.now().millisecondsSinceEpoch);
   }
@@ -55,26 +49,6 @@ class ReleaseDateHelper {
     current.add(setCode);
     await prefs.setString(_promptedDatesKey, jsonEncode(current.toList()));
   }
-
-  Future<Set<String>> getPromptedMissingSets() async {
-    final prefs = await SharedPreferences.getInstance();
-    final jsonString = prefs.getString(_promptedMissingSetsKey);
-    if (jsonString == null) return {};
-
-    try {
-      final List<dynamic> list = jsonDecode(jsonString);
-      return Set<String>.from(list.cast<String>());
-    } catch (e) {
-      return {};
-    }
-  }
-
-  Future<void> addToPromptedMissingSets(Set<String> setCodes) async {
-    final prefs = await SharedPreferences.getInstance();
-    final current = await getPromptedMissingSets();
-    current.addAll(setCodes);
-    await prefs.setString(_promptedMissingSetsKey, jsonEncode(current.toList()));
-  }
   
   Future<bool> shouldFetchNewDates() async {
     final prefs = await SharedPreferences.getInstance();
@@ -88,6 +62,5 @@ class ReleaseDateHelper {
   Future<void> clearPassedDates() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_promptedDatesKey);
-    await prefs.remove(_promptedMissingSetsKey);
   }
 }

@@ -36,17 +36,11 @@ class DraftSessionNotifier extends ChangeNotifier {
     required String myDeviceId,
     DraftBleService Function()? bleLeaderFactory,
     DraftBleService Function()? bleFollowerFactory,
-    List<int>? reconnectDelaysSeconds,
+    List<int> reconnectDelaysSeconds = const [2, 4, 8, 16, 32],
   }) : _myDeviceId = myDeviceId,
        _bleLeaderFactory = bleLeaderFactory,
        _bleFollowerFactory = bleFollowerFactory,
-       _reconnectDelaysSeconds =
-            reconnectDelaysSeconds ?? _defaultReconnectDelays();
-
-  static List<int> _defaultReconnectDelays() {
-    // 2s, 5s, 10s, 20s, then 30s repeated to fill ~10 minutes (607 s total)
-    return const [2, 5, 10, 20, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30];
-  }
+       _reconnectDelaysSeconds = reconnectDelaysSeconds;
 
   // -------------------------------------------------------------------------
   // Getters
@@ -121,23 +115,6 @@ class DraftSessionNotifier extends ChangeNotifier {
     _bleService = leader;
     _role = DraftRole.leader;
     _state = state;
-
-    leader.followerConnected?.listen((_) {
-      if (isLeader && _bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
-        _bleService!.pauseAdvertising();
-      }
-    });
-
-    leader.followerDisconnected?.listen((_) {
-      if (_role == DraftRole.leader && _state != null && isActive) {
-        leader.resumeAdvertising();
-      }
-    });
-
-    if (leader.connectedDeviceCount + 1 >= seatCount) {
-      leader.pauseAdvertising();
-    }
-
     notifyListeners();
   }
 
@@ -195,10 +172,6 @@ class DraftSessionNotifier extends ChangeNotifier {
   /// If all rounds are complete, marks the session as [DraftPhase.complete].
   Future<void> advanceRound() async {
     if (!isLeader || _state == null) return;
-
-    if (_state!.rounds.isNotEmpty) {
-      _finalizeReportedMatches(_state!.rounds.last);
-    }
 
     final nextRoundNumber = _state!.rounds.length + 1;
     if (nextRoundNumber > _state!.session.totalRounds) {
@@ -265,10 +238,10 @@ class DraftSessionNotifier extends ChangeNotifier {
     String playerName,
     String deviceName,
   ) {
-    _log('[NOTIFIER] _handleJoinRequest: $playerName ($deviceId)');
+    print('[NOTIFIER] _handleJoinRequest: $playerName ($deviceId)');
     final existing = _state!.getPlayer(deviceName);
     if (existing != null && existing.status == PlayerStatus.accepted) {
-      _log('[NOTIFIER] _handleJoinRequest: player already accepted, ignoring');
+      print('[NOTIFIER] _handleJoinRequest: player already accepted, ignoring');
       return;
     }
 
@@ -294,12 +267,7 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     _bleService!.pushState(_state!);
     notifyListeners();
-
-    if (_bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
-      _bleService!.pauseAdvertising();
-    }
-
-    _log('[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}');
+    print('[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}');
   }
 
   // -------------------------------------------------------------------------
@@ -351,6 +319,7 @@ class DraftSessionNotifier extends ChangeNotifier {
           status: MatchStatus.reported,
         );
         _updateMatch(result.roundNumber, matchIndex, updated);
+        _updatePlayerRecords(updated, result.roundNumber);
 
         _notifyMatchResultSubmitted(reporterId, updated);
 
@@ -420,17 +389,6 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = _state!.copyWith(players: players).bumpSequence();
     _bleService!.pushState(_state!);
     notifyListeners();
-  }
-
-  void _finalizeReportedMatches(DraftRound round) {
-    for (int i = 0; i < round.matches.length; i++) {
-      final match = round.matches[i];
-      if (match.status == MatchStatus.reported) {
-        final confirmed = match.copyWith(status: MatchStatus.confirmed);
-        _updateMatch(round.roundNumber, i, confirmed);
-        _updatePlayerRecords(confirmed, round.roundNumber);
-      }
-    }
   }
 
   // -------------------------------------------------------------------------
@@ -506,9 +464,11 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     final follower = _bleFollowerFactory?.call() ?? DraftBleFollower();
     follower.onStatePush = (newState) {
+      print('[NOTIFIER] onStatePush: seq=${newState.sequenceNumber}, '
+          'players=${newState.players.length}, phase=${newState.session.phase.name}');
       final myPlayer = newState.getPlayer(_myDeviceId);
       if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
-        _log('[NOTIFIER] onStatePush: I was dropped!');
+        print('[NOTIFIER] onStatePush: I was dropped!');
       }
       if (_state == null || newState.sequenceNumber > _state!.sequenceNumber) {
         final oldRoundCount = _state?.rounds.length ?? 0;
@@ -545,7 +505,32 @@ class DraftSessionNotifier extends ChangeNotifier {
         JoinRequest(playerName: playerName, deviceName: _myDeviceId),
       );
 
-      await _waitForStateUpdate();
+      for (var attempt = 0; attempt < 3; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+        try {
+          final updated = await follower.readCurrentState();
+          if (updated != null) {
+            print('[NOTIFIER] READ fallback $attempt: seq=${updated.sequenceNumber} '
+                '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
+            if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+              print('[NOTIFIER] READ fallback APPLIED newer state');
+              _state = updated;
+              notifyListeners();
+              break;
+            }
+          }
+        } catch (_) {}
+      }
+      
+      if (_state != null) {
+        final fresh = await follower.resubscribeAndReadState();
+        if (fresh != null &&
+            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+          print('[NOTIFIER] resubscribe fallback APPLIED newer state');
+          _state = fresh;
+          notifyListeners();
+        }
+      }
     } catch (_) {
       // Initial connect failed; let the reconnect loop retry in the background.
       _role = DraftRole.follower;
@@ -601,16 +586,13 @@ class DraftSessionNotifier extends ChangeNotifier {
   }
 
   /// Sends a [MatchResult] command. Followers send over BLE; the leader
-  /// processes it locally. Silently ignored when reconnecting to avoid
-  /// attempting a write on a disconnected BLE link.
+  /// processes it locally.
   Future<void> submitResult({
     required int roundNumber,
     required String matchId,
     required int myWins,
     required int opponentWins,
   }) async {
-    if (isFollower && isReconnecting) return;
-
     final cmd = MatchResult(
       roundNumber: roundNumber,
       matchId: matchId,
@@ -627,18 +609,42 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     await _bleService!.sendCommand(cmd);
 
-    await _waitForStateUpdate();
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      try {
+        final updated = await _bleService!.readCurrentState();
+        if (updated != null) {
+          print('[NOTIFIER] submitResult READ $attempt: seq=${updated.sequenceNumber} '
+              '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
+          if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+            print('[NOTIFIER] submitResult READ APPLIED newer state');
+            _state = updated;
+            notifyListeners();
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (_state != null) {
+      try {
+        final fresh = await _bleService!.resubscribeAndReadState();
+        if (fresh != null &&
+            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+          print('[NOTIFIER] submitResult resubscribe APPLIED newer state');
+          _state = fresh;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
   }
 
   /// Sends a [SubmitDecklist] command. Followers send over BLE; the leader
-  /// processes it locally. Silently ignored when reconnecting to avoid
-  /// attempting a write on a disconnected BLE link.
+  /// processes it locally.
   Future<void> submitDecklist({
     required List<String> mainboardScryfallIds,
     required List<String> sideboardScryfallIds,
   }) async {
-    if (isFollower && isReconnecting) return;
-
     final cmd = SubmitDecklist(
       mainboardScryfallIds: mainboardScryfallIds,
       sideboardScryfallIds: sideboardScryfallIds,
@@ -653,7 +659,34 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     await _bleService!.sendCommand(cmd);
 
-    await _waitForStateUpdate();
+    for (var attempt = 0; attempt < 3; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      try {
+        final updated = await _bleService!.readCurrentState();
+        if (updated != null) {
+          print('[NOTIFIER] submitDecklist READ $attempt: seq=${updated.sequenceNumber} '
+              '(current=${_state?.sequenceNumber}), players=${updated.players.length}');
+          if (updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+            print('[NOTIFIER] submitDecklist READ APPLIED newer state');
+            _state = updated;
+            notifyListeners();
+            break;
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (_state != null) {
+      try {
+        final fresh = await _bleService!.resubscribeAndReadState();
+        if (fresh != null &&
+            fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+          print('[NOTIFIER] submitDecklist resubscribe APPLIED newer state');
+          _state = fresh;
+          notifyListeners();
+        }
+      } catch (_) {}
+    }
   }
 
   /// Polls the leader for updated state via a GATT read.
@@ -671,32 +704,6 @@ class DraftSessionNotifier extends ChangeNotifier {
       if (updated != null &&
           updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
         _state = updated;
-        notifyListeners();
-      }
-    } catch (_) {}
-  }
-
-  /// After sending a command to the leader, waits for the state-update
-  /// notification the leader sends in response (polling [state] every 100ms
-  /// for up to 1s). Falls back to a full resubscribe only if the
-  /// notification is lost — avoiding the unreliable GATT read cache on
-  /// Android and the unsubscribe gap in the common case.
-  Future<void> _waitForStateUpdate() async {
-    if (_state == null) return;
-    final oldSeq = _state!.sequenceNumber;
-
-    for (var i = 0; i < 10; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 100));
-      if (_state == null) return;
-      if (_state!.sequenceNumber > oldSeq) return;
-    }
-
-    if (_state == null) return;
-    try {
-      final fresh = await _bleService!.resubscribeAndReadState();
-      if (fresh != null &&
-          fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-        _state = fresh;
         notifyListeners();
       }
     } catch (_) {}
@@ -795,13 +802,9 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = null;
     _bleToAppId.clear();
     if (_bleService != null) {
+      print('[NOTIFIER] dispose: stopping BLE service (fire-and-forget)');
       _bleService!.stop();
     }
     super.dispose();
   }
-}
-
-void _log(String msg) {
-  // ignore: avoid_print
-  if (kDebugMode) print(msg);
 }

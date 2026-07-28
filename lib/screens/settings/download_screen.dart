@@ -40,7 +40,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     cardRepository = CardRepository();
     setRepository = SetRepository();
     tokenRepository = TokenRepository();
-    _releaseDateHelper = ReleaseDateHelper();
+    _releaseDateHelper = ReleaseDateHelper(); // Add this
 
     setRepository.populateSetsTable();
     setRepository.getScryfallMetadata().then((value) {
