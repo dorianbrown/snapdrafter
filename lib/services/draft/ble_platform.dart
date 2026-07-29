@@ -54,3 +54,57 @@ abstract class BleCentral {
   /// Reads a characteristic value from the remote device.
   Future<Uint8List> readCharacteristic(String deviceId, String serviceUuid, String characteristicUuid);
 }
+
+/// Abstract interface for BLE peripheral operations.
+///
+/// [DraftBleLeader] delegates all platform-level BLE calls to an
+/// implementation of this interface so that real hardware is not required
+/// during testing.
+abstract class BlePeripheral {
+  Stream<BlePeripheralConnectionStateChanged> get connectionStateStream;
+
+  Stream<BlePeripheralCharacteristicSubscriptionChanged>
+      get characteristicSubscriptionStream;
+
+  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream;
+
+  Stream<BlePeripheralMtuChanged> get mtuChangedStream;
+
+  Future<BlePeripheralCapabilities> getCapabilities();
+
+  Future<void> addService(BlePeripheralService service);
+
+  void setReadRequestHandlers(
+    PeripheralReadRequestResult? Function(
+            String deviceId, String characteristicId, int offset, Uint8List? value)?
+        handler,
+  );
+
+  void setWriteRequestHandlers(
+    PeripheralWriteRequestResult Function(
+            String deviceId, String characteristicId, int offset, Uint8List? value)?
+        handler,
+  );
+
+  Future<void> startAdvertising({
+    required List<String> services,
+    String? localName,
+    PeripheralPlatformConfig? platformConfig,
+  });
+
+  Future<void> stopAdvertising();
+
+  Future<void> clearServices();
+
+  Future<List<String>> getServices();
+
+  Future<PeripheralReadinessState> getAvailabilityState();
+
+  Future<void> updateCharacteristicValue({
+    required String characteristicId,
+    required Uint8List value,
+    String? deviceId,
+  });
+
+  Future<int?> getMaximumNotifyLength(String deviceId);
+}
