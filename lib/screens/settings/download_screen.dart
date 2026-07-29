@@ -4,7 +4,6 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart' hide Card;
-import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
 import '/utils/utils.dart';
@@ -24,9 +23,8 @@ class DownloadScreen extends StatefulWidget {
 }
 
 class _DownloadScreenState extends State<DownloadScreen> {
-  ValueNotifier downloadProgressNotifier = ValueNotifier(0);
+  ValueNotifier<String> downloadPhaseNotifier = ValueNotifier("");
   final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
-  int totalBytes = 0;
   bool isDownloading = false;
   late CardRepository cardRepository;
   late SetRepository setRepository;
@@ -57,7 +55,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
         appBar: AppBar(title: const Text('Scryfall Download')),
         body: Center(
           child: ValueListenableBuilder(
-              valueListenable: downloadProgressNotifier,
+              valueListenable: downloadPhaseNotifier,
               builder: (context, value, snapshot) {
                 return Column(
                   spacing: 25,
@@ -92,21 +90,13 @@ class _DownloadScreenState extends State<DownloadScreen> {
                         padding: EdgeInsets.fromLTRB(0, 0, 0, 0),
                         child:
                             const Icon(Icons.file_download_outlined, size: 70)),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(50, 0, 50, 0),
-                      child: LinearProgressIndicator(
-                        value: totalBytes > 0
-                            ? downloadProgressNotifier.value / totalBytes
-                            : 0,
+                    if (isDownloading)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(50, 0, 50, 0),
+                        child: CircularProgressIndicator(),
                       ),
-                    ),
                     (isDownloading)
-                        ? Text(
-                            (totalBytes > 0)
-                                ? (downloadProgressNotifier.value < totalBytes)
-                                    ? "${(downloadProgressNotifier.value / (1000 * 1000)).ceil()} MB downloaded"
-                                    : "Processing download..."
-                                : "Querying Scryfall",
+                        ? Text(value,
                             style: const TextStyle(
                                 fontSize: 20.0, fontWeight: FontWeight.w600),
                           )
@@ -124,14 +114,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
   }
 
   downloadFileFromServer() async {
-    downloadProgressNotifier.value = 0;
-    // ignore: unused_local_variable
-    Directory directory;
-    if (Platform.isAndroid) {
-      directory = (await getExternalStorageDirectory())!;
-    } else {
-      directory = (await getApplicationDocumentsDirectory());
-    }
+    downloadPhaseNotifier.value = "Querying Scryfall...";
 
     final getResponse = await http.get(
       Uri.parse("https://api.scryfall.com/bulk-data"),
@@ -144,8 +127,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
         final dataMap = responseMap["data"]
             .where((x) => x["type"] == "oracle_cards")
             .toList()[0];
-        downloadUri = dataMap["download_uri"];
-        totalBytes = dataMap["size"];
+        downloadUri = dataMap["jsonl_download_uri"];
       } on Exception catch (e) {
         throw Exception('Unable to connect to api.scryfall.com: $e');
       }
@@ -154,11 +136,9 @@ class _DownloadScreenState extends State<DownloadScreen> {
           'Unable to connect to api.scryfall.com. Status code: ${getResponse.statusCode}');
     }
 
+    downloadPhaseNotifier.value = "Downloading Scryfall data...";
     final downloadResponse = await Dio()
-        .get(downloadUri, options: Options(responseType: ResponseType.stream),
-            onReceiveProgress: (actualBytes, int _) {
-      downloadProgressNotifier.value = actualBytes;
-    });
+        .get(downloadUri, options: Options(responseType: ResponseType.stream));
 
     List<String> validCardLayouts = [
       "normal",
@@ -236,17 +216,21 @@ class _DownloadScreenState extends State<DownloadScreen> {
       "id": 1,
       "datetime": convertDatetimeToYMDHM(DateTime.now())
     };
-    // This function allows us to parse elements from the stream, without
-    // handling the entire json object. Might be a better way, but for now this
-    // works.
-    reviver(key, val) {
+    downloadPhaseNotifier.value = "Unpacking archive...";
+    final completer = Completer();
+    downloadResponse.data.stream
+        .cast<List<int>>()
+        .transform(gzip.decoder)
+        .transform(utf8.decoder)
+        .transform(const LineSplitter())
+        .listen((line) {
+      if (line.trim().isEmpty) return;
+      final val = jsonDecode(line);
+      if (val is! Map) return;
       // Playable Card
-      if (val is Map && validCardLayouts.contains(val["layout"])) {
-        if (val["card_faces"] == null && val["image_uris"] == null) {
-          return null;
-        }
+      if (validCardLayouts.contains(val["layout"])) {
+        if (val["card_faces"] == null && val["image_uris"] == null) return;
         if (newestRelease.compareTo(val["released_at"]) < 0 &&
-            // We add 8 days here to make set available for prereleases
             val["released_at"].compareTo(convertDatetimeToYMD(
                     DateTime.now().add(Duration(days: 8)))) <
                 0 &&
@@ -254,25 +238,18 @@ class _DownloadScreenState extends State<DownloadScreen> {
           newestRelease = val["released_at"];
           scryfallMetadata["newest_set_name"] = val["set_name"];
         }
-
         nameOracleMapping[val["name"]] = val["oracle_id"];
-
         cards.add(mapToCard(val));
-        return null;
       }
       // Tokens
-      if (val is Map && val["layout"] == "token") {
-        if (val["all_parts"] == null || val["all_parts"].isEmpty) {
-          return null;
-        }
-
+      if (val["layout"] == "token") {
+        if (val["all_parts"] == null || val["all_parts"].isEmpty) return;
         List<Map<String, dynamic>> allParts = val["all_parts"]
             .whereType<Map<String, dynamic>>()
             .where((obj) => obj["component"] == "combo_piece")
             .toList();
         cardTokenMapping.addAll(allParts
             .map((obj) => [obj["name"] as String, val["oracle_id"] as String]));
-
         tokens.add(Token(
           oracleId: val["oracle_id"],
           name: val["name"],
@@ -280,22 +257,13 @@ class _DownloadScreenState extends State<DownloadScreen> {
               ? val["card_faces"][0]["image_uris"]["normal"]
               : val["image_uris"]["normal"],
         ));
-        return null;
-      } else {
-        return val;
       }
-    }
-
-    final completer = Completer();
-    downloadResponse.data.stream
-        .cast<List<int>>()
-        .transform(utf8.decoder)
-        .transform(JsonDecoder(reviver))
-        .listen(null, onDone: () {
+    }, onDone: () {
       completer.complete();
     });
     await completer.future;
 
+    downloadPhaseNotifier.value = "Filling database...";
     debugPrint("tokenMapping: ${cardTokenMapping.length}");
 
     cardTokenMapping = cardTokenMapping

@@ -23,8 +23,6 @@ class UpdatePromptDialog extends StatelessWidget {
     final content = isInitialDownload
         ? 'Your card database is empty, and SnapDrafter needs this card data to function.\n'
             '\n'
-            'The download is approx. 200-300MB.\n'
-            '\n'
             'Would you like to download it now?'
         : () {
             var mappedSets = sets
