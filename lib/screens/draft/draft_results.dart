@@ -25,11 +25,33 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
   final CardRepository _cardRepository = CardRepository();
   List<String>? _capturedMainboardIds;
   List<String>? _capturedSideboardIds;
+  bool _deckCaptured = false;
   final Set<String> _savedPlayerIds = {};
 
   @override
   void initState() {
     super.initState();
+    _checkExistingSubmission();
+  }
+
+  Future<void> _checkExistingSubmission() async {
+    final notifier = context.read<DraftSessionNotifier>();
+    final state = notifier.state;
+    if (state == null) return;
+
+    try {
+      final decks = await _deckRepository.getAllDecks();
+      final submitted = decks.any(
+        (d) =>
+            d.tags.contains(state.session.name) && d.name == state.session.name,
+      );
+
+      if (mounted && submitted) {
+        setState(() => _deckCaptured = true);
+      }
+    } catch (_) {
+      // Database may not be available (e.g. in tests); skip deck check.
+    }
   }
 
   @override
@@ -56,7 +78,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${session.name}:  Results'),
+        title: Text('${session.name} \u2014 Results'),
         leading: BackButton(
           onPressed: () async {
             await notifier.leaveDraft();
@@ -90,26 +112,10 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                     ),
                   ),
                 ),
-                if (hasSubmitted)
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(10),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.check_circle,
-                              color: Colors.green, size: 20),
-                          const SizedBox(width: 8),
-                          Text('Your decklist has been submitted',
-                              style:
-                                  Theme.of(context).textTheme.bodyMedium),
-                        ],
-                      ),
-                    ),
-                  ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 Text('Final Standings',
                     style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 ...standings.asMap().entries.map((entry) {
                   final rank = entry.key + 1;
                   final player = entry.value;
@@ -137,12 +143,17 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 const SizedBox(height: 16),
               ],
             ),
-        floatingActionButton: hasSubmitted || notifier.isReconnecting
-            ? null
+        floatingActionButton: hasSubmitted
+            ? FloatingActionButton.extended(
+                onPressed: null,
+                label: const Text('Submitted'),
+                icon: const Icon(Icons.check),
+              )
             : FloatingActionButton.extended(
-                onPressed: _scanDeck,
-                label: const Text('Scan My Deck'),
-                icon: const Icon(Icons.camera_alt),
+                onPressed:
+                    _deckCaptured ? _shareDecklist : _scanDeck,
+                label: Text(_deckCaptured ? 'Share Decklist' : 'Scan My Deck'),
+                icon: Icon(_deckCaptured ? Icons.share : Icons.camera_alt),
               ),
       );
   }
@@ -173,13 +184,52 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 deck.cards.map((c) => c.scryfallId).toList();
             _capturedSideboardIds =
                 deck.sideboard.map((c) => c.scryfallId).toList();
-            notifier.submitDecklist(
-              mainboardScryfallIds: _capturedMainboardIds!,
-              sideboardScryfallIds: _capturedSideboardIds ?? [],
-            );
+            setState(() => _deckCaptured = true);
           },
         ),
       ),
+    );
+
+    if (_capturedMainboardIds != null && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showShareDialog();
+        }
+      });
+    }
+  }
+
+  void _showShareDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Decklist Captured'),
+        content: const Text(
+            'Share this decklist with all players so they can view and save it?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Not Now'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              _shareDecklist();
+            },
+            child: const Text('Share'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _shareDecklist() {
+    final notifier = context.read<DraftSessionNotifier>();
+    if (_capturedMainboardIds == null) return;
+
+    notifier.submitDecklist(
+      mainboardScryfallIds: _capturedMainboardIds!,
+      sideboardScryfallIds: _capturedSideboardIds ?? [],
     );
   }
 
@@ -282,6 +332,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
       color: isMe
           ? Theme.of(context).colorScheme.primaryContainer
           : null,
+      margin: const EdgeInsets.symmetric(vertical: 3),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: rankColor ?? Colors.grey.shade200,

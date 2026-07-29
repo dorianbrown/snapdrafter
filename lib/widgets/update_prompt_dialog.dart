@@ -1,54 +1,27 @@
 import 'package:flutter/material.dart';
 
 class UpdatePromptDialog extends StatelessWidget {
-  final List<Map<String, String>> sets;
+  final int numberOfSets;
   final VoidCallback onUpdateNow;
   final VoidCallback onRemindLater;
-  final bool isInitialDownload;
-
+  
   const UpdatePromptDialog({
     super.key,
-    this.sets = const [],
+    required this.numberOfSets,
     required this.onUpdateNow,
     required this.onRemindLater,
-    this.isInitialDownload = false,
   });
-
+  
   @override
   Widget build(BuildContext context) {
-    final title = isInitialDownload
-        ? 'Scryfall Data Missing'
-        : 'New Set${(sets.length > 1) ? "s" : ""} Available!';
-
-    final content = isInitialDownload
-        ? 'Your card database is empty, and SnapDrafter needs this card data to function.\n'
-            '\n'
-            'The download is approx. 200-300MB.\n'
-            '\n'
-            'Would you like to download it now?'
-        : () {
-            var mappedSets = sets
-                .map((s) => ' \u2022 ${s['name']} (${s['code']!.toUpperCase()})')
-                .toList();
-
-            var setNames = '';
-            if (mappedSets.length > 5) {
-              setNames = '${mappedSets.sublist(0, 5).join('\n')}\n \u2022 ...';
-            } else {
-              setNames = mappedSets.join('\n');
-            }
-
-            return '${sets.length} additional Magic set${(sets.length > 1) ? "s" : ""} '
-                '${(sets.length > 1) ? "are" : "is"} available on Scryfall for download:\n'
-                '\n'
-                '$setNames\n'
-                '\n'
-                'Would you like to update your card database now?';
-          }();
-
     return AlertDialog(
-      title: Text(title),
-      content: Text(content),
+      title: Text('New Set${(numberOfSets > 1) ? "s" : ""} Available!'),
+      content: Text(
+        '$numberOfSets new Magic set${(numberOfSets > 1) ? "s" : ""} '
+        '${(numberOfSets > 1) ? "have" : "has"} been released since you '
+        'last updated your card database.\n\nWould you like to update '
+        'now to include these new sets?',
+      ),
       actions: [
         TextButton(
           onPressed: () {

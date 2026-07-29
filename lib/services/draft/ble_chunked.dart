@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'dart:math';
@@ -12,13 +11,9 @@ class BleChunkedStream {
   final Map<int, _ChunkBuffer> _buffers = {};
   int _nextMessageId = 0;
   int? _currentCompleteMessageId;
-  final Duration _chunkTimeout;
 
-  BleChunkedStream({
-    int maxPayloadPerChunk = 11,
-    Duration chunkTimeout = const Duration(seconds: 5),
-  }) : _maxPayloadPerChunk = maxPayloadPerChunk,
-       _chunkTimeout = chunkTimeout;
+  BleChunkedStream({int maxPayloadPerChunk = 11})
+      : _maxPayloadPerChunk = maxPayloadPerChunk;
 
   int get maxPayloadPerChunk => _maxPayloadPerChunk;
 
@@ -77,19 +72,12 @@ class BleChunkedStream {
 
     final buffer = _buffers.putIfAbsent(
       messageId,
-      () => _ChunkBuffer(
-        totalChunks,
-        timeout: _chunkTimeout,
-        onTimeout: () {
-          _buffers.remove(messageId);
-        },
-      ),
+      () => _ChunkBuffer(totalChunks),
     );
 
     buffer.addChunk(chunkIndex, payload);
 
     if (buffer.isComplete) {
-      buffer.cancel();
       _currentCompleteMessageId = messageId;
     }
   }
@@ -104,9 +92,6 @@ class BleChunkedStream {
   }
 
   void reset() {
-    for (final buffer in _buffers.values) {
-      buffer.cancel();
-    }
     _buffers.clear();
     _currentCompleteMessageId = null;
   }
@@ -116,22 +101,10 @@ class _ChunkBuffer {
   final int totalChunks;
   final List<Uint8List?> _chunks;
   int _received = 0;
-  Timer? _timer;
-  bool _cancelled = false;
 
-  _ChunkBuffer(
-    this.totalChunks, {
-    required Duration timeout,
-    required void Function() onTimeout,
-  }) : _chunks = List.filled(totalChunks, null) {
-    _timer = Timer(timeout, () {
-      _cancelled = true;
-      onTimeout();
-    });
-  }
+  _ChunkBuffer(this.totalChunks) : _chunks = List.filled(totalChunks, null);
 
   void addChunk(int index, Uint8List data) {
-    if (_cancelled) return;
     if (index < 0 || index >= totalChunks) return;
     if (_chunks[index] == null) {
       _chunks[index] = data;
@@ -139,7 +112,7 @@ class _ChunkBuffer {
     }
   }
 
-  bool get isComplete => !_cancelled && _received == totalChunks;
+  bool get isComplete => _received == totalChunks;
 
   Uint8List get data {
     final builder = BytesBuilder();
@@ -147,11 +120,5 @@ class _ChunkBuffer {
       if (chunk != null) builder.add(chunk);
     }
     return builder.toBytes();
-  }
-
-  void cancel() {
-    _timer?.cancel();
-    _timer = null;
-    _cancelled = true;
   }
 }

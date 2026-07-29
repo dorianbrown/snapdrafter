@@ -8,7 +8,6 @@ import 'package:flutter_sharing_intent/flutter_sharing_intent.dart';
 import 'package:snapdrafter/utils/utils.dart';
 
 import '/data/database/database_helper.dart';
-import '/data/repositories/card_repository.dart';
 import '/data/repositories/set_repository.dart';
 import '/screens/decks_overview.dart';
 import '/screens/image_processing_screen.dart';
@@ -87,9 +86,8 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     _setRepository = SetRepository();
     
     // Run the release date check after the app is initialized
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _waitForWelcomeDismissed();
-      await _checkForNewReleases();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForNewReleases();
     });
 
     _intentDataStreamSubscription = FlutterSharingIntent.instance.getMediaStream()
@@ -126,61 +124,33 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
   
-  Future<void> _waitForWelcomeDismissed() async {
-    final prefs = await SharedPreferences.getInstance();
-    while (!(prefs.getBool("welcome_popup_seen") ?? false)) {
-      await Future.delayed(Duration(milliseconds: 500));
-      await prefs.reload();
-    }
-  }
-
   Future<void> _checkForNewReleases() async {
     try {
-      final cardRepo = CardRepository();
-      if (await cardRepo.isCardTableEmpty() && mounted) {
-        _showUpdatePrompt([], isInitialDownload: true);
-        return;
-      }
 
-      // Check upcoming releases
+      // Check if we need to fetch new dates (done every 7 days)
       if (await _releaseDateHelper.shouldFetchNewDates()) {
         final newDates = await _setRepository.fetchUpcomingReleaseDates();
         await _releaseDateHelper.saveUpcomingReleaseDates(newDates);
       }
-
+      
+      // Get stored set release dates and check for ones we've already prompted for
       final upcomingDates = await _releaseDateHelper.getUpcomingReleaseDates();
       final promptedSets = await _releaseDateHelper.getPromptedSets();
       final now = DateTime.now();
 
-      final upcomingToPrompt = upcomingDates.entries
-          .where((entry) =>
-              DateTime.parse(entry.value["date"]!)
-                  .subtract(Duration(days: 2))
-                  .isBefore(now) &&
+      final passedDates = upcomingDates.entries
+          .where((entry) => 
+              entry.value.subtract(Duration(days: 14)).isBefore(now) &&
               !promptedSets.contains(entry.key))
-          .map((entry) => {"code": entry.key, "name": entry.value["name"]!})
           .toList();
-
-      // Check for missing released sets not in local database
-      final missingSets = await _setRepository.getMissingReleasedSets();
-      final promptedMissing = await _releaseDateHelper.getPromptedMissingSets();
-      final missingToPrompt = missingSets
-          .where((s) => !promptedMissing.contains(s['code']!))
-          .toList();
-
-      final allSetsToPrompt = [...upcomingToPrompt, ...missingToPrompt];
-
-      if (allSetsToPrompt.isNotEmpty && mounted) {
-        _showUpdatePrompt(allSetsToPrompt);
-
-        // Mark all as prompted
-        for (final entry in upcomingToPrompt) {
-          await _releaseDateHelper.addToPromptedDates(entry["code"]!);
-        }
-        if (missingToPrompt.isNotEmpty) {
-          await _releaseDateHelper.addToPromptedMissingSets(
-            missingToPrompt.map((s) => s['code']!).toSet(),
-          );
+      
+      if (passedDates.isNotEmpty && mounted) {
+        // Show the update prompt
+        _showUpdatePrompt(passedDates);
+        
+        // Mark these as prompted so we don't show again
+        for (final entry in passedDates) {
+          await _releaseDateHelper.addToPromptedDates(entry.key);
         }
       }
     } catch (e) {
@@ -189,15 +159,14 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
   
-  void _showUpdatePrompt(List<Map<String, String>> sets, {bool isInitialDownload = false}) {
+  void _showUpdatePrompt(List<MapEntry<String, DateTime>> passedDates) {
     if (navigatorKey.currentState == null) return;
-
+    
     showDialog(
       context: navigatorKey.currentContext!,
       barrierDismissible: false,
       builder: (context) => UpdatePromptDialog(
-        sets: sets,
-        isInitialDownload: isInitialDownload,
+        numberOfSets: passedDates.length,
         onUpdateNow: () {
           // Navigate to download screen
           Navigator.push(

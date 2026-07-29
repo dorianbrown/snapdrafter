@@ -24,7 +24,6 @@ class _CubeSettingsState extends State<CubeSettings> {
   List<Cube> _cubes = [];
   bool _cubesLoading = true;
   final Map<String, CubeCobraCredentials?> _ccAuth = {};
-  bool _debugEnabled = false;
 
   @override
   initState() {
@@ -35,7 +34,6 @@ class _CubeSettingsState extends State<CubeSettings> {
 
   Future<void> _init() async {
     _prefs = await SharedPreferences.getInstance();
-    _debugEnabled = _prefs.getBool("debug_enabled") ?? false;
     await _refreshCubes();
   }
 
@@ -210,9 +208,6 @@ class _CubeSettingsState extends State<CubeSettings> {
         ),
       );
     }
-    if (!_debugEnabled) {
-      return const SizedBox.shrink();
-    }
     return GestureDetector(
       onTap: () => _showAuthDialog(cube.cubecobraId, cube.name),
       child: Container(
@@ -287,7 +282,7 @@ class _CubeSettingsState extends State<CubeSettings> {
                     icon: const Icon(Icons.logout, size: 18),
                     label: const Text('Sign out'),
                   ),
-                ] else if (_debugEnabled) ...[
+                ] else ...[
                   FilledButton.icon(
                     onPressed: () {
                       Navigator.of(ctx).pop();

@@ -26,12 +26,6 @@ class CardRepository {
 
   Future<Database> get _db async => await _dbHelper.database;
 
-  Future<bool> isCardTableEmpty() async {
-    final dbClient = await _db;
-    final result = await dbClient.rawQuery('SELECT COUNT(*) as count FROM cards');
-    return (result.first['count'] as int) == 0;
-  }
-
   Future<void> populateCardsTable(List<Card> cards, Map<String, dynamic> scryfallMetadata) async {
     final dbClient = await _db;
     await dbClient.transaction((txn) async {

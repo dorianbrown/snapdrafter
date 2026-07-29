@@ -8,9 +8,9 @@ import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:image/image.dart' as img;
 import 'package:flutter_litert/flutter_litert.dart' hide Detection;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'detection_preview.dart';
-import '/utils/card_matcher.dart';
 import '/utils/utils.dart';
 
 import '/data/repositories/card_repository.dart';
@@ -170,13 +170,15 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
     final modelFile = await rootBundle.load(modelPath);
     final modelBuffer = modelFile.buffer.asUint8List();
 
-    final pngBytes = img.encodePng(inputImage);
+    List<Future<List<List<int>>>> futureDetections =
+        [0, 90, 180, 270].map((rot) {
+      Uint8List detectionBytes =
+          img.encodePng(img.copyRotate(inputImage, angle: rot));
+      return compute(_titleDetection,
+          {'inputBytes': detectionBytes, 'modelBuffer': modelBuffer});
+    }).toList();
 
-    final allDetections = await compute(_runAllOrientations, {
-      'encodedImage': pngBytes,
-      'modelBuffer': modelBuffer,
-      'rotations': [0, 90, 180, 270],
-    });
+    List<List<List<int>>> allDetections = await Future.wait(futureDetections);
 
     // Choose best orientation by number of detections
     int maxDetections = 0;
@@ -266,58 +268,51 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     setState(() => currentStep += 1);
 
-    List<Card?> matchedCards = matches.map((match) {
-      if (match.score <= 5) return null;
-      final matchedCard = allCards[choicesToCardsMap[match.index]!];
-      if (matchedCard.name.contains(' // ')) {
-        final exactMatch = findCardByName(choices[match.index], allCards);
-        if (exactMatch != null && !exactMatch.name.contains(' // ')) {
-          return exactMatch;
-        }
-      }
-      return matchedCard;
-    }).toList();
+    List<Card?> matchedCards = matches
+        .map((match) =>
+            match.score > 5 ? allCards[choicesToCardsMap[match.index]!] : null)
+        .toList();
 
+    // Add annotations to image
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
+    final overlayColor = img.ColorRgba8(255, 242, 0, 255);
 
     List<Detection> detectionOutput = [];
 
     for (var i = 0; i < detections.length; i++) {
       var [x1, y1, x2, y2] = detections[i];
-
-      final score = matches[i].score;
-      final color = matchedCards[i] == null
-          ? img.ColorRgba8(158, 158, 158, 255)
-          : score > 70
-              ? img.ColorRgba8(76, 175, 80, 255)
-              : score > 40
-                  ? img.ColorRgba8(255, 193, 7, 255)
-                  : img.ColorRgba8(244, 67, 54, 255);
-
-      img.drawRect(outputImage,
-          x1: x1, y1: y1, x2: x2, y2: y2,
-          color: color, thickness: 5);
-
+      // Draw bounding box around detected title
+      img.drawRect(
+        outputImage,
+        x1: x1,
+        y1: y1,
+        x2: x2,
+        y2: y2,
+        color: overlayColor,
+        thickness: 5,
+      );
+      // Add text to image
       img.drawString(outputImage, matchedCards[i]?.name ?? "",
-          font: img.arial48, x: x1, y: y1 - 55, color: color);
+          font: img.arial48,
+          x: x1,
+          y: y1 - 55, // Place text above box
+          color: overlayColor);
 
+      // Create output list
       detectionOutput.add(Detection(
           card: matchedCards[i],
           ocrText: detectionText[i],
           ocrDistance: matches[i].score,
           textImage: img.copyCrop(inputImageCopy,
-              x: x1, y: y1, width: x2 - x1, height: y2 - y1),
-          x1: x1,
-          y1: y1,
-          x2: x2,
-          y2: y2));
+              x: x1, y: y1, width: x2 - x1, height: y2 - y1)));
     }
 
+    // Add count of cards to image
     img.drawString(outputImage, "Total Cards: ${matchedCards.length}",
         font: img.arial48,
         x: outputImage.width - 400,
         y: outputImage.height - 150,
-        color: img.ColorRgba8(255, 242, 0, 255));
+        color: overlayColor);
 
     await Navigator.of(context).pushReplacement(
       MaterialPageRoute(
@@ -352,12 +347,21 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
           interpolation: img.Interpolation.cubic);
     }
 
-    // Convert img.Image to MLKit inputImage in memory
-    final detectionImage = InputImage.fromBitmap(
-      bitmap: detectionImg.getBytes(order: img.ChannelOrder.rgba),
-      width: detectionImg.width,
-      height: detectionImg.height,
-    );
+    // Convert img.Image to MLKit inputImage
+    // TODO: Figure out how to do this in memory
+    Directory tmpDir = await getTemporaryDirectory();
+    File tmpFile = File('${tmpDir.path}/thumbnail_${x1}_${x2}_${y1}_$y2.png');
+    await img.encodeImageFile(tmpFile.path, detectionImg);
+    final detectionImage = InputImage.fromFilePath(tmpFile.path);
+    // final detectionImage = InputImage.fromBytes(
+    //     bytes: detectionImg.getBytes(order: img.ChannelOrder.bgra),
+    //     metadata: InputImageMetadata(
+    //         size: Size(detectionImg.width.toDouble(), detectionImg.height.toDouble()),
+    //         rotation: InputImageRotation.rotation0deg,
+    //         format: InputImageFormat.bgra8888,
+    //         bytesPerRow: 4 * detectionImg.width
+    //     )
+    // );
 
     // Run MLKit text recognition
     try {
@@ -373,6 +377,13 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 }
 
 Future<img.Image> processInputImage(String fp) async {
+  // Try reading file until it exists
+  int i = 0;
+  while (!File(fp).existsSync()) {
+    i++;
+    debugPrint("Attempt to read image file $i");
+    await Future.delayed(Duration(milliseconds: 100));
+  }
   Uint8List fileBytes = await File(fp).readAsBytes();
   final decodedImage = img.decodeImage(fileBytes)!;
   debugPrint(
@@ -380,71 +391,69 @@ Future<img.Image> processInputImage(String fp) async {
   return decodedImage;
 }
 
-Future<List<List<List<int>>>> _runAllOrientations(Map argMap) async {
-  final Uint8List encodedImage = argMap['encodedImage'];
-  final Uint8List modelBuffer = argMap['modelBuffer'];
-  final List<int> rotations = argMap['rotations'];
+Future<List<List<int>>> _titleDetection(Map argMap) async {
   final double detectionThreshold = 0.5;
+  final inputBytes = argMap['inputBytes'];
+  final modelBuffer = argMap['modelBuffer'];
 
-  final inputImage = img.decodePng(encodedImage)!;
   final detector = Interpreter.fromBuffer(modelBuffer);
+  final inputImage = img.decodePng(inputBytes)!;
 
-  final input = detector.getInputTensor(0);
-  final output = detector.getOutputTensor(0);
-  final int inputH = input.shape[1];
-  final int inputW = input.shape[2];
+  // Getting input/output shapes
+  final input = detector.getInputTensor(0); // BWHC
+  final output = detector.getOutputTensor(0); // BXYXYC
+  int inputW = input.shape[1];
+  int inputH = input.shape[2];
 
-  final allDetections = <List<List<int>>>[];
+  // Resizing image for model
+  final resizedImage = img.copyResize(
+    inputImage,
+    width: inputH,
+    height: inputH,
+    maintainAspect: true,
+    backgroundColor: img.ColorRgba8(0, 0, 0, 255),
+  );
 
-  for (final rot in rotations) {
-    final rotated = img.copyRotate(inputImage, angle: rot);
+  // Initializing input/output tensors
+  final inputTensor =
+      List<double>.filled(input.shape.reduce((a, b) => a * b), 0)
+          .reshape(input.shape);
+  final outputTensor =
+      List<double>.filled(output.shape.reduce((a, b) => a * b), -1)
+          .reshape(output.shape);
 
-    final resizedImage = img.copyResize(
-      rotated,
-      width: inputH,
-      height: inputH,
-      maintainAspect: true,
-      backgroundColor: img.ColorRgba8(0, 0, 0, 255),
-    );
-
-    final inputTensor =
-        List<double>.filled(input.shape.reduce((a, b) => a * b), 0)
-            .reshape(input.shape);
-    final outputTensor =
-        List<double>.filled(output.shape.reduce((a, b) => a * b), -1)
-            .reshape(output.shape);
-
-    for (int y = 0; y < inputH; y++) {
-      for (int x = 0; x < inputW; x++) {
-        final pixel = resizedImage.getPixel(x, y);
-        inputTensor[0][y][x][0] = pixel.r / 255.0;
-        inputTensor[0][y][x][1] = pixel.g / 255.0;
-        inputTensor[0][y][x][2] = pixel.b / 255.0;
-      }
+  // Filling input tensor with image data
+  for (int y = 0; y < inputH; y++) {
+    for (int x = 0; x < inputW; x++) {
+      final pixel = resizedImage.getPixel(x, y);
+      inputTensor[0][y][x][0] = pixel.r / 255.0;
+      inputTensor[0][y][x][1] = pixel.g / 255.0;
+      inputTensor[0][y][x][2] = pixel.b / 255.0;
     }
-
-    detector.run(inputTensor, outputTensor);
-
-    bool isPortrait = rotated.width < rotated.height;
-    int scalingFactor = isPortrait ? rotated.height : rotated.width;
-    double widthPadding =
-        isPortrait ? (rotated.height - rotated.width) / 2 : 0.0;
-    double heightPadding =
-        !isPortrait ? (rotated.width - rotated.height) / 2 : 0.0;
-
-    List<List<int>> detections = (outputTensor[0] as List<List<double>>)
-        .where((element) => (element[4] > detectionThreshold))
-        .map((el) => [
-              (el[0] * scalingFactor - widthPadding).toInt(),
-              (el[1] * scalingFactor - heightPadding).toInt(),
-              (el[2] * scalingFactor - widthPadding).toInt(),
-              (el[3] * scalingFactor - heightPadding).toInt()
-            ])
-        .toList();
-
-    allDetections.add(detections);
   }
 
+  // Running of actual Yolo detection model
+  detector.run(inputTensor, outputTensor);
   detector.close();
-  return allDetections;
+
+  // Converting output detection dimensions back to full
+  // image dimensions
+  bool isPortrait = inputImage.width < inputImage.height;
+  int scalingFactor = isPortrait ? inputImage.height : inputImage.width;
+  double widthPadding =
+      isPortrait ? (inputImage.height - inputImage.width) / 2 : 0.0;
+  double heightPadding =
+      !isPortrait ? (inputImage.width - inputImage.height) / 2 : 0.0;
+
+  List<List<int>> detections = (outputTensor[0] as List<List<double>>)
+      .where((element) => (element[4] > detectionThreshold))
+      .map((el) => [
+            (el[0] * scalingFactor - widthPadding).toInt(),
+            (el[1] * scalingFactor - heightPadding).toInt(),
+            (el[2] * scalingFactor - widthPadding).toInt(),
+            (el[3] * scalingFactor - heightPadding).toInt()
+          ])
+      .toList();
+
+  return detections;
 }

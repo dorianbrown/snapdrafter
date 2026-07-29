@@ -160,7 +160,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                 Spacer(flex: 7),
                 Text("No card titles detected", style: TextStyle(fontSize: 20), textAlign: TextAlign.center,),
                 Spacer(flex: 1),
-                Text("Try and make sure the titles are clearly visible",
+                Text("Make sure the cards are oriented in the upwards direction",
                   style: TextStyle(
                     fontSize: 16,
                     fontStyle: FontStyle.italic,
@@ -173,172 +173,58 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
             )
           )
         :
-        Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.fromLTRB(16, 10, 16, 10),
-              child: Text(
-                '${detections.where((d) => d.card != null).length} of ${detections.length} cards matched',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).hintColor,
-                ),
-              ),
-            ),
-            Divider(height: 1),
-            Expanded(
-              child: ListView.separated(
-                controller: _scrollController,
-                separatorBuilder: (context, index) => Divider(indent: 10, endIndent: 10,),
-                padding: EdgeInsets.only(top: 10, bottom: 10),
-                itemCount: detections.length,
-                itemBuilder: (context, index) {
-                  final detection = detections[index];
-                  final score = detection.ocrDistance;
-                  final statusColor = _statusColor(detection);
-
-                  return Dismissible(
-                    confirmDismiss: confirmDeletion,
-                    key: UniqueKey(),
-                    background: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        // borderRadius: BorderRadius.circular(12),
-                      ),
-                      alignment: Alignment.centerRight,
-                      padding: EdgeInsets.only(right: 20),
-                      child: Icon(Icons.delete, color: Colors.white),
-                    ),
-                    onDismissed: (direction) {
-                      setState(() {
-                        detections.removeAt(index);
-                      });
-                    },
-                    child: IntrinsicHeight(
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: 1,
-                            child: Row(
-                              children: [
-                                SizedBox(width: 2,),
-                                Container(
-                                  width: 4,
-                                  decoration: BoxDecoration(
-                                    color: statusColor,
-                                  ),
-                                ),
-                                SizedBox(width: 10),
-                                Expanded(
-                                  child: Center(
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        ClipRRect(
-                                          borderRadius: BorderRadius.circular(6),
-                                          child: detection.textImage != null
-                                              ? ConstrainedBox(
-                                            constraints: BoxConstraints(
-                                              maxWidth: MediaQuery.of(context).size.width * 0.35,
-                                              maxHeight: 32,
-                                            ),
-                                            child: Image.memory(
-                                              img.encodePng(detection.textImage!),
-                                              height: 32,
-                                              fit: BoxFit.contain,
-                                            ),
-                                          )
-                                              : SizedBox(width: 32, height: 32),
-                                        ),
-                                        SizedBox(width: 15),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Expanded(
-                            flex: 1,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(height: 4),
-                                Autocomplete<String>(
-                                  initialValue: TextEditingValue(text: detection.card?.name ?? ""),
-                                  optionsViewOpenDirection: OptionsViewOpenDirection.down,
-                                  optionsBuilder: (val) {
-                                    if (val.text.isEmpty) {
-                                      return const Iterable<String>.empty();
-                                    }
-                                    return searchCardNames(val.text, allCards);
-                                  },
-                                  onSelected: (option) {
-                                    Card newCard = findCardByName(option, allCards)!;
-                                    setState(() {
-                                      detections[index].card = newCard;
-                                    });
-                                  },
-                                  fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
-                                    return TextField(
-                                      controller: controller,
-                                      focusNode: focusNode,
-                                      onSubmitted: (value) => onSubmitted(),
-                                      style: const TextStyle(fontSize: 13),
-                                      decoration: const InputDecoration(
-                                          isDense: true,
-                                          contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-                                          border: UnderlineInputBorder(
-                                          ),
-                                          enabledBorder: UnderlineInputBorder(
-                                              borderSide: BorderSide(color: Colors.white54)
-                                          )
-                                      ),
-                                    );
-                                  },
-                                ),
-                                SizedBox(height: 5),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    if (detection.ocrText.isNotEmpty)
-                                      Text(
-                                        '${detection.ocrText}: ',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: Theme.of(context).hintColor,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    if (score != null)
-                                      Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                        child: Text(
-                                          '$score%',
-                                          style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                            color: statusColor,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-              ),
-            ),
-          ],
+        ListView.separated(
+          controller: _scrollController,
+          separatorBuilder: (context, index) => Divider(indent: 10, endIndent: 10,),
+          padding: EdgeInsets.all(5),
+          itemCount: detections.length,
+          itemBuilder: (context, index) {
+            return Dismissible(
+              confirmDismiss: confirmDeletion,
+              key: UniqueKey(),
+              background: Container(color: Colors.red,),
+              onDismissed: (direction) {
+                setState(() {
+                  detections.removeAt(index);
+                });
+              },
+              child: Row(
+                spacing: 15,
+                children: [
+                  Text("${index + 1}"),
+                  Expanded(
+                    flex: 1,
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxHeight: 30),
+                        child: detections[index].textImage != null
+                            ? Image.memory(img.encodePng(detections[index].textImage!))
+                            : Text(""),
+                      )
+                  ),
+                  Expanded(
+                    flex: 1,
+                    child: Autocomplete(
+                      initialValue: TextEditingValue(text: detections[index].card?.name ?? ""),
+                      optionsViewOpenDirection: OptionsViewOpenDirection.down,
+                      optionsBuilder: (val) {
+                        if (val.text.isEmpty) {
+                          return const Iterable<String>.empty();
+                        }
+                        return searchCardNames(val.text, allCards);
+                      },
+                      onSelected: (option) {
+                        Card newCard = findCardByName(option, allCards)!;
+                        setState(() {
+                          detections[index].card = newCard;
+                        });
+                        debugPrint(detections.map((x) => x.card?.name ?? "").toList().toString());
+                      },
+                    )
+                  ),
+                ],
+              )
+            );
+          }
         ),
         floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
         floatingActionButton: Row(
@@ -346,37 +232,30 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
           children: [
             if (!widget.isSideboardStep)
               Padding(
-                padding: const EdgeInsets.only(right: 6.0),
+                padding: const EdgeInsets.only(right: 8.0),
                 child: FloatingActionButton.extended(
                   heroTag: 'add_sideboard',
                   onPressed: _onAddSideboard,
-                  label: const Text('Sideboard', style: TextStyle(fontSize: 13)),
-                  icon: const Icon(Icons.add_box_rounded, size: 20),
+                  label: const Text('Sideboard'),
+                  icon: const Icon(Icons.add_box_rounded),
                 ),
               ),
             FloatingActionButton.extended(
               heroTag: 'save_deck',
               onPressed: detections.isEmpty ? null : saveDetectionsToDeck,
-              label: Text(widget.isSideboardStep ? "Save Deck + Sideboard" : "Save",
-                  style: TextStyle(fontSize: 13)),
-              icon: const Icon(Icons.save, size: 20),
+              label: Text(widget.isSideboardStep ? "Save Deck + Sideboard" : "Save"),
+              icon: const Icon(Icons.save),
             ),
           ],
         ),
         bottomNavigationBar: BottomAppBar(
-          padding: EdgeInsets.symmetric(horizontal: 8),
           child: Row(
             children: [
               IconButton(
-                tooltip: 'Add card',
                 onPressed: () async {
                   detections = [Detection(
                       card: null,
-                      ocrText: "",
-                      x1: 0,
-                      y1: 0,
-                      x2: 0,
-                      y2: 0,
+                      ocrText: ""
                   )] + detections;
                   setState(() {});
                   _scrollController
@@ -387,13 +266,12 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                     curve: Curves.easeOut
                   );
                 },
-                icon: Icon(Icons.add),
+                icon: Icon(Icons.add)
               ),
               IconButton(
-                tooltip: 'View image',
-                onPressed: _openZoomViewer,
-                icon: Icon(Icons.image),
-              ),
+                onPressed: () => createInteractiveViewer(imagePng),
+                icon: Icon(Icons.image)
+              )
             ],
           ),
         ),
@@ -479,13 +357,13 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     }
   }
 
-  void _openZoomViewer() {
+  void createInteractiveViewer(Uint8List imageBytes) {
     showDialog(
         context: context,
         builder: (innerContext) {
           return AlertDialog(
-              insetPadding: EdgeInsets.zero,
-              contentPadding: EdgeInsets.zero,
+              insetPadding: EdgeInsets.zero, // Maximize viewing area
+              contentPadding: EdgeInsets.zero, // Maximize viewing area
               actions: [
                 TextButton(
                     style: ButtonStyle(
@@ -497,7 +375,6 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                 ),
               ],
               content: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Expanded(
                       child: InteractiveViewer(
@@ -543,12 +420,4 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     },
     );
   }
-}
-
-Color _statusColor(Detection d) {
-  if (d.card == null) return Colors.grey;
-  final score = d.ocrDistance ?? 0;
-  if (score > 70) return Colors.green;
-  if (score > 40) return Colors.amber;
-  return Colors.redAccent;
 }
