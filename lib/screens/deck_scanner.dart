@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart' hide Orientation;
 import 'package:camerawesome/camerawesome_plugin.dart';
+import 'package:camerawesome/pigeon.dart';
 
 import '../data/models/deck.dart';
 import '../data/models/deck_upsert.dart';
@@ -55,10 +56,47 @@ class DeckScannerState extends State<DeckScanner> {
           previewFit: CameraPreviewFit.contain,
           availableFilters: [],
           defaultFilter: AwesomeFilter.None,
+          onPreviewTapBuilder: (state) {
+            return OnPreviewTap(
+              onTap: (position, flutterPreviewSize, pixelPreviewSize) {
+                state.when(
+                  onPhotoMode: (photoState) => photoState.focusOnPoint(
+                    flutterPosition: position,
+                    pixelPreviewSize: pixelPreviewSize,
+                    flutterPreviewSize: flutterPreviewSize,
+                    androidFocusSettings:
+                        AndroidFocusSettings(autoCancelDurationInMillis: 0),
+                  ),
+                  onVideoMode: (videoState) => videoState.focusOnPoint(
+                    flutterPosition: position,
+                    pixelPreviewSize: pixelPreviewSize,
+                    flutterPreviewSize: flutterPreviewSize,
+                    androidFocusSettings:
+                        AndroidFocusSettings(autoCancelDurationInMillis: 0),
+                  ),
+                  onVideoRecordingMode: (videoRecState) =>
+                      videoRecState.focusOnPoint(
+                    flutterPosition: position,
+                    pixelPreviewSize: pixelPreviewSize,
+                    flutterPreviewSize: flutterPreviewSize,
+                    androidFocusSettings:
+                        AndroidFocusSettings(autoCancelDurationInMillis: 0),
+                  ),
+                  onPreviewMode: (previewState) => previewState.focusOnPoint(
+                    flutterPosition: position,
+                    pixelPreviewSize: pixelPreviewSize,
+                    flutterPreviewSize: flutterPreviewSize,
+                    androidFocusSettings:
+                        AndroidFocusSettings(autoCancelDurationInMillis: 0),
+                  ),
+                );
+              },
+            );
+          },
           onMediaCaptureEvent: (mediaCapture) {
             mediaCapture.captureRequest.when(
               single: (SingleCaptureRequest singeCaptureRequest) async {
-                if (mediaCapture.status == MediaCaptureStatus.capturing) {
+                if (mediaCapture.status == MediaCaptureStatus.success) {
                   String filePath = singeCaptureRequest.path!;
                   Navigator.of(context).push(MaterialPageRoute(
                       builder: (context) => deckImageProcessing(
@@ -67,8 +105,6 @@ class DeckScannerState extends State<DeckScanner> {
                             prefill: widget.prefill,
                             onDeckSaved: widget.onDeckSaved,
                           )));
-                } else if (mediaCapture.status == MediaCaptureStatus.success) {
-                  debugPrint("Finished writing image file");
                 }
               },
             );

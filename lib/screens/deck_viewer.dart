@@ -9,7 +9,7 @@ import 'package:collection/collection.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/services.dart';
-import 'package:image/image.dart' as img;
+import 'dart:ui' as ui;
 import 'package:loader_overlay/loader_overlay.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
@@ -55,8 +55,6 @@ class DeckViewerState extends State<DeckViewer> {
   late TokenRepository tokenRepository;
   late DeckRepository deckRepository;
   Map groupedTokens = {};
-  Uint8List? cachedShareImageBytes;
-
   List<String> renderValues = ["type", "3"];
   // These are used for dropdown menus controlling how decklist is displayed
   TextEditingController displayController =
@@ -115,7 +113,52 @@ class DeckViewerState extends State<DeckViewer> {
         overlayColor: Colors.black38.withAlpha(200),
         child: Scaffold(
           appBar: AppBar(
-            actions: generateControls(),
+            actions: [
+              Row(
+                spacing: 8,
+                children: [
+                  DropdownMenu(
+                    width: 125,
+                    label: const Text("Display"),
+                    controller: displayController,
+                    inputDecorationTheme: myInputDecorationTheme,
+                    textStyle: const TextStyle(fontSize: 12),
+                    dropdownMenuEntries: [
+                      DropdownMenuEntry(value: "image", label: "Images"),
+                      DropdownMenuEntry(value: "text", label: "Text")
+                    ],
+                    onSelected: (value) {
+                      renderValues[0] = value!;
+                      setState(() {});
+                    },
+                  ),
+                  DropdownMenu(
+                    width: 90,
+                    label: const Text("Columns"),
+                    controller: numColumnsController,
+                    inputDecorationTheme: myInputDecorationTheme,
+                    textStyle: const TextStyle(fontSize: 12),
+                    dropdownMenuEntries: [
+                      DropdownMenuEntry(value: "2", label: "2"),
+                      DropdownMenuEntry(value: "3", label: "3"),
+                      DropdownMenuEntry(value: "4", label: "4"),
+                    ],
+                    onSelected: (value) {
+                      renderValues[1] = value!;
+                      setState(() {});
+                    },
+                  ),
+                  IconButton(
+                      onPressed: deck.imagePath != null
+                          ? () => createInteractiveImageViewer(deck.imagePath!, context)
+                          : null,
+                      icon: Icon(Icons.image)),
+                  SizedBox(
+                    width: 0,
+                  )
+                ],
+              )
+            ],
           ),
           body: Container(
             alignment: Alignment.topCenter,
@@ -158,18 +201,19 @@ class DeckViewerState extends State<DeckViewer> {
                         ? () => showDeckTokens(deck.id)
                         : null),
                 Spacer(),
-                IconButton(
-                  tooltip: "Share to CubeCobra",
-                  icon: SvgPicture.asset(
-                    "assets/app_icons/monochrome_cubecobra.svg",
-                    height: 28,
-                    colorFilter: ColorFilter.mode(
-                        // Theme.of(context).iconTheme.color!,
-                        Theme.of(context).unselectedWidgetColor,
-                        BlendMode.srcIn),
-                  ),
-                  onPressed: () => shareWithCubeCobra(deck),
-                ),
+                // TODO: Broken currently
+                // IconButton(
+                //   tooltip: "Share to CubeCobra",
+                //   icon: SvgPicture.asset(
+                //     "assets/app_icons/monochrome_cubecobra.svg",
+                //     height: 28,
+                //     colorFilter: ColorFilter.mode(
+                //         // Theme.of(context).iconTheme.color!,
+                //         Theme.of(context).unselectedWidgetColor,
+                //         BlendMode.srcIn),
+                //   ),
+                //   onPressed: () => shareWithCubeCobra(deck),
+                // ),
                 IconButton(
                   tooltip: "Edit",
                   icon: Icon(Icons.edit),
@@ -222,18 +266,13 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Future shareDeck(Deck deck) async {
-    Uint8List? imageBytes;
-    if (cachedShareImageBytes != null) {
-      imageBytes = cachedShareImageBytes;
-    } else {
-      img.Image image = await generateDeckImage(deck);
-      // Convert to memory bytes
-      imageBytes = Uint8List.fromList(img.encodePng(image));
-      cachedShareImageBytes = imageBytes;
-    }
+    final ui.Image image = await generateDeckImage(deck);
+    final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final imageBytes = byteData!.buffer.asUint8List();
+    image.dispose();
 
     final params = ShareParams(
-        files: [XFile.fromData(imageBytes!, mimeType: 'image/png')]);
+        files: [XFile.fromData(imageBytes, mimeType: 'image/png')]);
 
     SharePlus.instance.share(params);
   }
@@ -441,53 +480,6 @@ class DeckViewerState extends State<DeckViewer> {
     );
   }
 
-  List<Widget> generateControls() {
-    return [
-      Row(
-        spacing: 8,
-        children: [
-          DropdownMenu(
-            label: const Text("Display"),
-            controller: displayController,
-            inputDecorationTheme: myInputDecorationTheme,
-            textStyle: const TextStyle(fontSize: 12),
-            dropdownMenuEntries: [
-              DropdownMenuEntry(value: "image", label: "Images"),
-              DropdownMenuEntry(value: "text", label: "Text")
-            ],
-            onSelected: (value) {
-              renderValues[0] = value!;
-              setState(() {});
-            },
-          ),
-          DropdownMenu(
-            label: const Text("Columns"),
-            controller: numColumnsController,
-            inputDecorationTheme: myInputDecorationTheme,
-            textStyle: const TextStyle(fontSize: 12),
-            dropdownMenuEntries: [
-              DropdownMenuEntry(value: "2", label: "2"),
-              DropdownMenuEntry(value: "3", label: "3"),
-              DropdownMenuEntry(value: "4", label: "4"),
-            ],
-            onSelected: (value) {
-              renderValues[1] = value!;
-              setState(() {});
-            },
-          ),
-          IconButton(
-              onPressed: deck.imagePath != null
-                  ? () => createInteractiveImageViewer(deck.imagePath!, context)
-                  : null,
-              icon: Icon(Icons.image)),
-          SizedBox(
-            width: 0,
-          )
-        ],
-      )
-    ];
-  }
-
   void showRandomHand(Deck deck) {
     List<Card> hand = [];
     List<Card> remainingCards = [];
@@ -570,7 +562,6 @@ class DeckViewerState extends State<DeckViewer> {
             deck.sideboard = newSideboard;
             _notifier.markNeedsRefresh();
           });
-          cachedShareImageBytes = null;
           deckRepository.updateDeck(DeckUpsert(
             id: deck.id,
             cards: newMainboard,

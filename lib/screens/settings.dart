@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart' hide Card;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,12 +27,19 @@ class _SettingsState extends State<Settings> {
   ThemeMode currentThemeMode = ThemeMode.light;
   late SharedPreferences prefs;
   bool _debugEnabled = false;
+  Timer? _debugTimer;
 
   @override
   void initState() {
     super.initState();
     _initPackageInfo();
     _getSharedPreferences();
+  }
+
+  @override
+  void dispose() {
+    _debugTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _initPackageInfo() async {
@@ -214,41 +223,49 @@ class _SettingsState extends State<Settings> {
                 launchUrl(Uri.parse(url));
               }
             ),
-            ListTile(
-              title: Text("About"),
-              leading: Icon(Icons.info),
-              subtitle: Text(
-                _debugEnabled
-                    ? "Debug mode on. Hold 'About' to disable"
-                    : "Information about the app",
-                style: _debugEnabled
-                    ? subtitleColor.copyWith(color: Colors.red)
-                    : subtitleColor,
-              ),
-              onTap: () {
-                showAboutDialog(
-                  context: context,
-                  applicationIcon: Icon(Icons.info),
-                  applicationName: "SnapDrafter",
-                  applicationVersion: "${_packageInfo.version} (${_packageInfo.buildNumber})",
-                  applicationLegalese: "© Copyright Dorian Brown 2025",
-                );
+            GestureDetector(
+              onLongPressStart: (_) {
+                _debugTimer = Timer(Duration(milliseconds: 4500), () async {
+                  _debugEnabled = !_debugEnabled;
+                  await prefs.setBool("debug_enabled", _debugEnabled);
+                  setState(() {});
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(_debugEnabled
+                            ? "Debug mode enabled"
+                            : "Debug mode disabled"),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                });
               },
-              onLongPress: () async {
-                _debugEnabled = !_debugEnabled;
-                await prefs.setBool("debug_enabled", _debugEnabled);
-                setState(() {});
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(_debugEnabled
-                          ? "Debug mode enabled"
-                          : "Debug mode disabled"),
-                      duration: Duration(seconds: 1),
-                    ),
+              onLongPressEnd: (_) {
+                _debugTimer?.cancel();
+                _debugTimer = null;
+              },
+              child: ListTile(
+                title: Text("About"),
+                leading: Icon(Icons.info),
+                subtitle: Text(
+                  _debugEnabled
+                      ? "Debug mode on. Hold 'About' to disable"
+                      : "Information about the app",
+                  style: _debugEnabled
+                      ? subtitleColor.copyWith(color: Colors.red)
+                      : subtitleColor,
+                ),
+                onTap: () {
+                  showAboutDialog(
+                    context: context,
+                    applicationIcon: Icon(Icons.info),
+                    applicationName: "SnapDrafter",
+                    applicationVersion: "${_packageInfo.version} (${_packageInfo.buildNumber})",
+                    applicationLegalese: "© Copyright Dorian Brown 2025",
                   );
-                }
-              },
+                },
+              ),
             ),
           ],
         )
