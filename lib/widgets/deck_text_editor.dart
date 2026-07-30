@@ -161,6 +161,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
       content: SizedBox(
         width: double.maxFinite,
         child: TextFormField(
+          smartQuotesType: SmartQuotesType.disabled,
           controller: _controller,
           expands: true,
           keyboardType: TextInputType.multiline,
