@@ -3,11 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart' hide Card, Orientation;
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_expandable_fab/flutter_expandable_fab.dart';
-import 'package:wheel_picker/wheel_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../widgets/deck_text_editor.dart';
+import '../widgets/deck_edit_dialog.dart';
 import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';
 import '/models/filter.dart';
@@ -21,7 +21,6 @@ import 'draft/draft_lobby.dart';
 import '/data/models/deck.dart';
 import '/data/models/cube.dart';
 import '/data/models/set.dart';
-import '/data/models/deck_upsert.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/repositories/set_repository.dart';
 import '/data/repositories/cube_repository.dart';
@@ -361,9 +360,14 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
       cubes: cubes,
       showFirstDeckHint: !_hasSeenOverviewTutorial && index == 0,
       onFirstDeckViewed: _markFirstDeckSeen,
-      onEdit: () => showDialog(
-        context: context,
-        builder: (_) => createEditDialog(index, decks, sets, cubes),
+      onEdit: () => showDeckEditDialog(
+        context,
+        deck: decks[index],
+        sets: sets,
+        cubes: cubes,
+        allTags: allTags,
+        deckRepository: deckRepository,
+        onSaved: () { refreshDecks(); _loadTags(); },
       ),
       onDelete: () => _confirmDeleteDeck(decks[index].id),
       onTap: () async {
@@ -609,317 +613,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
           child: Text("Apply"),
         ),
       ],
-    );
-  }
-
-  Widget createEditDialog(
-      int index, List<Deck> decks, List<Set> sets, List<Cube> cubes) {
-    Deck deck = decks[index];
-    String selectedDate = deck.ymd;
-    final nameController = TextEditingController(text: deck.name);
-    // Determining Win/Loss for initial wheel picker values
-    final winController =
-        WheelPickerController(itemCount: 4, initialIndex: 3 - (deck.wins ?? 0));
-    final lossController = WheelPickerController(
-        itemCount: 4, initialIndex: 3 - (deck.losses ?? 0));
-    final drawController = WheelPickerController(
-        itemCount: 4, initialIndex: 3 - (deck.draws ?? 0));
-    final setCubeController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-    String? currentCubeSetId = deck.cubecobraId ?? deck.setId;
-    String draftType = deck.cubecobraId != null ? "cube" : "set";
-    List<String> deckTags = List.from(deck.tags);
-    final tagController = TextEditingController();
-
-    Widget createPaddedText(String text) {
-      return Container(
-        padding: EdgeInsets.fromLTRB(0, 20, 0, 10),
-        child: Text(text, style: TextStyle(fontWeight: FontWeight.bold)),
-      );
-    }
-
-    return AlertDialog(
-      title: Text('Edit Deck'),
-      scrollable: true,
-      contentPadding: EdgeInsets.symmetric(horizontal: 30, vertical: 10),
-      content: StatefulBuilder(builder: (context, setDialogState) {
-        return Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                createPaddedText("Deck Name"),
-                TextFormField(
-                  controller: nameController,
-                  style: TextStyle(fontSize: 14),
-                  decoration: InputDecoration(
-                      border: OutlineInputBorder(),
-                      hintText: "Enter name here"),
-                ),
-                createPaddedText("Win - Loss - Draw"),
-                Container(
-                  padding: EdgeInsets.symmetric(vertical: 7, horizontal: 0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    // mainAxisSize: MainAxisSize.min,
-                    children: [
-                      generateWinLossPicker(winController),
-                      Text("-", style: TextStyle(fontSize: 24)),
-                      generateWinLossPicker(lossController),
-                      Text("-", style: TextStyle(fontSize: 24)),
-                      generateWinLossPicker(drawController)
-                    ],
-                  ),
-                ),
-                SegmentedButton(
-                  segments: [
-                    ButtonSegment(
-                      label: Text("Set"),
-                      value: "set",
-                    ),
-                    ButtonSegment(
-                      label: Text("Cube"),
-                      value: "cube",
-                    ),
-                  ],
-                  selected: {draftType},
-                  onSelectionChanged: (newSelection) {
-                    setDialogState(() {
-                      draftType = newSelection.first;
-                      currentCubeSetId = switch (draftType) {
-                        "set" => deck.setId,
-                        "cube" => deck.cubecobraId,
-                        _ => null
-                      };
-                      if (currentCubeSetId == null) {
-                        setCubeController.text = "";
-                      }
-                    });
-                  },
-                  style: ButtonStyle(
-                    shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-                      const RoundedRectangleBorder(
-                        borderRadius: BorderRadius.all(Radius.circular(5)),
-                      ),
-                    ),
-                  ),
-                ),
-                DropdownMenu(
-                  hintText: "Select $draftType",
-                  controller: setCubeController,
-                  initialSelection: draftType == "set"
-                      ? decks[index].setId
-                      : decks[index].cubecobraId,
-                  dropdownMenuEntries:
-                      generateDraftMenuItems(sets, cubes, draftType),
-                  onSelected: (value) {
-                    setDialogState(() {
-                      currentCubeSetId = value;
-                    });
-                  },
-                ),
-                createPaddedText("Date"),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    OutlinedButton(
-                        onPressed: () async {
-                          DateTime? date = await showDatePicker(
-                              context: context,
-                              initialDate: DateTime.tryParse(selectedDate),
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100));
-                          if (date != null) {
-                            setDialogState(() {
-                              selectedDate = convertDatetimeToYMD(date);
-                            });
-                          }
-                        },
-                        child: Text(selectedDate))
-                  ],
-                ),
-                createPaddedText("Tags"),
-                // Show available tags as toggleable chips
-                if (allTags.isNotEmpty) ...[
-                  Padding(
-                    padding: EdgeInsets.only(bottom: 8),
-                    child: Text("Available Tags:",
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                  Wrap(
-                    spacing: 6,
-                    children: allTags.map((tag) {
-                      final isSelected = deckTags.contains(tag);
-                      return FilterChip(
-                        label: Text(tag),
-                        visualDensity: VisualDensity.compact,
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setDialogState(() {
-                            if (selected) {
-                              deckTags.add(tag);
-                            } else {
-                              deckTags.remove(tag);
-                            }
-                          });
-                        },
-                      );
-                    }).toList(),
-                  ),
-                  SizedBox(height: 12),
-                ],
-                // Add new tag section
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: tagController,
-                        decoration: InputDecoration(
-                          labelText: 'Add new tag',
-                          border: OutlineInputBorder(),
-                          hintText: 'Enter custom tag',
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.add),
-                      tooltip: "Add tag",
-                      onPressed: () {
-                        final tag = tagController.text.trim();
-                        if (tag.isNotEmpty && !deckTags.contains(tag)) {
-                          setDialogState(() {
-                            deckTags.add(tag);
-                            allTags.add(tag);
-                            tagController.clear();
-                          });
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ],
-            ));
-      }),
-      actions: [
-        TextButton(
-            onPressed: () {
-              _loadTags();
-              Navigator.of(context).pop();
-            },
-            child: Text("Dismiss")),
-        TextButton(
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                // Build update map with only changed fields
-                final Map<String, Object?> updates = {};
-
-                final name = nameController.text;
-                if (name != deck.name) {
-                  updates['name'] = name.isEmpty ? null : name;
-                }
-
-                final int newWins = 3 - winController.selected;
-                final int newLosses = 3 - lossController.selected;
-                final int newDraws = 3 - drawController.selected;
-                if (newWins != deck.wins ||
-                    newLosses != deck.losses ||
-                    newDraws != deck.draws) {
-                  updates['wins'] = newWins;
-                  updates['losses'] = newLosses;
-                  updates['draws'] = newDraws;
-                }
-                // Keep existing draws unchanged
-
-                final setId = draftType == "set" ? currentCubeSetId : null;
-                if (setId != deck.setId) {
-                  updates['set_id'] = setId;
-                }
-
-                final cubecobraId =
-                    draftType == "cube" ? currentCubeSetId : null;
-                if (cubecobraId != deck.cubecobraId) {
-                  updates['cubecobra_id'] = cubecobraId;
-                }
-
-                if (selectedDate != deck.ymd) {
-                  updates['ymd'] = selectedDate;
-                }
-
-                // Only update if there are changes
-                if (updates.isNotEmpty) {
-                  await deckRepository.updateDeck(DeckUpsert(
-                    id: deck.id,
-                    name: updates['name'] as String?,
-                    wins: updates.containsKey('wins')
-                        ? updates['wins'] as int?
-                        : deck.wins,
-                    losses: updates.containsKey('losses')
-                        ? updates['losses'] as int?
-                        : deck.losses,
-                    draws: updates.containsKey('draws')
-                        ? updates['draws'] as int?
-                        : deck.draws,
-                    setId: updates['set_id'] as String?,
-                    cubecobraId: updates['cubecobra_id'] as String?,
-                    ymd: updates['ymd'] as String?,
-                    cards: deck.cards,
-                    sideboard: deck.sideboard,
-                  ));
-                }
-
-                // Update tags
-                final currentTags = deck.tags;
-                for (final tag in currentTags) {
-                  if (!deckTags.contains(tag)) {
-                    await deckRepository.removeTagFromDeck(deck.id, tag);
-                  }
-                }
-                for (final tag in deckTags) {
-                  if (!currentTags.contains(tag)) {
-                    await deckRepository.addTagToDeck(deck.id, tag);
-                  }
-                }
-
-                refreshDecks();
-                _loadTags(); // Reload tags to include any newly added ones
-                Navigator.of(context).pop();
-              }
-            },
-            child: Text("Save"))
-      ],
-    );
-  }
-
-  List<DropdownMenuEntry<String>> generateDraftMenuItems(
-      List<Set> sets, List<Cube> cubes, String draftType) {
-    if (draftType == "set") {
-      return (sets..sort((a, b) => (b.releasedAt.compareTo(a.releasedAt))))
-          .map((set) => DropdownMenuEntry(value: set.code, label: set.name))
-          .toList();
-    } else {
-      return cubes
-          .map((cube) =>
-              DropdownMenuEntry(value: cube.cubecobraId, label: cube.name))
-          .toList();
-    }
-  }
-
-  Widget generateWinLossPicker(WheelPickerController controller) {
-    return SizedBox(
-      height: 80,
-      width: 50,
-      child: WheelPicker(
-        controller: controller,
-        selectedIndexColor: Theme.of(context).hintColor,
-        looping: false,
-        builder: (context, index) => Text(
-          (3 - index).toString(),
-          style: TextStyle(fontSize: 24),
-        ),
-        style: WheelPickerStyle(
-            itemExtent: 25, diameterRatio: 1.2, surroundingOpacity: 0.3),
-      ),
     );
   }
 

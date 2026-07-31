@@ -18,24 +18,31 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
 import '/widgets/deck_text_editor.dart';
+import '/widgets/deck_edit_dialog.dart';
 import '/widgets/display_token.dart';
 import '/data/repositories/token_repository.dart';
 import '/data/repositories/deck_repository.dart';
+import '/data/repositories/set_repository.dart';
+import '/data/repositories/cube_repository.dart';
 import '/data/models/card.dart';
 import '/data/models/deck.dart';
 import '/data/models/deck_upsert.dart';
+import '/data/models/set.dart';
+import '/data/models/cube.dart';
 import '/utils/constants.dart';
 import '/utils/deck_change_notifier.dart';
 
 const _headerStyle = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.bold,
-    decoration: TextDecoration.underline);
+  fontSize: 20,
+  fontWeight: FontWeight.bold,
+  decoration: TextDecoration.underline,
+);
 
 const _sideboardHeaderStyle = TextStyle(
-    fontSize: 24, // Larger than the regular header
-    fontWeight: FontWeight.bold,
-    decoration: TextDecoration.underline);
+  fontSize: 24, // Larger than the regular header
+  fontWeight: FontWeight.bold,
+  decoration: TextDecoration.underline,
+);
 
 class DeckViewer extends StatefulWidget {
   final Deck deck;
@@ -46,7 +53,7 @@ class DeckViewer extends StatefulWidget {
 }
 
 class DeckViewerState extends State<DeckViewer> {
-  final Deck deck;
+  Deck deck;
   DeckViewerState(this.deck);
 
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
@@ -55,21 +62,11 @@ class DeckViewerState extends State<DeckViewer> {
   late TokenRepository tokenRepository;
   late DeckRepository deckRepository;
   Map groupedTokens = {};
-  List<String> renderValues = ["type", "3"];
-  // These are used for dropdown menus controlling how decklist is displayed
-  TextEditingController displayController =
-      TextEditingController(text: "Images");
-  TextEditingController numColumnsController = TextEditingController(text: "3");
-
-  final myInputDecorationTheme = InputDecorationTheme(
-    labelStyle: TextStyle(fontSize: 10),
-    isDense: true,
-    contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-    constraints: BoxConstraints.tight(const Size.fromHeight(40)),
-    border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-    ),
-  );
+  List<Set> _sets = [];
+  List<Cube> _cubes = [];
+  List<String> _allTags = [];
+  bool _dataLoaded = false;
+  int columnCount = 3;
 
   @override
   void initState() {
@@ -77,11 +74,55 @@ class DeckViewerState extends State<DeckViewer> {
     _loadCards();
     tokenRepository = TokenRepository();
     deckRepository = DeckRepository();
+    _loadSetsAndCubesAndTags();
     tokenRepository.getDeckTokens(deck.id).then((val) {
       setState(() {
         groupedTokens = val;
       });
     });
+  }
+
+  String get _setCubeLabel {
+    if (deck.cubecobraId != null && _cubes.isNotEmpty) {
+      try {
+        return _cubes.firstWhere((c) => c.cubecobraId == deck.cubecobraId).name;
+      } catch (_) {}
+    }
+    if (deck.setId != null && _sets.isNotEmpty) {
+      try {
+        return _sets.firstWhere((s) => s.code == deck.setId).code.toUpperCase();
+      } catch (_) {}
+    }
+    return "—";
+  }
+
+  Widget _buildMetadataChip(String label, {IconData? icon}) {
+    final chipColor = Colors.white60;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: chipColor.withAlpha(90)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        spacing: 1.5,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: chipColor),
+            const SizedBox(width: 2),
+          ],
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: chipColor,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadCards() async {
@@ -90,179 +131,307 @@ class DeckViewerState extends State<DeckViewer> {
     allCards = cards;
   }
 
+  Future<void> _loadSetsAndCubesAndTags() async {
+    final results = await Future.wait([
+      SetRepository().getAllSets(),
+      CubeRepository().getAllCubes(),
+      deckRepository.getAllTags(),
+    ]);
+    setState(() {
+      _sets = results[0] as List<Set>;
+      _cubes = results[1] as List<Cube>;
+      _allTags = results[2] as List<String>;
+      _dataLoaded = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return LoaderOverlay(
-        overlayWidgetBuilder: (_) {
-          //ignored progress for the moment
-          return Center(
-              child: Column(
+      overlayWidgetBuilder: (_) {
+        //ignored progress for the moment
+        return Center(
+          child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(
-                color: Colors.deepPurpleAccent,
+              CircularProgressIndicator(color: Colors.deepPurpleAccent),
+              SizedBox(height: 50),
+              Text(
+                "Creating Decklist Image...",
+                style: TextStyle(fontSize: 16, color: Colors.white),
               ),
-              SizedBox(
-                height: 50,
-              ),
-              Text("Creating Decklist Image...",
-                  style: TextStyle(fontSize: 16, color: Colors.white)),
             ],
-          ));
-        },
-        overlayColor: Colors.black38.withAlpha(200),
-        child: Scaffold(
-          appBar: AppBar(
-            actions: [
-              Row(
-                spacing: 8,
+          ),
+        );
+      },
+      overlayColor: Colors.black38.withAlpha(200),
+      child: Scaffold(
+        appBar: AppBar(
+          title: deck.name != null && deck.name!.isNotEmpty
+              ? Text(deck.name!, overflow: TextOverflow.ellipsis)
+              : null,
+          actions: [
+            Row(
+              children: [
+                PopupMenuButton<int>(
+                  initialValue: columnCount,
+                  tooltip: "Columns",
+                  onSelected: (value) => setState(() => columnCount = value),
+                  child: IconButton(
+                    icon: Icon(switch (columnCount) {
+                      2 => Icons.looks_two,
+                      3 => Icons.looks_3,
+                      4 => Icons.looks_4,
+                      _ => Icons.looks_3,
+                    }),
+                    onPressed: null,
+                    disabledColor: Colors.white70,
+                  ),
+                  itemBuilder: (context) => [
+                    CheckedPopupMenuItem(
+                      value: 2,
+                      checked: columnCount == 2,
+                      child: const Icon(Icons.looks_two),
+                    ),
+                    CheckedPopupMenuItem(
+                      value: 3,
+                      checked: columnCount == 3,
+                      child: const Icon(Icons.looks_3),
+                    ),
+                    CheckedPopupMenuItem(
+                      value: 4,
+                      checked: columnCount == 4,
+                      child: const Icon(Icons.looks_4),
+                    ),
+                  ],
+                ),
+                IconButton(
+                  tooltip: "Edit Deck Info",
+                  icon: Icon(Icons.edit, color: Colors.amber),
+                  onPressed: _dataLoaded
+                      ? () => showDeckEditDialog(
+                          context,
+                          deck: deck,
+                          sets: _sets,
+                          cubes: _cubes,
+                          allTags: _allTags,
+                          deckRepository: deckRepository,
+                          onSaved: () async {
+                            _notifier.markNeedsRefresh();
+                            final decks = await deckRepository.getAllDecks();
+                            final updated = decks.firstWhere(
+                              (d) => d.id == deck.id,
+                            );
+                            setState(() => deck = updated);
+                          },
+                        )
+                      : null,
+                ),
+                IconButton(
+                  tooltip: "Delete Deck",
+                  icon: Icon(Icons.delete, color: Colors.redAccent),
+                  onPressed: _confirmDeleteViewerDeck,
+                ),
+              ],
+            ),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(40),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(35, 0, 16, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  DropdownMenu(
-                    width: 125,
-                    label: const Text("Display"),
-                    controller: displayController,
-                    inputDecorationTheme: myInputDecorationTheme,
-                    textStyle: const TextStyle(fontSize: 12),
-                    dropdownMenuEntries: [
-                      DropdownMenuEntry(value: "image", label: "Images"),
-                      DropdownMenuEntry(value: "text", label: "Text")
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      if (deck.wins != null) ...[
+                        _buildMetadataChip(
+                          "${deck.wins ?? 0}-${deck.losses ?? 0}-${deck.draws ?? 0}",
+                        ),
+                      ],
+                      if (_setCubeLabel != "—") ...[
+                        const SizedBox(width: 6),
+                        _buildMetadataChip(
+                          _setCubeLabel,
+                          icon: Icons.data_object,
+                        ),
+                      ],
+                      const SizedBox(width: 6),
+                      _buildMetadataChip(deck.ymd, icon: Icons.calendar_today),
                     ],
-                    onSelected: (value) {
-                      renderValues[0] = value!;
-                      setState(() {});
-                    },
                   ),
-                  DropdownMenu(
-                    width: 90,
-                    label: const Text("Columns"),
-                    controller: numColumnsController,
-                    inputDecorationTheme: myInputDecorationTheme,
-                    textStyle: const TextStyle(fontSize: 12),
-                    dropdownMenuEntries: [
-                      DropdownMenuEntry(value: "2", label: "2"),
-                      DropdownMenuEntry(value: "3", label: "3"),
-                      DropdownMenuEntry(value: "4", label: "4"),
-                    ],
-                    onSelected: (value) {
-                      renderValues[1] = value!;
-                      setState(() {});
-                    },
-                  ),
-                  IconButton(
-                      onPressed: deck.imagePath != null
-                          ? () => createInteractiveImageViewer(deck.imagePath!, context)
-                          : null,
-                      icon: Icon(Icons.image)),
-                  SizedBox(
-                    width: 0,
-                  )
+                  if (deck.tags.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Wrap(
+                        spacing: 4,
+                        runSpacing: 2,
+                        children: deck.tags
+                            .map(
+                              (t) => Chip(
+                                label: Text(
+                                  t,
+                                  style: const TextStyle(fontSize: 10),
+                                ),
+                                visualDensity: VisualDensity.compact,
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                                padding: EdgeInsets.zero,
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    ),
                 ],
-              )
+              ),
+            ),
+          ),
+        ),
+        body: Container(
+          alignment: Alignment.topCenter,
+          child: ListView(
+            padding: const EdgeInsets.all(10),
+            children: [
+              generateManaCurve(deck.cards),
+              Container(
+                padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      "${deck.cards.length} cards",
+                      style: TextStyle(fontSize: 16, height: 1.5),
+                    ),
+                  ],
+                ),
+              ),
+              ...generateDeckView(deck, columnCount),
             ],
           ),
-          body: Container(
-            alignment: Alignment.topCenter,
-            child: ListView(
-              padding: const EdgeInsets.all(10),
-              children: [
-                generateManaCurve(deck.cards),
-                Container(
-                    padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text("${deck.cards.length} cards",
-                            style: TextStyle(fontSize: 16, height: 1.5))
-                      ],
-                    )),
-                ...generateDeckView(deck, renderValues)
-              ],
-            ),
+        ),
+        bottomNavigationBar: BottomAppBar(
+          height: 65,
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: "Sample Starting Hand",
+                icon: Icon(Icons.back_hand),
+                onPressed: () => showRandomHand(deck),
+              ),
+              IconButton(
+                tooltip: "Add basics",
+                icon: Icon(Icons.landscape),
+                onPressed: () =>
+                    allCards != null ? showBasicsEditor(deck, allCards!) : null,
+              ),
+              IconButton(
+                tooltip: "Show Deck Tokens",
+                icon: Icon(Icons.cruelty_free),
+                onPressed: groupedTokens.isNotEmpty
+                    ? () => showDeckTokens(deck.id)
+                    : null,
+              ),
+              Spacer(),
+              // TODO: Broken currently
+              // IconButton(
+              //   tooltip: "Share to CubeCobra",
+              //   icon: SvgPicture.asset(
+              //     "assets/app_icons/monochrome_cubecobra.svg",
+              //     height: 28,
+              //     colorFilter: ColorFilter.mode(
+              //         // Theme.of(context).iconTheme.color!,
+              //         Theme.of(context).unselectedWidgetColor,
+              //         BlendMode.srcIn),
+              //   ),
+              //   onPressed: () => shareWithCubeCobra(deck),
+              // ),
+              IconButton(
+                tooltip: "Edit Decklist",
+                icon: Icon(Icons.format_list_numbered),
+                onPressed: () =>
+                    allCards != null ? showDeckEditor(deck, allCards!) : null,
+              ),
+              IconButton(
+                tooltip: "View Deck Photo",
+                icon: Icon(Icons.image),
+                onPressed: deck.imagePath != null
+                    ? () =>
+                          createInteractiveImageViewer(deck.imagePath!, context)
+                    : null,
+              ),
+              IconButton(
+                tooltip: "Share",
+                icon: Icon(Icons.share),
+                onPressed: () async {
+                  context.loaderOverlay.show();
+                  await shareDeck(deck);
+                  context.loaderOverlay.hide();
+                },
+              ),
+            ],
           ),
-          bottomNavigationBar: BottomAppBar(
-            height: 65,
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: "Sample Starting Hand",
-                  icon: Icon(Icons.back_hand),
-                  onPressed: () => showRandomHand(deck),
-                ),
-                IconButton(
-                    tooltip: "Add basics",
-                    icon: Icon(Icons.landscape),
-                    onPressed: () => allCards != null
-                        ? showBasicsEditor(deck, allCards!)
-                        : null),
-                IconButton(
-                    tooltip: "Show Deck Tokens",
-                    icon: Icon(Icons.cruelty_free),
-                    onPressed: groupedTokens.isNotEmpty
-                        ? () => showDeckTokens(deck.id)
-                        : null),
-                Spacer(),
-                // TODO: Broken currently
-                // IconButton(
-                //   tooltip: "Share to CubeCobra",
-                //   icon: SvgPicture.asset(
-                //     "assets/app_icons/monochrome_cubecobra.svg",
-                //     height: 28,
-                //     colorFilter: ColorFilter.mode(
-                //         // Theme.of(context).iconTheme.color!,
-                //         Theme.of(context).unselectedWidgetColor,
-                //         BlendMode.srcIn),
-                //   ),
-                //   onPressed: () => shareWithCubeCobra(deck),
-                // ),
-                IconButton(
-                  tooltip: "Edit",
-                  icon: Icon(Icons.edit),
-                  onPressed: () =>
-                      allCards != null ? showDeckEditor(deck, allCards!) : null,
-                ),
-                IconButton(
-                  tooltip: "Share",
-                  icon: Icon(Icons.share),
-                  onPressed: () async {
-                    context.loaderOverlay.show();
-                    await shareDeck(deck);
-                    context.loaderOverlay.hide();
-                  },
-                ),
-              ],
-            ),
+        ),
+      ),
+    );
+  }
+
+  void _confirmDeleteViewerDeck() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirmation'),
+        content: const Text('Are you sure you want to delete this deck?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text("Cancel"),
           ),
-        ));
+          TextButton(
+            onPressed: () async {
+              await deckRepository.deleteDeck(deck.id);
+              Navigator.of(dialogContext).pop();
+              _notifier.markNeedsRefresh();
+              Navigator.of(context).pop();
+            },
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
   }
 
   Future showDeckTokens(int deckId) async {
     // Create Dialog window to display tokens and associated cards
     showDialog(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            // title: Text("Tokens"),
-            insetPadding: EdgeInsets.all(30),
-            contentPadding: EdgeInsets.all(10),
-            content: Container(
-              width: double.maxFinite,
-              child: MasonryGridView.count(
-                itemCount: groupedTokens.keys.length,
-                shrinkWrap: true,
-                crossAxisCount: 2,
-                itemBuilder: (context, index) => DisplayToken(
-                    imageUri: groupedTokens.keys.toList()[index],
-                    cards: groupedTokens.values.toList()[index]["cards"]),
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          // title: Text("Tokens"),
+          insetPadding: EdgeInsets.all(30),
+          contentPadding: EdgeInsets.all(10),
+          content: Container(
+            width: double.maxFinite,
+            child: MasonryGridView.count(
+              itemCount: groupedTokens.keys.length,
+              shrinkWrap: true,
+              crossAxisCount: 2,
+              itemBuilder: (context, index) => DisplayToken(
+                imageUri: groupedTokens.keys.toList()[index],
+                cards: groupedTokens.values.toList()[index]["cards"],
               ),
             ),
-            actionsAlignment: MainAxisAlignment.end,
-            actions: [
-              TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("Back")),
-            ],
-          );
-        });
+          ),
+          actionsAlignment: MainAxisAlignment.end,
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text("Back"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future shareDeck(Deck deck) async {
@@ -272,7 +441,8 @@ class DeckViewerState extends State<DeckViewer> {
     image.dispose();
 
     final params = ShareParams(
-        files: [XFile.fromData(imageBytes, mimeType: 'image/png')]);
+      files: [XFile.fromData(imageBytes, mimeType: 'image/png')],
+    );
 
     SharePlus.instance.share(params);
   }
@@ -306,8 +476,9 @@ class DeckViewerState extends State<DeckViewer> {
                 children: [
                   Text('Deck colors: ${deck.colors}'),
                   SizedBox(height: 20),
-                  ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
-                      .map((name) {
+                  ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((
+                    name,
+                  ) {
                     return Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -350,14 +521,15 @@ class DeckViewerState extends State<DeckViewer> {
                       'U': 0,
                       'B': 0,
                       'R': 0,
-                      'G': 0
+                      'G': 0,
                     };
 
                     // Count colored symbols in each card's mana cost
                     for (var card in deck.cards) {
                       if (card.manaCost != null) {
                         for (var symbol in ['W', 'U', 'B', 'R', 'G']) {
-                          colorCounts[symbol] = colorCounts[symbol]! +
+                          colorCounts[symbol] =
+                              colorCounts[symbol]! +
                               RegExp(symbol).allMatches(card.manaCost!).length;
                         }
                       }
@@ -365,18 +537,26 @@ class DeckViewerState extends State<DeckViewer> {
 
                     // Count non-basic lands
                     int nonBasicLands = deck.cards
-                        .where((card) =>
-                            card.type == 'Land' &&
-                            !['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']
-                                .contains(card.name))
+                        .where(
+                          (card) =>
+                              card.type == 'Land' &&
+                              ![
+                                'Plains',
+                                'Island',
+                                'Swamp',
+                                'Mountain',
+                                'Forest',
+                              ].contains(card.name),
+                        )
                         .length;
 
                     // Calculate total basics needed (17 - non-basic lands)
                     int totalBasics = 17 - nonBasicLands;
 
                     // Calculate total colored symbols
-                    int totalSymbols =
-                        colorCounts.values.reduce((a, b) => a + b);
+                    int totalSymbols = colorCounts.values.reduce(
+                      (a, b) => a + b,
+                    );
 
                     // TODO: Take into account the mana production of non-basic lands
 
@@ -399,12 +579,14 @@ class DeckViewerState extends State<DeckViewer> {
                               .round();
 
                       // Ensure we don't exceed total basics
-                      int currentTotal =
-                          basicCounts.values.reduce((a, b) => a + b);
+                      int currentTotal = basicCounts.values.reduce(
+                        (a, b) => a + b,
+                      );
                       if (currentTotal > totalBasics) {
                         // Reduce largest count to match
-                        var maxEntry = basicCounts.entries
-                            .reduce((a, b) => a.value > b.value ? a : b);
+                        var maxEntry = basicCounts.entries.reduce(
+                          (a, b) => a.value > b.value ? a : b,
+                        );
                         basicCounts[maxEntry.key] =
                             maxEntry.value - (currentTotal - totalBasics);
                       }
@@ -420,13 +602,15 @@ class DeckViewerState extends State<DeckViewer> {
                   onPressed: () async {
                     // Update deck with new basic land counts
                     List<Card> newCards = deck.cards
-                        .where((c) => ![
-                              'Plains',
-                              'Island',
-                              'Swamp',
-                              'Mountain',
-                              'Forest'
-                            ].contains(c.name))
+                        .where(
+                          (c) => ![
+                            'Plains',
+                            'Island',
+                            'Swamp',
+                            'Mountain',
+                            'Forest',
+                          ].contains(c.name),
+                        )
                         .toList();
 
                     // Add new basic lands
@@ -461,15 +645,17 @@ class DeckViewerState extends State<DeckViewer> {
                     });
                     // Force refresh the FutureBuilder by creating a new future
                     deckRepository
-                        .updateDeck(DeckUpsert(
-                      id: deck.id,
-                      cards: newCards,
-                      sideboard:
-                          deck.sideboard, // Make sure to preserve sideboard
-                    ))
+                        .updateDeck(
+                          DeckUpsert(
+                            id: deck.id,
+                            cards: newCards,
+                            sideboard: deck
+                                .sideboard, // Make sure to preserve sideboard
+                          ),
+                        )
                         .then((_) {
-                      Navigator.of(context).pop();
-                    });
+                          Navigator.of(context).pop();
+                        });
                   },
                 ),
               ],
@@ -504,9 +690,10 @@ class DeckViewerState extends State<DeckViewer> {
     drawNewHand();
 
     showDialog(
-        context: context,
-        builder: (dialogContext) {
-          return StatefulBuilder(builder: (context, setState) {
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setState) {
             return AlertDialog(
               title: Text("Sample Starting Hand"),
               titleTextStyle: TextStyle(fontSize: 16),
@@ -525,8 +712,9 @@ class DeckViewerState extends State<DeckViewer> {
               actionsAlignment: MainAxisAlignment.end,
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    child: const Text("Back")),
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text("Back"),
+                ),
                 TextButton(
                   onPressed: () {
                     drawCard();
@@ -540,11 +728,13 @@ class DeckViewerState extends State<DeckViewer> {
                     setState(() {});
                   },
                   child: const Text("New Hand"),
-                )
+                ),
               ],
             );
-          });
-        });
+          },
+        );
+      },
+    );
   }
 
   void showDeckEditor(Deck deck, List<Card> allCards) {
@@ -562,11 +752,13 @@ class DeckViewerState extends State<DeckViewer> {
             deck.sideboard = newSideboard;
             _notifier.markNeedsRefresh();
           });
-          deckRepository.updateDeck(DeckUpsert(
-            id: deck.id,
-            cards: newMainboard,
-            sideboard: newSideboard,
-          ));
+          deckRepository.updateDeck(
+            DeckUpsert(
+              id: deck.id,
+              cards: newMainboard,
+              sideboard: newSideboard,
+            ),
+          );
         },
       ),
     );
@@ -591,215 +783,186 @@ class DeckViewerState extends State<DeckViewer> {
         "count": cards
             .where((card) => condition(card))
             .where((card) => card.type != "Creature" && card.type != "Land")
-            .length
+            .length,
       });
       creatureSeries.add({
         "manaValue": (val < 7) ? val.toString() : "7+",
         "count": cards
             .where((card) => condition(card))
             .where((card) => card.type == "Creature" && card.type != "Land")
-            .length
+            .length,
       });
     }
 
     List<charts.Series<dynamic, String>> seriesList = [
       charts.Series(
-          id: "Non-Creature",
-          domainFn: (datum, _) => datum["manaValue"],
-          measureFn: (datum, _) => datum["count"],
-          data: nonCreatureSeries),
+        id: "Non-Creature",
+        domainFn: (datum, _) => datum["manaValue"],
+        measureFn: (datum, _) => datum["count"],
+        data: nonCreatureSeries,
+      ),
       charts.Series(
-          id: "Creature",
-          domainFn: (datum, _) => datum["manaValue"],
-          measureFn: (datum, _) => datum["count"],
-          data: creatureSeries)
+        id: "Creature",
+        domainFn: (datum, _) => datum["manaValue"],
+        measureFn: (datum, _) => datum["count"],
+        data: creatureSeries,
+      ),
     ];
 
     return SizedBox(
-        height: 200,
-        child: charts.BarChart(
-            animate: false,
-            seriesList,
-            barGroupingType: charts.BarGroupingType.stacked,
-            primaryMeasureAxis: charts.NumericAxisSpec(
-                tickProviderSpec: charts.BasicNumericTickProviderSpec(
-                    dataIsInWholeNumbers: true, desiredMinTickCount: 4)),
-            behaviors: [charts.SeriesLegend(showMeasures: true)]));
+      height: 200,
+      child: charts.BarChart(
+        animate: false,
+        seriesList,
+        barGroupingType: charts.BarGroupingType.stacked,
+        primaryMeasureAxis: charts.NumericAxisSpec(
+          tickProviderSpec: charts.BasicNumericTickProviderSpec(
+            dataIsInWholeNumbers: true,
+            desiredMinTickCount: 4,
+          ),
+        ),
+        behaviors: [charts.SeriesLegend(showMeasures: true)],
+      ),
+    );
   }
 
-  List<Widget> generateDeckView(Deck deck, List<String> renderValues) {
-    // Initial setup for rendering
+  List<Widget> generateDeckView(Deck deck, int columnCount) {
     final List<Widget> deckView = [];
-
-    var renderCard =
-        (renderValues[0] == "text") ? createTextCard : createVisualCardPopup;
 
     getAttribute(card) => card.type;
     final uniqueGroupings = typeOrder;
 
-    // Here we loop over unique groupings and generate the widgets for each grouping
     for (String attribute in uniqueGroupings) {
-      // Here we generate all the widgets within the current grouping
       deck.cards.sort((a, b) => a.manaValue.compareTo(b.manaValue));
       List<Widget> cardWidgets = deck.cards
           .where((card) => getAttribute(card) == attribute)
           .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
           .entries
-          .map((entry) => renderCard(entry.key, entry.value))
+          .map((entry) => createVisualCardPopup(entry.key, entry.value))
           .toList();
 
-      int numCards =
-          deck.cards.where((card) => getAttribute(card) == attribute).length;
+      int numCards = deck.cards
+          .where((card) => getAttribute(card) == attribute)
+          .length;
 
-      // Generate the header text
       List<Widget> header = [
         Container(
-            padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
-            child: Text("$attribute ($numCards)", style: _headerStyle))
+          padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
+          child: Text("$attribute ($numCards)", style: _headerStyle),
+        ),
       ];
 
       if (cardWidgets.isNotEmpty) {
-        deckView.add(Column(
+        deckView.add(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: header +
-                ((renderValues[0] == "text")
-                    ? cardWidgets
-                    : [
-                        GridView.count(
-                          physics: NeverScrollableScrollPhysics(),
-                          childAspectRatio: 0.72,
-                          crossAxisCount: int.parse(renderValues[1]),
-                          shrinkWrap: true,
-                          children: cardWidgets,
-                        )
-                      ])));
+            children: [
+              ...header,
+              GridView.count(
+                physics: NeverScrollableScrollPhysics(),
+                childAspectRatio: 0.72,
+                crossAxisCount: columnCount,
+                shrinkWrap: true,
+                children: cardWidgets,
+              ),
+            ],
+          ),
+        );
       }
     }
 
-    // Add sideboard section if sideboard has cards
     if (deck.sideboard.isNotEmpty) {
-      // Add sideboard header
-      deckView.add(Container(
+      deckView.add(
+        Container(
           padding: const EdgeInsets.fromLTRB(0, 30, 0, 10),
-          child: Text("Sideboard (${deck.sideboard.length})",
-              style: _sideboardHeaderStyle)));
+          child: Text(
+            "Sideboard (${deck.sideboard.length})",
+            style: _sideboardHeaderStyle,
+          ),
+        ),
+      );
 
-      // Sort sideboard by mana cost from low to high
       deck.sideboard.sort((a, b) => a.manaValue.compareTo(b.manaValue));
 
-      // Generate sideboard widgets (ungrouped, just a flat list)
       List<Widget> sideboardWidgets = deck.sideboard
           .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1)
           .entries
-          .map((entry) => renderCard(entry.key, entry.value))
+          .map((entry) => createVisualCardPopup(entry.key, entry.value))
           .toList();
 
-      // Add sideboard widgets to the view
-      if (renderValues[0] == "text") {
-        deckView.addAll(sideboardWidgets);
-      } else {
-        deckView.add(GridView.count(
+      deckView.add(
+        GridView.count(
           physics: NeverScrollableScrollPhysics(),
           childAspectRatio: 0.72,
-          crossAxisCount: int.parse(renderValues[1]),
+          crossAxisCount: columnCount,
           shrinkWrap: true,
           children: sideboardWidgets,
-        ));
-      }
+        ),
+      );
     }
 
     return deckView;
   }
 
-  Widget createTextCard(Card card, int count) {
-    return GestureDetector(
-        onTap: () => showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-                  scrollable: true,
-                  title: Text(
-                    "Card Information",
-                    style: TextStyle(fontSize: 18),
-                  ),
-                  content: CardPopup(card: card),
-                  actions: [
-                    TextButton(
-                      child: Text("Dismiss"),
-                      onPressed: () => Navigator.of(context).pop(),
-                    )
-                  ],
-                )),
-        child: Row(
-          spacing: 8,
-          children: [
-            Text(
-              (count > 1) ? "$count x ${card.title}" : card.name,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontSize: 16, height: 1.5),
-            ),
-            card.createManaCost()
-          ],
-        ));
-  }
-
   Widget createVisualCard(Card card) {
     return FittedBox(
-        child: ClipRRect(
-      borderRadius: BorderRadius.circular(25),
-      child: Image.network(card.imageUri!),
-    ));
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(25),
+        child: Image.network(card.imageUri!),
+      ),
+    );
   }
 
   Widget createVisualCardPopup(Card card, int count) {
     return Container(
-        padding: EdgeInsets.all(2),
-        child: GestureDetector(
-            onTap: () => showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                      scrollable: true,
-                      title: Text(
-                        "Card Information",
-                        style: TextStyle(fontSize: 18),
-                      ),
-                      content: CardPopup(card: card),
-                      actions: [
-                        TextButton(
-                          child: Text("Dismiss"),
-                          onPressed: () => Navigator.of(context).pop(),
-                        )
-                      ],
-                    )),
-            child: Stack(
-              children: [
-                createVisualCard(card),
-                if (count > 1)
-                  Container(
-                    alignment: Alignment.bottomLeft,
-                    margin: EdgeInsets.symmetric(vertical: 15, horizontal: 13),
-                    child: Text(
-                      "${count}x",
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: Colors.white,
-                        background: Paint()
-                          ..color = Colors.black.withAlpha(180)
-                          ..strokeWidth = 11
-                          ..strokeJoin = StrokeJoin.round
-                          ..strokeCap = StrokeCap.round
-                          ..style = PaintingStyle.stroke,
-                      ),
-                    ),
-                  )
-              ],
-            )));
+      padding: EdgeInsets.all(2),
+      child: GestureDetector(
+        onTap: () => showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            scrollable: true,
+            title: Text("Card Information", style: TextStyle(fontSize: 18)),
+            content: CardPopup(card: card),
+            actions: [
+              TextButton(
+                child: Text("Dismiss"),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+        ),
+        child: Stack(
+          children: [
+            createVisualCard(card),
+            if (count > 1)
+              Container(
+                alignment: Alignment.bottomLeft,
+                margin: EdgeInsets.symmetric(vertical: 15, horizontal: 13),
+                child: Text(
+                  "${count}x",
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.white,
+                    background: Paint()
+                      ..color = Colors.black.withAlpha(180)
+                      ..strokeWidth = 11
+                      ..strokeJoin = StrokeJoin.round
+                      ..strokeCap = StrokeCap.round
+                      ..style = PaintingStyle.stroke,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 void shareWithCubeCobra(Deck deck) {
   // Construct query parameters containing list of cards
   Map<String, dynamic> queryParams = {
-    "o": deck.cards.map((card) => card.oracleId).toList()
+    "o": deck.cards.map((card) => card.oracleId).toList(),
   };
   // If no sideboard, we omit the "s" key
   if (deck.sideboard.isNotEmpty) {
@@ -807,10 +970,11 @@ void shareWithCubeCobra(Deck deck) {
   }
   // Launch URL to CubeCobra for importing deck
   Uri cubecobraUri = Uri(
-      scheme: "https",
-      host: "cubecobra.com",
-      path: "cube/records/import",
-      queryParameters: queryParams);
+    scheme: "https",
+    host: "cubecobra.com",
+    path: "cube/records/import",
+    queryParameters: queryParams,
+  );
   launchUrl(cubecobraUri);
 }
 
@@ -818,44 +982,49 @@ void createInteractiveImageViewer(String imagePath, BuildContext context) {
   // This is currently the best approach without knowing the images HxW
   // dimensions. Requires a background, and for
   showDialog(
-      context: context,
-      builder: (innerContext) {
-        return AlertDialog(
-            insetPadding: EdgeInsets.zero, // Maximize viewing area
-            contentPadding: EdgeInsets.zero, // Maximize viewing area
-            actions: [
-              TextButton(
-                style: ButtonStyle(
-                  foregroundColor: MaterialStateProperty.all(Colors.white),
-                  backgroundColor: MaterialStateProperty.all(Colors.black38),
-                ),
-                child: const Text("Share"),
-                onPressed: () async {
-                  final params = ShareParams(files: [XFile(imagePath)]);
-                  await SharePlus.instance.share(params);
-                  Navigator.of(context).pop();
-                },
+    context: context,
+    builder: (innerContext) {
+      return AlertDialog(
+        insetPadding: EdgeInsets.zero, // Maximize viewing area
+        contentPadding: EdgeInsets.zero, // Maximize viewing area
+        actions: [
+          TextButton(
+            style: ButtonStyle(
+              foregroundColor: MaterialStateProperty.all(Colors.white),
+              backgroundColor: MaterialStateProperty.all(Colors.black38),
+            ),
+            child: const Text("Share"),
+            onPressed: () async {
+              final params = ShareParams(files: [XFile(imagePath)]);
+              await SharePlus.instance.share(params);
+              Navigator.of(context).pop();
+            },
+          ),
+          TextButton(
+            style: ButtonStyle(
+              foregroundColor: MaterialStateProperty.all(Colors.white),
+              backgroundColor: MaterialStateProperty.all(Colors.black38),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Back"),
+          ),
+        ],
+        content: Column(
+          children: [
+            Expanded(
+              child: InteractiveViewer(
+                clipBehavior: Clip.none,
+                minScale: 1,
+                maxScale: 4,
+                boundaryMargin: const EdgeInsets.all(double.infinity),
+                child: Image.file(File(imagePath)),
               ),
-              TextButton(
-                  style: ButtonStyle(
-                    foregroundColor: MaterialStateProperty.all(Colors.white),
-                    backgroundColor: MaterialStateProperty.all(Colors.black38),
-                  ),
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text("Back")),
-            ],
-            content: Column(
-              children: [
-                Expanded(
-                    child: InteractiveViewer(
-                        clipBehavior: Clip.none,
-                        minScale: 1,
-                        maxScale: 4,
-                        boundaryMargin: const EdgeInsets.all(double.infinity),
-                        child: Image.file(File(imagePath))))
-              ],
-            ));
-      });
+            ),
+          ],
+        ),
+      );
+    },
+  );
 }
 
 class CardPopup extends StatefulWidget {
@@ -879,15 +1048,20 @@ class _CardPopupState extends State<CardPopup> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(spacing: 20, mainAxisSize: MainAxisSize.min, children: [
-      SizedBox(
+    return Column(
+      spacing: 20,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
           width: MediaQuery.of(context).size.width * 0.7,
           child: FittedBox(
-              child: ClipRRect(
-            borderRadius: BorderRadius.circular(25),
-            child: Image.network(widget.card.imageUri!),
-          ))),
-      FutureBuilder(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(25),
+              child: Image.network(widget.card.imageUri!),
+            ),
+          ),
+        ),
+        FutureBuilder(
           future: cardDataFuture,
           builder: (context, snapshot) {
             if (snapshot.hasData) {
@@ -895,36 +1069,40 @@ class _CardPopupState extends State<CardPopup> {
               return displayCardData(cardData);
             }
             return const CircularProgressIndicator();
-          }),
-      Divider(
-        height: 4,
-      ),
-      Row(
+          },
+        ),
+        Divider(height: 4),
+        Row(
           mainAxisAlignment: MainAxisAlignment.start,
-          children: [Text("Rulings", style: _headerStyle)]),
-      FutureBuilder(
+          children: [Text("Rulings", style: _headerStyle)],
+        ),
+        FutureBuilder(
           future: rulingsFuture,
           builder: (context, snapshot) {
             if (snapshot.hasData) {
               final rulings = snapshot.data!;
-              return Column(children: [
-                for (var ruling in rulings)
-                  ListTile(
-                    contentPadding: EdgeInsets.all(0),
-                    title: Text(ruling["published_at"]),
-                    subtitle: Text(ruling["comment"]),
-                  )
-              ]);
+              return Column(
+                children: [
+                  for (var ruling in rulings)
+                    ListTile(
+                      contentPadding: EdgeInsets.all(0),
+                      title: Text(ruling["published_at"]),
+                      subtitle: Text(ruling["comment"]),
+                    ),
+                ],
+              );
             }
             return const CircularProgressIndicator();
-          }),
-    ]);
+          },
+        ),
+      ],
+    );
   }
 
   Future getCardData(String scryfallId) async {
     final response = await http.get(
       Uri.parse("https://api.scryfall.com/cards/$scryfallId"),
-      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'},
     );
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
@@ -937,7 +1115,7 @@ class _CardPopupState extends State<CardPopup> {
   Future getRulingsData(String scryfallId) async {
     final response = await http.get(
       Uri.parse("https://api.scryfall.com/cards/$scryfallId/rulings"),
-      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
+      headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'},
     );
     if (response.statusCode == 200) {
       final payload = json.decode(response.body);
@@ -968,7 +1146,8 @@ Widget displayCardData(Map<String, dynamic> cardData) {
   }
 
   return Column(
-      spacing: 8,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: widgets);
+    spacing: 8,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: widgets,
+  );
 }
