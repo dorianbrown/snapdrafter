@@ -376,17 +376,8 @@ class DeckViewerState extends State<DeckViewer> {
                     allCards != null ? showDeckEditor(deck, allCards!) : null,
               ),
               IconButton(
-                tooltip: _imageIsLoading ? "Saving deck photo..." : "View Deck Photo",
-                icon: _imageIsLoading
-                    ? SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Theme.of(context).iconTheme.color,
-                        ),
-                      )
-                    : Icon(Icons.image),
+                tooltip: "View Deck Photo",
+                icon: Icon(Icons.image),
                 onPressed: _loadedImagePath != null
                     ? () =>
                         createInteractiveImageViewer(_loadedImagePath!, context)
