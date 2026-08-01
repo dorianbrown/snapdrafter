@@ -106,7 +106,7 @@ class DeckViewerState extends State<DeckViewer> {
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
-        spacing: 1.5,
+        spacing: 0.5,
         children: [
           if (icon != null) ...[
             Icon(icon, size: 12, color: chipColor),
@@ -170,6 +170,7 @@ class DeckViewerState extends State<DeckViewer> {
           title: deck.name != null && deck.name!.isNotEmpty
               ? Text(deck.name!, overflow: TextOverflow.ellipsis)
               : null,
+          actionsPadding: EdgeInsets.fromLTRB(0, 0, 10, 0),
           actions: [
             Row(
               children: [
@@ -207,7 +208,7 @@ class DeckViewerState extends State<DeckViewer> {
                 ),
                 IconButton(
                   tooltip: "Edit Deck Info",
-                  icon: Icon(Icons.edit, color: Colors.amber),
+                  icon: Icon(Icons.edit, color: Colors.amber.withAlpha(175)),
                   onPressed: _dataLoaded
                       ? () => showDeckEditDialog(
                           context,
@@ -229,7 +230,7 @@ class DeckViewerState extends State<DeckViewer> {
                 ),
                 IconButton(
                   tooltip: "Delete Deck",
-                  icon: Icon(Icons.delete, color: Colors.redAccent),
+                  icon: Icon(Icons.delete, color: Colors.deepOrange.withAlpha(175)),
                   onPressed: _confirmDeleteViewerDeck,
                 ),
               ],
@@ -247,42 +248,29 @@ class DeckViewerState extends State<DeckViewer> {
                     children: [
                       if (deck.wins != null) ...[
                         _buildMetadataChip(
-                          "${deck.wins ?? 0}-${deck.losses ?? 0}-${deck.draws ?? 0}",
+                          "${deck.wins ?? 0}-${deck.losses ?? 0}${deck.draws != 0 ? '-${deck.draws}' : ''}",
+                          icon: Icons.emoji_events
                         ),
                       ],
                       if (_setCubeLabel != "—") ...[
                         const SizedBox(width: 6),
                         _buildMetadataChip(
                           _setCubeLabel,
-                          icon: Icons.data_object,
+                          icon: Icons.apps,
                         ),
                       ],
                       const SizedBox(width: 6),
                       _buildMetadataChip(deck.ymd, icon: Icons.calendar_today),
+                      Spacer(),
+                      Text(
+                        "${deck.cards.length} cards",
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 13
+                        ),
+                      ),
                     ],
                   ),
-                  if (deck.tags.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Wrap(
-                        spacing: 4,
-                        runSpacing: 2,
-                        children: deck.tags
-                            .map(
-                              (t) => Chip(
-                                label: Text(
-                                  t,
-                                  style: const TextStyle(fontSize: 10),
-                                ),
-                                visualDensity: VisualDensity.compact,
-                                materialTapTargetSize:
-                                    MaterialTapTargetSize.shrinkWrap,
-                                padding: EdgeInsets.zero,
-                              ),
-                            )
-                            .toList(),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -294,18 +282,6 @@ class DeckViewerState extends State<DeckViewer> {
             padding: const EdgeInsets.all(10),
             children: [
               generateManaCurve(deck.cards),
-              Container(
-                padding: EdgeInsets.fromLTRB(10, 6, 15, 0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      "${deck.cards.length} cards",
-                      style: TextStyle(fontSize: 16, height: 1.5),
-                    ),
-                  ],
-                ),
-              ),
               ...generateDeckView(deck, columnCount),
             ],
           ),
@@ -696,7 +672,6 @@ class DeckViewerState extends State<DeckViewer> {
           builder: (context, setState) {
             return AlertDialog(
               title: Text("Sample Starting Hand"),
-              titleTextStyle: TextStyle(fontSize: 16),
               insetPadding: EdgeInsets.all(15),
               content: SizedBox(
                 width: MediaQuery.of(context).size.width * .9,
