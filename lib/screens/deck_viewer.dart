@@ -3,8 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart' hide Card;
-import 'package:community_charts_flutter/community_charts_flutter.dart'
-    as charts;
+import 'package:fl_chart/fl_chart.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
@@ -27,7 +26,7 @@ import '/data/repositories/cube_repository.dart';
 import '/data/models/card.dart';
 import '/data/models/deck.dart';
 import '/data/models/deck_upsert.dart';
-import '/data/models/set.dart';
+import '/data/models/set.dart' as set_model;
 import '/data/models/cube.dart';
 import '/utils/constants.dart';
 import '/utils/deck_change_notifier.dart';
@@ -62,11 +61,13 @@ class DeckViewerState extends State<DeckViewer> {
   late TokenRepository tokenRepository;
   late DeckRepository deckRepository;
   Map groupedTokens = {};
-  List<Set> _sets = [];
+  List<set_model.Set> _sets = [];
   List<Cube> _cubes = [];
   List<String> _allTags = [];
   bool _dataLoaded = false;
   int columnCount = 3;
+  bool _manacurveSplitByColor = false;
+  final Set<String> _disabledSeries = {};
 
   @override
   void initState() {
@@ -138,7 +139,7 @@ class DeckViewerState extends State<DeckViewer> {
       deckRepository.getAllTags(),
     ]);
     setState(() {
-      _sets = results[0] as List<Set>;
+      _sets = results[0] as List<set_model.Set>;
       _cubes = results[1] as List<Cube>;
       _allTags = results[2] as List<String>;
       _dataLoaded = true;
@@ -282,6 +283,32 @@ class DeckViewerState extends State<DeckViewer> {
             padding: const EdgeInsets.all(10),
             children: [
               generateManaCurve(deck.cards),
+              SizedBox(height: 15),
+              Align(
+                alignment: Alignment.centerRight,
+                child: SegmentedButton<bool>(
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    foregroundColor: WidgetStateProperty.all(Colors.white60),
+                    shape: WidgetStateProperty.all(
+                      RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                    ),
+                  ),
+                  segments: const [
+                    ButtonSegment(value: false, label: Text("Type", style: TextStyle(fontSize: 11),)),
+                    ButtonSegment(value: true, label: Text("Color", style: TextStyle(fontSize: 11),)),
+                  ],
+                  selected: {_manacurveSplitByColor},
+                  onSelectionChanged: (newSelection) {
+                    setState(() {
+                      _manacurveSplitByColor = newSelection.first;
+                      _disabledSeries.clear();
+                    });
+                  },
+                ),
+              ),
               ...generateDeckView(deck, columnCount),
             ],
           ),
@@ -740,66 +767,224 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Widget generateManaCurve(List<Card> cards) {
-    List<int> manaValues = [0, 1, 2, 3, 4, 5, 6, 7];
-    final nonCreatureSeries = [];
-    final creatureSeries = [];
+    final manaValues = [0, 1, 2, 3, 4, 5, 6, 7];
+    final manaLabels = ["0", "1", "2", "3", "4", "5", "6", "7+"];
 
-    for (var val in manaValues) {
-      condition(card) {
-        if (val < 7) {
-          return (card.manaValue == val);
-        } else {
-          return (card.manaValue > 6);
-        }
-      }
-
-      nonCreatureSeries.add({
-        "manaValue": (val < 7) ? val.toString() : "7+",
-        "count": cards
-            .where((card) => condition(card))
-            .where((card) => card.type != "Creature" && card.type != "Land")
-            .length,
-      });
-      creatureSeries.add({
-        "manaValue": (val < 7) ? val.toString() : "7+",
-        "count": cards
-            .where((card) => condition(card))
-            .where((card) => card.type == "Creature" && card.type != "Land")
-            .length,
-      });
+    bool Function(Card) manaCondition(int val) {
+      return (card) => val < 7 ? card.manaValue == val : card.manaValue > 6;
     }
 
-    List<charts.Series<dynamic, String>> seriesList = [
-      charts.Series(
-        id: "Non-Creature",
-        domainFn: (datum, _) => datum["manaValue"],
-        measureFn: (datum, _) => datum["count"],
-        data: nonCreatureSeries,
-      ),
-      charts.Series(
-        id: "Creature",
-        domainFn: (datum, _) => datum["manaValue"],
-        measureFn: (datum, _) => datum["count"],
-        data: creatureSeries,
-      ),
-    ];
+    final labelToColor =
+        _manacurveSplitByColor ? _colorChartColors : _typeChartColors;
+    final labelOrder =
+        _manacurveSplitByColor ? colorOrder : _typeLabels;
+    final String Function(Card) labelKeyFn = _manacurveSplitByColor
+        ? (c) => c.color()
+        : (c) => c.type == "Creature" ? "Creature" : "Non-Creature";
 
-    return SizedBox(
-      height: 200,
-      child: charts.BarChart(
-        animate: false,
-        seriesList,
-        barGroupingType: charts.BarGroupingType.stacked,
-        primaryMeasureAxis: charts.NumericAxisSpec(
-          tickProviderSpec: charts.BasicNumericTickProviderSpec(
-            dataIsInWholeNumbers: true,
-            desiredMinTickCount: 4,
+    final labelTotals = {for (final label in labelOrder) label: 0};
+    for (final label in labelOrder) {
+      labelTotals[label] = cards
+          .where((c) => c.type != "Land")
+          .where((c) => labelKeyFn(c) == label)
+          .length;
+    }
+
+    final legendItems = labelOrder
+        .where((label) => labelTotals[label]! > 0)
+        .map((label) {
+          final isDisabled = _disabledSeries.contains(label);
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                if (isDisabled) {
+                  _disabledSeries.remove(label);
+                } else {
+                  _disabledSeries.add(label);
+                }
+              });
+            },
+            child: Opacity(
+              opacity: isDisabled ? 0.3 : 1.0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: labelToColor[label] ?? Colors.grey,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      decoration:
+                          isDisabled ? TextDecoration.lineThrough : null,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        })
+        .toList();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 150,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final barWidth =
+                  constraints.maxWidth / (manaLabels.length * 1.6);
+              final groupsSpace = barWidth / 4;
+
+              final barGroups = manaValues.asMap().entries.map((entry) {
+                final x = entry.key;
+                final val = entry.value;
+                final condition = manaCondition(val);
+
+                final stacks = <BarChartRodStackItem>[];
+                double runningY = 0;
+
+                for (final label in labelOrder) {
+                  if (_disabledSeries.contains(label)) continue;
+                  final count = cards
+                      .where(condition)
+                      .where((c) => c.type != "Land")
+                      .where((c) => labelKeyFn(c) == label)
+                      .length;
+                  if (count > 0) {
+                    stacks.add(BarChartRodStackItem(
+                      runningY,
+                      runningY + count,
+                      labelToColor[label] ?? Colors.grey,
+                    ));
+                    runningY += count;
+                  }
+                }
+
+                return BarChartGroupData(
+                  x: x,
+                  barRods: [
+                    BarChartRodData(
+                      toY: runningY,
+                      rodStackItems: stacks,
+                      borderRadius: BorderRadius.only(topLeft: Radius.circular(3), topRight: Radius.circular(3)),
+                      width: barWidth,
+                    ),
+                  ],
+                );
+              }).toList();
+
+              return BarChart(
+                BarChartData(
+                  alignment: BarChartAlignment.center,
+                  barTouchData: BarTouchData(enabled: false),
+                  titlesData: FlTitlesData(
+                    show: true,
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 28,
+                        getTitlesWidget: (value, meta) {
+                          final idx = value.toInt();
+                          if (idx < 0 || idx >= manaLabels.length) {
+                            return Container();
+                          }
+                          return SideTitleWidget(
+                            meta: meta,
+                            child: Text(
+                              manaLabels[idx],
+                              style: TextStyle(fontSize: 12),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 32,
+                        interval: 2,
+                        getTitlesWidget: (value, meta) {
+                          if (value == meta.max) return Container();
+                          return SideTitleWidget(
+                            meta: meta,
+                            child: Text(
+                              meta.formattedValue,
+                              style: TextStyle(fontSize: 10),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    topTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                  ),
+                  gridData: FlGridData(
+                    show: true,
+                    horizontalInterval: 2,
+                    checkToShowHorizontalLine: (value) => value % 1 == 0,
+                    getDrawingHorizontalLine: (value) => FlLine(
+                      color: Colors.grey.withAlpha(30),
+                      strokeWidth: 1,
+                    ),
+                    drawVerticalLine: false,
+                  ),
+                  borderData: FlBorderData(show: false),
+                  groupsSpace: groupsSpace,
+                  barGroups: barGroups,
+                ),
+              );
+            },
           ),
         ),
-        behaviors: [charts.SeriesLegend(showMeasures: true)],
-      ),
+        if (legendItems.isNotEmpty) ...[
+          SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 4,
+            children: legendItems,
+          ),
+        ],
+      ],
     );
   }
+
+  static const _typeLabels = ["Creature", "Non-Creature"];
+
+  static const _typeChartColors = {
+    "Creature": Color(0xFF2F68C3),
+    "Non-Creature": Color(0xFF61ADE4),
+  };
+
+  static const _colorChartColors = {
+    "White": Color(0xFFDAD1B8),
+    "Blue": Color(0xFF0A7ACA),
+    "Black": Color(0xFF3A3939),
+    "Red": Color(0xFFA8333B),
+    "Green": Color(0xFF297E31),
+    "Multicolor": Color(0xFFCA9A32),
+    "Colorless": Color(0xFF858484),
+  };
+
+  // static const _colorChartColors = {
+  //   "White": Color.fromRGBO(249, 250, 244, 1),
+  //   "Blue": Color.fromRGBO(14, 104, 171, 1),
+  //   "Black": Color(0xFF323030),
+  //   "Red": Color(0xFFA12931),
+  //   "Green": Color(0xFF127024),
+  //   "Multicolor": Color(0xFFC88D0E),
+  //   "Colorless": Color(0xFF858484),
+  // };
 
   List<Widget> generateDeckView(Deck deck, int columnCount) {
     final List<Widget> deckView = [];
