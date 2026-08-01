@@ -488,9 +488,9 @@ class DeckViewerState extends State<DeckViewer> {
         bool calculating = false;
         BasicLandResult? _result;
 
-        const _mutedStyle = TextStyle(fontSize: 10, color: Colors.grey);
-        const _boldStyle = TextStyle(fontSize: 11, fontWeight: FontWeight.bold);
-        const _subStyle = TextStyle(fontSize: 11);
+        const _mutedStyle = TextStyle(fontSize: 12, color: Colors.grey);
+        const _boldStyle = TextStyle(fontSize: 14, fontWeight: FontWeight.bold);
+        const _subStyle = TextStyle(fontSize: 14);
         const _colorToChar = {
           'White': 'W', 'Blue': 'U', 'Black': 'B',
           'Red': 'R', 'Green': 'G',
@@ -500,7 +500,7 @@ class DeckViewerState extends State<DeckViewer> {
           'Mountain': 'Red', 'Forest': 'Green',
         };
 
-        WidgetSpan _manaIcon(String char, {double height = 11}) {
+        WidgetSpan _manaIcon(String char, {double height = 14}) {
           return WidgetSpan(
             alignment: PlaceholderAlignment.middle,
             child: SvgPicture.asset('assets/svg_icons/$char.svg', height: height),
@@ -517,14 +517,22 @@ class DeckViewerState extends State<DeckViewer> {
             TextSpan(
               style: _mutedStyle,
               children: [
-                _manaIcon(_colorToChar[colorName]!, height: 10),
-                TextSpan(text: ' ${pips.toStringAsFixed(1)}'),
+                _manaIcon(_colorToChar[colorName]!, height: 12),
+                TextSpan(text: '  ${pips.toStringAsFixed(1)}'),
               ],
             ),
           );
         }
 
         Widget _buildSummary(BasicLandResult r) {
+          final perColor = <String, int>{};
+          for (final s in r.nonBasicLandSources) {
+            for (final c in s.colors) {
+              perColor[c] = (perColor[c] ?? 0) + 1;
+            }
+          }
+          final colorEntries = perColor.entries.toList();
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
@@ -538,7 +546,7 @@ class DeckViewerState extends State<DeckViewer> {
                       style: _mutedStyle),
                 ],
               ]),
-              SizedBox(height: 2),
+              SizedBox(height: 4),
               Row(children: [
                 Text('Basic slots: ', style: _boldStyle),
                 Text('${r.basicLandSlots}', style: _subStyle),
@@ -548,6 +556,22 @@ class DeckViewerState extends State<DeckViewer> {
                       style: _mutedStyle),
                 ],
               ]),
+              if (r.nonBasicLandSources.isNotEmpty) ...[
+                SizedBox(height: 4),
+                Text.rich(TextSpan(
+                  children: [
+                    TextSpan(text: 'Non-basic sources: ', style: _boldStyle),
+                    for (int i = 0; i < colorEntries.length; i++) ...[
+                      _manaIcon(_colorToChar[colorEntries[i].key]!),
+                      TextSpan(
+                          text: ' ${colorEntries[i].value}',
+                          style: _subStyle),
+                      if (i < colorEntries.length - 1)
+                        TextSpan(text: '  ', style: _subStyle),
+                    ],
+                  ],
+                )),
+              ],
             ],
           );
         }
@@ -560,7 +584,7 @@ class DeckViewerState extends State<DeckViewer> {
             children: [
               SizedBox(height: 8),
               if (hasTotals)
-                Wrap(spacing: 16, children: [
+                Wrap(spacing: 8, children: [
                   Text('Fixing sources:', style: _boldStyle),
                   ...r.virtualFixing.entries
                       .where((e) => e.value > 0)
@@ -569,7 +593,7 @@ class DeckViewerState extends State<DeckViewer> {
                         children: [
                           _manaIcon(_colorToChar[e.key]!),
                           TextSpan(
-                              text: ' +${e.value.toStringAsFixed(2)}'),
+                              text: ' ${e.value.toStringAsFixed(2)}'),
                         ],
                       ))),
                 ]),
@@ -583,49 +607,6 @@ class DeckViewerState extends State<DeckViewer> {
                   ),
                 )),
               ],
-            ],
-          );
-        }
-
-        Widget _buildNonBasicLands(BasicLandResult r) {
-          if (r.nonBasicLandSources.isEmpty) return SizedBox.shrink();
-          final perColor = <String, int>{};
-          for (final s in r.nonBasicLandSources) {
-            for (final c in s.colors) {
-              perColor[c] = (perColor[c] ?? 0) + 1;
-            }
-          }
-          final entries = perColor.entries.toList();
-          final colorSpans = <InlineSpan>[];
-          for (int i = 0; i < entries.length; i++) {
-            colorSpans.add(_manaIcon(_colorToChar[entries[i].key]!, height: 11));
-            colorSpans.add(TextSpan(text: ' +${entries[i].value}'));
-            if (i < entries.length - 1) {
-              colorSpans.add(TextSpan(text: ', '));
-            }
-          }
-
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 8),
-              Text.rich(TextSpan(
-                style: _boldStyle,
-                children: [
-                  TextSpan(text: 'Non-basic lands ('),
-                  ...colorSpans,
-                  TextSpan(text: '):'),
-                ],
-              )),
-              SizedBox(height: 2),
-              ...r.nonBasicLandSources.map((s) => Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Text(
-                  '${s.name} (${s.colors.join(', ')})',
-                  style: _mutedStyle,
-                ),
-              )),
             ],
           );
         }
@@ -645,7 +626,7 @@ class DeckViewerState extends State<DeckViewer> {
                         children: [
                           TextSpan(text: 'Deck colors: '),
                           for (final c in deck.colors.split(''))
-                            _manaIcon(c, height: 12),
+                            _manaIcon(c, height: 14),
                         ],
                       )),
                       SizedBox(height: 12),
@@ -654,8 +635,6 @@ class DeckViewerState extends State<DeckViewer> {
                         if (_result!.fixingCards.isNotEmpty ||
                             _result!.virtualFixing.values.any((v) => v > 0))
                           _buildFixingCards(_result!),
-                        if (_result!.nonBasicLandSources.isNotEmpty)
-                          _buildNonBasicLands(_result!),
                         SizedBox(height: 15),
                         Divider(height: 1),
                       ],
@@ -669,7 +648,7 @@ class DeckViewerState extends State<DeckViewer> {
                               'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
                             ]
                                 .map((name) => SizedBox(
-                                      height: 28,
+                                      height: 32,
                                       child: Align(
                                         alignment: Alignment.centerRight,
                                         child: Text(name, style: _subStyle),
@@ -682,7 +661,7 @@ class DeckViewerState extends State<DeckViewer> {
                             Padding(
                               padding: EdgeInsetsGeometry.only(top: 14),
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   'Plains',
                                   'Island',
@@ -690,7 +669,7 @@ class DeckViewerState extends State<DeckViewer> {
                                   'Mountain',
                                   'Forest',
                                 ].map((name) => SizedBox(
-                                  height: 28,
+                                  height: 32,
                                   child:
                                   _pipLabel(name, _result!),
                                 )).toList(),
@@ -704,7 +683,7 @@ class DeckViewerState extends State<DeckViewer> {
                               'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
                             ].map((name) {
                               return SizedBox(
-                                height: 28,
+                                height: 32,
                                 child: Align(
                                   alignment: Alignment.centerRight,
                                   child: Row(
