@@ -62,8 +62,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
     _loadInitialData();
     _loadFirstDeckStatus();
     _loadTags();
-    cardRepository.getAllCards();
-
     WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
   }
 

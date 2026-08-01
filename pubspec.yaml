@@ -63,6 +63,7 @@ dependencies:
   flutter_sharing_intent: ^2.0.4
 
   collection: any
+  meta: ^1.18.0
   url_launcher: any
   universal_ble: ^2.1.0
   flutter_local_notifications: ^18.0.1

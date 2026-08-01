@@ -5,7 +5,6 @@ import '/data/models/card.dart';
 import '/data/models/deck_upsert.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/repositories/card_repository.dart';
-import '/utils/card_matcher.dart';
 
 class DeckTextEditor extends StatefulWidget {
   final String? initialText;
@@ -72,15 +71,10 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
     setState(() => _isLoading = true);
 
     try {
-      final allCards = await widget.cardRepository.getAllCards();
-      final List<String> errors = [];
-
-      // Split text into mainboard and sideboard sections
       final (mainboardText, sideboardText) = _splitTextBySideboard(_controller.text);
-
-      // Parse both sections
-      final List<Card> mainboard = _parseCardList(mainboardText, allCards, errors);
-      final List<Card> sideboard = _parseCardList(sideboardText, allCards, errors);
+      final List<String> errors = [];
+      final List<Card> mainboard = await _parseCardList(mainboardText, errors);
+      final List<Card> sideboard = await _parseCardList(sideboardText, errors);
 
       if (errors.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -117,7 +111,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
     }
   }
 
-  List<Card> _parseCardList(String text, List<Card> allCards, List<String> errors) {
+  Future<List<Card>> _parseCardList(String text, List<String> errors) async {
     List<Card> result = [];
     final lines = text.split('\n');
     final regex = RegExp(r'^(\d+)\s(.+)$');
@@ -136,7 +130,7 @@ class _DeckTextEditorState extends State<DeckTextEditor> {
         final count = int.parse(regexMatch.first[1]!);
         final cardName = regexMatch.first[2]!;
 
-        Card? matchedCard = findCardByName(cardName, allCards);
+        final matchedCard = await widget.cardRepository.getCardByName(cardName);
 
         if (matchedCard == null) {
           errors.add("Card not found: '$cardName'");

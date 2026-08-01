@@ -5,11 +5,8 @@ import '/data/models/card.dart';
 
 class CardRepository {
   late final DatabaseHelper _dbHelper;
-  List<Card> _allCards = [];
-  bool _cardsLoaded = false;
   bool _dbHelperLoaded = false;
 
-  // Make class singleton
   CardRepository._privateConstructor();
   static final CardRepository _instance = CardRepository._privateConstructor();
   factory CardRepository() {
@@ -41,7 +38,7 @@ class CardRepository {
         scryfallMetadata,
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
-      batch.delete('cards'); // Removes all rows from table.
+      batch.delete('cards');
       for (final card in cards) {
         batch.insert(
           'cards',
@@ -51,26 +48,76 @@ class CardRepository {
       }
       await batch.commit();
     });
-    _cardsLoaded = false; // Invalidate cache
   }
 
   Future<List<Card>> getAllCards() async {
-    if (!_cardsLoaded || _allCards.isEmpty) {
-      final dbClient = await _db;
-      final result = await dbClient.query('cards');
-      _allCards = result.map((map) => Card.fromMap(map)).toList();
-      if (_allCards.isNotEmpty) {
-        _cardsLoaded = true;
-      }
-    }
-    return _allCards;
+    final dbClient = await _db;
+    final result = await dbClient.query('cards');
+    return result.map((map) => Card.fromMap(map)).toList();
   }
 
   Future<List<Card>> getCardsByScryfallIds(List<String> scryfallIds) async {
-    final all = await getAllCards();
-    final idSet = scryfallIds.toSet();
-    return all.where((c) => idSet.contains(c.scryfallId)).toList();
+    if (scryfallIds.isEmpty) return [];
+    final dbClient = await _db;
+    final placeholders = scryfallIds.map((_) => '?').join(',');
+    final result = await dbClient.rawQuery(
+      'SELECT * FROM cards WHERE scryfall_id IN ($placeholders)',
+      scryfallIds,
+    );
+    return result.map((map) => Card.fromMap(map)).toList();
   }
 
-  // Add methods for cards_to_tokens and tokens tables if needed
+  Future<List<Card>> getBasicLands() async {
+    final dbClient = await _db;
+    final result = await dbClient.rawQuery(
+      "SELECT * FROM cards WHERE name IN ('Plains','Island','Swamp','Mountain','Forest')",
+    );
+    return result.map((map) => Card.fromMap(map)).toList();
+  }
+
+  Future<Card?> getCardByName(String name) async {
+    final dbClient = await _db;
+    final lower = name.toLowerCase();
+    final result = await dbClient.rawQuery(
+      'SELECT * FROM cards WHERE lower(name) = ? OR lower(title) = ? LIMIT 1',
+      [lower, lower],
+    );
+    if (result.isEmpty) return null;
+
+    final cards = result.map((map) => Card.fromMap(map)).toList();
+    final card = cards.first;
+
+    if (card.name.contains(' // ')) {
+      final faces = card.name.split(' // ');
+      if (faces.any((face) => face.toLowerCase() == lower)) {
+        return card;
+      }
+      return null;
+    }
+
+    return card;
+  }
+
+  Future<List<Card>> getCardsByNames(List<String> names) async {
+    if (names.isEmpty) return [];
+    final lowerNames = names.map((n) => n.toLowerCase()).toList();
+    final dbClient = await _db;
+    final placeholders = lowerNames.map((_) => '?').join(',');
+    final args = [...lowerNames, ...lowerNames];
+    final result = await dbClient.rawQuery(
+      'SELECT * FROM cards WHERE lower(name) IN ($placeholders) OR lower(title) IN ($placeholders)',
+      args,
+    );
+    return result.map((map) => Card.fromMap(map)).toList();
+  }
+
+  Future<List<Map<String, String>>> getAllCardNames() async {
+    final dbClient = await _db;
+    final result = await dbClient.rawQuery('SELECT scryfall_id, name, title FROM cards');
+    return result.map((r) => {
+      'scryfall_id': r['scryfall_id'] as String,
+      'name': r['name'] as String,
+      'title': r['title'] as String,
+    }).toList();
+  }
 }

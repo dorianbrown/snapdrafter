@@ -30,6 +30,7 @@ import '/data/models/set.dart' as set_model;
 import '/data/models/cube.dart';
 import '/utils/constants.dart';
 import '/utils/deck_change_notifier.dart';
+import '/utils/basic_land_calculator.dart';
 
 const _headerStyle = TextStyle(
   fontSize: 20,
@@ -57,7 +58,6 @@ class DeckViewerState extends State<DeckViewer> {
   DeckViewerState(this.deck);
 
   final DeckChangeNotifier _notifier = DeckChangeNotifier();
-  List<Card>? allCards;
   late CardRepository cardRepository;
   late TokenRepository tokenRepository;
   late DeckRepository deckRepository;
@@ -148,8 +148,6 @@ class DeckViewerState extends State<DeckViewer> {
 
   Future<void> _loadCards() async {
     cardRepository = CardRepository();
-    final cards = await cardRepository.getAllCards();
-    allCards = cards;
   }
 
   Future<void> _loadSetsAndCubesAndTags() async {
@@ -345,8 +343,7 @@ class DeckViewerState extends State<DeckViewer> {
               IconButton(
                 tooltip: "Add basics",
                 icon: Icon(Icons.landscape),
-                onPressed: () =>
-                    allCards != null ? showBasicsEditor(deck, allCards!) : null,
+                onPressed: () => showBasicsEditor(deck),
               ),
               IconButton(
                 tooltip: "Show Deck Tokens",
@@ -372,8 +369,7 @@ class DeckViewerState extends State<DeckViewer> {
               IconButton(
                 tooltip: "Edit Decklist",
                 icon: Icon(Icons.format_list_numbered),
-                onPressed: () =>
-                    allCards != null ? showDeckEditor(deck, allCards!) : null,
+                onPressed: () => showDeckEditor(deck),
               ),
               IconButton(
                 tooltip: "View Deck Photo",
@@ -470,8 +466,14 @@ class DeckViewerState extends State<DeckViewer> {
     SharePlus.instance.share(params);
   }
 
-  Future showBasicsEditor(Deck deck, List<Card> allCards) async {
-    // Get current counts of each basic land type
+  Future showBasicsEditor(Deck deck) async {
+    final basicLands = await cardRepository.getBasicLands();
+    final plains = basicLands.firstWhere((c) => c.name == 'Plains');
+    final island = basicLands.firstWhere((c) => c.name == 'Island');
+    final swamp = basicLands.firstWhere((c) => c.name == 'Swamp');
+    final mountain = basicLands.firstWhere((c) => c.name == 'Mountain');
+    final forest = basicLands.firstWhere((c) => c.name == 'Forest');
+
     Map<String, int> basicCounts = {
       'Plains': deck.cards.where((c) => c.name == 'Plains').length,
       'Island': deck.cards.where((c) => c.name == 'Island').length,
@@ -480,140 +482,320 @@ class DeckViewerState extends State<DeckViewer> {
       'Forest': deck.cards.where((c) => c.name == 'Forest').length,
     };
 
-    // Get all cards to find basic lands
-    final plains = allCards.firstWhere((c) => c.name == 'Plains');
-    final island = allCards.firstWhere((c) => c.name == 'Island');
-    final swamp = allCards.firstWhere((c) => c.name == 'Swamp');
-    final mountain = allCards.firstWhere((c) => c.name == 'Mountain');
-    final forest = allCards.firstWhere((c) => c.name == 'Forest');
-
     showDialog(
       context: context,
       builder: (dialogContext) {
+        bool calculating = false;
+        BasicLandResult? _result;
+
+        const _mutedStyle = TextStyle(fontSize: 10, color: Colors.grey);
+        const _boldStyle = TextStyle(fontSize: 11, fontWeight: FontWeight.bold);
+        const _subStyle = TextStyle(fontSize: 11);
+        const _colorToChar = {
+          'White': 'W', 'Blue': 'U', 'Black': 'B',
+          'Red': 'R', 'Green': 'G',
+        };
+        const _plainsToColor = {
+          'Plains': 'White', 'Island': 'Blue', 'Swamp': 'Black',
+          'Mountain': 'Red', 'Forest': 'Green',
+        };
+
+        WidgetSpan _manaIcon(String char, {double height = 11}) {
+          return WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: SvgPicture.asset('assets/svg_icons/$char.svg', height: height),
+          );
+        }
+
+        Widget? _pipLabel(String landName, BasicLandResult r) {
+          final colorName = _plainsToColor[landName];
+          if (colorName == null) return null;
+          final pips = r.weightedPips[colorName];
+          if (pips == null || pips == 0) return null;
+          return Text.rich(
+            textAlign: TextAlign.left,
+            TextSpan(
+              style: _mutedStyle,
+              children: [
+                _manaIcon(_colorToChar[colorName]!, height: 10),
+                TextSpan(text: ' ${pips.toStringAsFixed(1)}'),
+              ],
+            ),
+          );
+        }
+
+        Widget _buildSummary(BasicLandResult r) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                Text('Total lands: ', style: _boldStyle),
+                Text('${r.totalLands}', style: _subStyle),
+                if (r.rampCount > 0) ...[
+                  SizedBox(width: 4),
+                  Text('(17 − ${r.rampCount ~/ 2} from ${r.rampCount} ramp)',
+                      style: _mutedStyle),
+                ],
+              ]),
+              SizedBox(height: 2),
+              Row(children: [
+                Text('Basic slots: ', style: _boldStyle),
+                Text('${r.basicLandSlots}', style: _subStyle),
+                if (r.nonBasicLandCount > 0) ...[
+                  SizedBox(width: 4),
+                  Text('(${r.totalLands} total − ${r.nonBasicLandCount} non-basic)',
+                      style: _mutedStyle),
+                ],
+              ]),
+            ],
+          );
+        }
+
+        Widget _buildFixingCards(BasicLandResult r) {
+          final hasTotals = r.virtualFixing.values.any((v) => v > 0);
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 8),
+              if (hasTotals)
+                Wrap(spacing: 16, children: [
+                  Text('Fixing sources:', style: _boldStyle),
+                  ...r.virtualFixing.entries
+                      .where((e) => e.value > 0)
+                      .map((e) => Text.rich(TextSpan(
+                        style: _subStyle,
+                        children: [
+                          _manaIcon(_colorToChar[e.key]!),
+                          TextSpan(
+                              text: ' +${e.value.toStringAsFixed(2)}'),
+                        ],
+                      ))),
+                ]),
+              if (r.fixingCards.isNotEmpty) ...[
+                SizedBox(height: 4),
+                ...r.fixingCards.map((fc) => Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Text(
+                    '${fc.name} (${fixingTagLabel(fc.tag)}) +${fc.weight.toStringAsFixed(2)}',
+                    style: _mutedStyle,
+                  ),
+                )),
+              ],
+            ],
+          );
+        }
+
+        Widget _buildNonBasicLands(BasicLandResult r) {
+          if (r.nonBasicLandSources.isEmpty) return SizedBox.shrink();
+          final perColor = <String, int>{};
+          for (final s in r.nonBasicLandSources) {
+            for (final c in s.colors) {
+              perColor[c] = (perColor[c] ?? 0) + 1;
+            }
+          }
+          final entries = perColor.entries.toList();
+          final colorSpans = <InlineSpan>[];
+          for (int i = 0; i < entries.length; i++) {
+            colorSpans.add(_manaIcon(_colorToChar[entries[i].key]!, height: 11));
+            colorSpans.add(TextSpan(text: ' +${entries[i].value}'));
+            if (i < entries.length - 1) {
+              colorSpans.add(TextSpan(text: ', '));
+            }
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 8),
+              Text.rich(TextSpan(
+                style: _boldStyle,
+                children: [
+                  TextSpan(text: 'Non-basic lands ('),
+                  ...colorSpans,
+                  TextSpan(text: '):'),
+                ],
+              )),
+              SizedBox(height: 2),
+              ...r.nonBasicLandSources.map((s) => Padding(
+                padding: EdgeInsets.only(left: 8),
+                child: Text(
+                  '${s.name} (${s.colors.join(', ')})',
+                  style: _mutedStyle,
+                ),
+              )),
+            ],
+          );
+        }
+
         return StatefulBuilder(
           builder: (builderContext, setDialogState) {
             return AlertDialog(
               title: Text('Edit Basic Lands'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
+              content: Stack(
                 children: [
-                  Text('Deck colors: ${deck.colors}'),
-                  SizedBox(height: 20),
-                  ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((
-                    name,
-                  ) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(name),
-                        Row(
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.remove),
-                              onPressed: () {
-                                setDialogState(() {
-                                  if (basicCounts[name]! > 0) {
-                                    basicCounts[name] = basicCounts[name]! - 1;
-                                  }
-                                });
-                              },
-                            ),
-                            Text('${basicCounts[name]}'),
-                            IconButton(
-                              icon: Icon(Icons.add),
-                              onPressed: () {
-                                setDialogState(() {
-                                  basicCounts[name] = basicCounts[name]! + 1;
-                                });
-                              },
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text.rich(TextSpan(
+                        style: _subStyle,
+                        children: [
+                          TextSpan(text: 'Deck colors: '),
+                          for (final c in deck.colors.split(''))
+                            _manaIcon(c, height: 12),
+                        ],
+                      )),
+                      SizedBox(height: 12),
+                      if (_result != null) ...[
+                        _buildSummary(_result!),
+                        if (_result!.fixingCards.isNotEmpty ||
+                            _result!.virtualFixing.values.any((v) => v > 0))
+                          _buildFixingCards(_result!),
+                        if (_result!.nonBasicLandSources.isNotEmpty)
+                          _buildNonBasicLands(_result!),
+                        SizedBox(height: 15),
+                        Divider(height: 1),
+                      ],
+                      SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
+                            ]
+                                .map((name) => SizedBox(
+                                      height: 28,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(name, style: _subStyle),
+                                      ),
+                                    ))
+                                .toList(),
+                          ),
+                          if (_result != null) ...[
+                            SizedBox(width: 28,),
+                            Padding(
+                              padding: EdgeInsetsGeometry.only(top: 14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  'Plains',
+                                  'Island',
+                                  'Swamp',
+                                  'Mountain',
+                                  'Forest',
+                                ].map((name) => SizedBox(
+                                  height: 28,
+                                  child:
+                                  _pipLabel(name, _result!),
+                                )).toList(),
+                              )
                             ),
                           ],
+                          SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
+                            ].map((name) {
+                              return SizedBox(
+                                height: 28,
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      IconButton(
+                                        iconSize: 18,
+                                        constraints: BoxConstraints(
+                                            minWidth: 24, minHeight: 24),
+                                        padding: EdgeInsets.zero,
+                                        icon: Icon(Icons.remove),
+                                        onPressed: () {
+                                          setDialogState(() {
+                                            if (basicCounts[name]! > 0) {
+                                              basicCounts[name] =
+                                                  basicCounts[name]! - 1;
+                                            }
+                                          });
+                                        },
+                                      ),
+                                      Text('${basicCounts[name]}',
+                                          style: _subStyle),
+                                      IconButton(
+                                        iconSize: 18,
+                                        constraints: BoxConstraints(
+                                            minWidth: 24, minHeight: 24),
+                                        padding: EdgeInsets.zero,
+                                        icon: Icon(Icons.add),
+                                        onPressed: () {
+                                          setDialogState(() {
+                                            basicCounts[name] =
+                                                basicCounts[name]! + 1;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (calculating)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black54,
+                        child: Center(
+                          child: CircularProgressIndicator(),
                         ),
-                      ],
-                    );
-                  }),
+                      ),
+                    ),
                 ],
               ),
               actions: [
                 TextButton(
                   child: Text('Calculate'),
-                  onPressed: () {
-                    // Calculate total colored mana symbols in deck
-                    Map<String, int> colorCounts = {
-                      'W': 0,
-                      'U': 0,
-                      'B': 0,
-                      'R': 0,
-                      'G': 0,
-                    };
-
-                    // Count colored symbols in each card's mana cost
-                    for (var card in deck.cards) {
-                      if (card.manaCost != null) {
-                        for (var symbol in ['W', 'U', 'B', 'R', 'G']) {
-                          colorCounts[symbol] =
-                              colorCounts[symbol]! +
-                              RegExp(symbol).allMatches(card.manaCost!).length;
+                  onPressed: () async {
+                    setDialogState(() => calculating = true);
+                    try {
+                      final result = await calculateBasicLands(deck);
+                      setDialogState(() {
+                        _result = result;
+                        for (final name in [
+                          'Plains',
+                          'Island',
+                          'Swamp',
+                          'Mountain',
+                          'Forest',
+                        ]) {
+                          basicCounts[name] = 0;
                         }
-                      }
+                        const colorToPlains = <String, String>{
+                          'White': 'Plains',
+                          'Blue': 'Island',
+                          'Black': 'Swamp',
+                          'Red': 'Mountain',
+                          'Green': 'Forest',
+                        };
+                        for (final entry in result.basics.entries) {
+                          final plainsName = colorToPlains[entry.key];
+                          if (plainsName != null) {
+                            basicCounts[plainsName] = entry.value;
+                          }
+                        }
+                      });
+                    } finally {
+                      setDialogState(() => calculating = false);
                     }
-
-                    // Count non-basic lands
-                    int nonBasicLands = deck.cards
-                        .where(
-                          (card) =>
-                              card.type == 'Land' &&
-                              ![
-                                'Plains',
-                                'Island',
-                                'Swamp',
-                                'Mountain',
-                                'Forest',
-                              ].contains(card.name),
-                        )
-                        .length;
-
-                    // Calculate total basics needed (17 - non-basic lands)
-                    int totalBasics = 17 - nonBasicLands;
-
-                    // Calculate total colored symbols
-                    int totalSymbols = colorCounts.values.reduce(
-                      (a, b) => a + b,
-                    );
-
-                    // TODO: Take into account the mana production of non-basic lands
-
-                    setDialogState(() {
-                      // Calculate basic land distribution based on color requirements
-                      basicCounts['Plains'] =
-                          (colorCounts['W']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Island'] =
-                          (colorCounts['U']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Swamp'] =
-                          (colorCounts['B']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Mountain'] =
-                          (colorCounts['R']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Forest'] =
-                          (colorCounts['G']! / totalSymbols * totalBasics)
-                              .round();
-
-                      // Ensure we don't exceed total basics
-                      int currentTotal = basicCounts.values.reduce(
-                        (a, b) => a + b,
-                      );
-                      if (currentTotal > totalBasics) {
-                        // Reduce largest count to match
-                        var maxEntry = basicCounts.entries.reduce(
-                          (a, b) => a.value > b.value ? a : b,
-                        );
-                        basicCounts[maxEntry.key] =
-                            maxEntry.value - (currentTotal - totalBasics);
-                      }
-                    });
                   },
                 ),
                 TextButton(
@@ -759,7 +941,7 @@ class DeckViewerState extends State<DeckViewer> {
     );
   }
 
-  void showDeckEditor(Deck deck, List<Card> allCards) {
+  void showDeckEditor(Deck deck) {
     showDialog(
       context: context,
       builder: (context) => DeckTextEditor(

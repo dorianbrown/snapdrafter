@@ -6,7 +6,6 @@ import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
 import '../utils/utils.dart';
-import '../utils/card_matcher.dart';
 import 'deck_viewer.dart';
 import 'image_processing_screen.dart';
 import '/models/detection.dart';
@@ -67,7 +66,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   late img.Image originalImage;
   late List<Detection> detections;
   late Uint8List imagePng;
-  List<Card> allCards = [];
+  List<Map<String, String>> _cardNames = [];
   final ScrollController _scrollController = ScrollController();
   final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
 
@@ -78,7 +77,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     originalImage = widget.originalImage;
     detections = List.from(widget.detections);
     detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
-    cardRepository.getAllCards().then((value) => setState(() {allCards = value;}));
+    cardRepository.getAllCardNames().then((value) => setState(() {_cardNames = value;}));
 
     final rgbaBytes = image.getBytes(order: img.ChannelOrder.rgba);
     compute(_encodePngFromRgba, {
@@ -93,6 +92,29 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       }
     });
     imagePng = Uint8List(0);
+  }
+
+  List<String> _searchCardNames(String query) {
+    final lower = query.toLowerCase();
+    final seen = <String>{};
+    final result = <String>[];
+    for (final entry in _cardNames) {
+      final name = entry['name']!;
+      final title = entry['title']!;
+      if (name.contains(' // ')) {
+        for (final face in name.split(' // ')) {
+          if (face.toLowerCase().contains(lower)) {
+            if (seen.add(title)) result.add(title);
+            break;
+          }
+        }
+      } else {
+        if (name.toLowerCase().contains(lower)) {
+          if (seen.add(name)) result.add(name);
+        }
+      }
+    }
+    return result;
   }
 
   void _onAddSideboard() async {
@@ -299,13 +321,15 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                                     if (val.text.isEmpty) {
                                       return const Iterable<String>.empty();
                                     }
-                                    return searchCardNames(val.text, allCards);
+                                    return _searchCardNames(val.text);
                                   },
-                                  onSelected: (option) {
-                                    Card newCard = findCardByName(option, allCards)!;
-                                    setState(() {
-                                      detections[index].card = newCard;
-                                    });
+                                  onSelected: (option) async {
+                                    final newCard = await cardRepository.getCardByName(option);
+                                    if (newCard != null) {
+                                      setState(() {
+                                        detections[index].card = newCard;
+                                      });
+                                    }
                                   },
                                   fieldViewBuilder: (context, controller, focusNode, onSubmitted) {
                                     return TextField(

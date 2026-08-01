@@ -10,7 +10,6 @@ import 'package:flutter_litert/flutter_litert.dart' hide Detection;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 
 import 'detection_preview.dart';
-import '/utils/card_matcher.dart';
 import '/utils/utils.dart';
 
 import '/data/repositories/card_repository.dart';
@@ -225,22 +224,15 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
       currentStep += 1;
     });
 
-    final allCards = await cardRepository.getAllCards();
+    final cardNames = await cardRepository.getAllCardNames();
     List<String> choices = [];
-    Map<int, int> choicesToCardsMap = {};
     final List<Future<ExtractedResult<String>>> matchedFutures = [];
-    for (int i = 0; i < allCards.length; i++) {
-      final cardName = allCards[i].name;
-      // Two cards to add to choices
-      if (cardName.contains(" // ")) {
-        cardName.split(" // ").forEach((el) => choices.add(el));
-        choicesToCardsMap[choices.length - 2] = i;
-        choicesToCardsMap[choices.length - 1] = i;
-      }
-      // Single card to add
-      else {
-        choices.add(cardName);
-        choicesToCardsMap[choices.length - 1] = i;
+    for (int i = 0; i < cardNames.length; i++) {
+      final name = cardNames[i]['name']!;
+      if (name.contains(" // ")) {
+        name.split(" // ").forEach((el) => choices.add(el));
+      } else {
+        choices.add(name);
       }
     }
 
@@ -266,17 +258,15 @@ class _deckImageProcessingState extends State<deckImageProcessing> {
 
     setState(() => currentStep += 1);
 
-    List<Card?> matchedCards = matches.map((match) {
-      if (match.score <= 5) return null;
-      final matchedCard = allCards[choicesToCardsMap[match.index]!];
-      if (matchedCard.name.contains(' // ')) {
-        final exactMatch = findCardByName(choices[match.index], allCards);
-        if (exactMatch != null && !exactMatch.name.contains(' // ')) {
-          return exactMatch;
-        }
+    List<Card?> matchedCards = [];
+    for (final match in matches) {
+      if (match.score <= 5) {
+        matchedCards.add(null);
+        continue;
       }
-      return matchedCard;
-    }).toList();
+      final card = await cardRepository.getCardByName(choices[match.index]);
+      matchedCards.add(card);
+    }
 
     img.Image outputImage = img.adjustColor(inputImage, brightness: 0.5);
 

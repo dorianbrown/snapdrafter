@@ -5,7 +5,6 @@ import 'package:http/http.dart' as http;
 
 import 'package:snapdrafter/data/models/card.dart';
 import 'package:snapdrafter/data/repositories/card_repository.dart';
-import 'package:snapdrafter/utils/card_matcher.dart';
 
 enum CaptureSource { camera, gallery, share }
 
@@ -87,8 +86,8 @@ Future<List<Card>> fetchCubecobraList(String cubecobraId) async {
         .split('\n')
         .where((line) => line.trim().isNotEmpty)
         .toList();
-    final cards = await cardRepository.getAllCards();
-    return findCardsByNames(cubeList, cards);
+    final cards = await cardRepository.getCardsByNames(cubeList);
+    return cards;
   } else {
     throw Exception('Failed to load cube list');
   }
