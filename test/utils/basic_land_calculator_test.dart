@@ -296,10 +296,6 @@ void main() {
         'c': ['{T}: Add one mana of any color in your commander\'s color identity.'],
       };
 
-      final noSignetResult = calculateBasicLandsWithOracleTexts(_deck(
-        cards.where((c) => c.name != 'Arcane Signet').toList(),
-      ), {});
-
       final signetResult = calculateBasicLandsWithOracleTexts(_deck(cards), oracleTexts);
 
       expect(signetResult.virtualFixing['White']!, 0.75);

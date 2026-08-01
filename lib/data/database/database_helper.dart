@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   static Database? _database;
   static const String _databaseName = "draftTracker.db";
-  static const int _databaseVersion = 6; // Latest db version after all upgrades
+  static const int _databaseVersion = 7; // Latest db version after all upgrades
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -47,7 +47,8 @@ class DatabaseHelper {
         colors TEXT,
         mana_cost TEXT,
         mana_value INTEGER NOT NULL,
-        produced_mana TEXT
+        produced_mana TEXT,
+        oracle_text TEXT
       )
     """);
     await db.execute("""
@@ -264,6 +265,13 @@ class DatabaseHelper {
 
       // Step 4: Rename the new table to the original name
       await db.execute("ALTER TABLE decks_new RENAME TO decks");
+    }
+
+    if (oldVersion < 7) {
+      await db.execute("""
+        ALTER TABLE cards
+        ADD oracle_text TEXT
+      """);
     }
 
     // Add further migration steps for future versions here

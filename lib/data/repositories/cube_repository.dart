@@ -20,20 +20,18 @@ class CubeRepository {
     final dbClient = await _db;
     final cubeResults = await dbClient.query("cubes");
     final cubeListsResults = await dbClient.query("cubelists");
-    final allCards = await _cardRepository.getAllCards();
 
     List<Cube> outputList = [];
 
     for (final cubeRow in cubeResults) {
       final cubecobraId = cubeRow["cubecobra_id"] as String;
-      final cardIdsForCube = cubeListsResults
+      final cardIds = cubeListsResults
           .where((cubeListRow) => cubeListRow["cubecobra_id"] == cubecobraId)
-          .map((cubeListRow) => cubeListRow["scryfall_id"] as String?) // Make nullable
-          .where((id) => id != null) // Filter out nulls
-          .cast<String>() // Cast to non-nullable
-          .toSet(); // Use a Set for efficient lookup
+          .map((cubeListRow) => cubeListRow["scryfall_id"] as String?)
+          .whereType<String>()
+          .toList();
 
-      final cubeCards = allCards.where((card) => cardIdsForCube.contains(card.scryfallId)).toList();
+      final cubeCards = await _cardRepository.getCardsByScryfallIds(cardIds);
 
       outputList.add(Cube(
           cubecobraId: cubeRow["cubecobra_id"] as String,

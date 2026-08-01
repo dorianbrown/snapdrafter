@@ -1,11 +1,9 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:meta/meta.dart';
 
 import '../data/models/deck.dart';
 import '../data/models/card.dart';
-import 'scryfall_api.dart';
 
 const _colorCharToName = <String, String>{
   'W': 'White',
@@ -31,6 +29,37 @@ enum FixingTag {
   none,
 }
 
+String fixingTagLabel(FixingTag tag) {
+  switch (tag) {
+    case FixingTag.landTutor: return 'land tutor';
+    case FixingTag.repeatableMana: return 'mana rock / dork';
+    case FixingTag.treasure: return 'treasure';
+    case FixingTag.oneShotMana: return 'one-shot mana';
+    case FixingTag.none: return '';
+  }
+}
+
+class FixingCard {
+  final String name;
+  final FixingTag tag;
+  final double weight;
+  final Set<String> colors;
+
+  const FixingCard({
+    required this.name,
+    required this.tag,
+    required this.weight,
+    required this.colors,
+  });
+}
+
+class NonBasicLandSource {
+  final String name;
+  final Set<String> colors;
+
+  const NonBasicLandSource({required this.name, required this.colors});
+}
+
 class BasicLandResult {
   final Map<String, int> basics;
   final int totalLands;
@@ -39,6 +68,8 @@ class BasicLandResult {
   final int rampCount;
   final Map<String, double> weightedPips;
   final Map<String, double> virtualFixing;
+  final List<FixingCard> fixingCards;
+  final List<NonBasicLandSource> nonBasicLandSources;
 
   const BasicLandResult({
     required this.basics,
@@ -48,71 +79,18 @@ class BasicLandResult {
     required this.rampCount,
     required this.weightedPips,
     required this.virtualFixing,
+    required this.fixingCards,
+    required this.nonBasicLandSources,
   });
 }
 
-final Map<String, List<String>> _oracleTextCache = {};
-
-Future<List<String>> _fetchOracleTexts(String scryfallId) async {
-  if (_oracleTextCache.containsKey(scryfallId)) {
-    return _oracleTextCache[scryfallId]!;
-  }
-
-  try {
-    final response = await scryfallGet('/cards/$scryfallId');
-    if (response.statusCode != 200) {
-      _oracleTextCache[scryfallId] = [];
-      return [];
-    }
-
-    final data = json.decode(response.body);
-    final List<String> texts = [];
-
-    if (data['card_faces'] != null) {
-      for (final face in data['card_faces']) {
-        if (face['oracle_text'] != null) {
-          texts.add(face['oracle_text'] as String);
-        }
-      }
-    } else if (data['oracle_text'] != null) {
-      texts.add(data['oracle_text'] as String);
-    }
-
-    _oracleTextCache[scryfallId] = texts;
-    return texts;
-  } catch (_) {
-    _oracleTextCache[scryfallId] = [];
-    return [];
-  }
-}
-
-Future<Map<String, List<String>>> _fetchAllOracleTexts(
-  List<Card> cards,
-) async {
+Map<String, List<String>> _buildOracleTexts(List<Card> cards) {
   final Map<String, List<String>> result = {};
-  final seen = <String>{};
-  final futures = <Future<void>>[];
-  int i = 0;
-
   for (final card in cards) {
-    if (seen.contains(card.scryfallId)) continue;
-    seen.add(card.scryfallId);
-
-    if (_oracleTextCache.containsKey(card.scryfallId)) {
-      result[card.scryfallId] = _oracleTextCache[card.scryfallId]!;
-      continue;
+    if (card.oracleText != null && card.oracleText!.isNotEmpty) {
+      result[card.scryfallId] = [card.oracleText!];
     }
-
-    final delay = Duration(milliseconds: 150 * (i + 1));
-    futures.add(
-      Future.delayed(delay, () => _fetchOracleTexts(card.scryfallId))
-          .then((texts) => result[card.scryfallId] = texts),
-    );
-    i++;
   }
-
-  await Future.wait(futures);
-
   return result;
 }
 
@@ -276,7 +254,7 @@ Map<String, double> _computeWeightedPips(List<Card> nonLands) {
   return pips;
 }
 
-Map<String, double> _computeVirtualFixing(
+({Map<String, double> totals, List<FixingCard> cards}) _computeVirtualFixing(
   List<Card> nonLands,
   Set<String> deckColors,
   Map<String, List<String>> oracleTexts,
@@ -284,6 +262,7 @@ Map<String, double> _computeVirtualFixing(
   final Map<String, double> fixing = {
     for (final color in deckColors) color: 0.0,
   };
+  final List<FixingCard> fixingCards = [];
 
   for (final card in nonLands) {
     final oracleText = _joinedOracleText(oracleTexts, card);
@@ -292,16 +271,26 @@ Map<String, double> _computeVirtualFixing(
 
     final weight = getFixingWeight(tag);
     final fixColors = _getFixedColors(card, oracleText, deckColors, tag);
+    final intersection = fixColors.intersection(deckColors);
 
-    for (final color in fixColors.intersection(deckColors)) {
+    for (final color in intersection) {
       fixing[color] = (fixing[color] ?? 0.0) + weight;
+    }
+
+    if (intersection.isNotEmpty) {
+      fixingCards.add(FixingCard(
+        name: card.name,
+        tag: tag,
+        weight: weight,
+        colors: intersection,
+      ));
     }
   }
 
-  return fixing;
+  return (totals: fixing, cards: fixingCards);
 }
 
-Map<String, int> _nonBasicLandSourcesByColor(
+({Map<String, int> counts, List<NonBasicLandSource> sources}) _nonBasicLandSourcesByColor(
   List<Card> nonBasicLands,
   List<String> deckColors,
   Map<String, List<String>> oracleTexts,
@@ -309,45 +298,43 @@ Map<String, int> _nonBasicLandSourcesByColor(
   final Map<String, int> sources = {
     for (final color in deckColors) color: 0,
   };
+  final List<NonBasicLandSource> landSources = [];
 
   for (final land in nonBasicLands) {
+    Set<String> prodColors;
+
     if (land.producedMana != null && land.producedMana!.isNotEmpty) {
-      final prodColors = _parseProducedMana(land.producedMana!);
-      for (final color in prodColors) {
-        if (sources.containsKey(color)) {
-          sources[color] = sources[color]! + 1;
-        }
-      }
-      continue;
+      prodColors = _parseProducedMana(land.producedMana!);
+    } else {
+      final oracleText = _joinedOracleText(oracleTexts, land);
+      if (oracleText.isEmpty) continue;
+
+      final tag = detectFixingTag(oracleText);
+      if (tag != FixingTag.landTutor) continue;
+
+      final specificTypes = <String>{};
+      if (oracleText.contains('Plains')) specificTypes.add('White');
+      if (oracleText.contains('Island')) specificTypes.add('Blue');
+      if (oracleText.contains('Swamp')) specificTypes.add('Black');
+      if (oracleText.contains('Mountain')) specificTypes.add('Red');
+      if (oracleText.contains('Forest')) specificTypes.add('Green');
+
+      prodColors = specificTypes.isNotEmpty ? specificTypes : Set.of(deckColors);
     }
 
-    final oracleText = _joinedOracleText(oracleTexts, land);
-    if (oracleText.isEmpty) continue;
-
-    final tag = detectFixingTag(oracleText);
-    if (tag != FixingTag.landTutor) continue;
-
-    final specificTypes = <String>[];
-    if (oracleText.contains('Plains')) specificTypes.add('White');
-    if (oracleText.contains('Island')) specificTypes.add('Blue');
-    if (oracleText.contains('Swamp')) specificTypes.add('Black');
-    if (oracleText.contains('Mountain')) specificTypes.add('Red');
-    if (oracleText.contains('Forest')) specificTypes.add('Green');
-
-    if (specificTypes.isNotEmpty) {
-      for (final color in specificTypes) {
-        if (sources.containsKey(color)) {
-          sources[color] = sources[color]! + 1;
-        }
-      }
-    } else {
-      for (final color in deckColors) {
+    for (final color in prodColors) {
+      if (sources.containsKey(color)) {
         sources[color] = sources[color]! + 1;
       }
     }
+
+    final intersection = prodColors.where((c) => deckColors.contains(c)).toSet();
+    if (intersection.isNotEmpty) {
+      landSources.add(NonBasicLandSource(name: land.name, colors: intersection));
+    }
   }
 
-  return sources;
+  return (counts: sources, sources: landSources);
 }
 
 Map<String, int> _allocateBasics(
@@ -477,19 +464,13 @@ Map<String, int> _applyFloorCheck(
 }
 
 Future<BasicLandResult> calculateBasicLands(Deck deck) async {
-  final nonLands = deck.cards
-      .where((c) => c.type != 'Land')
-      .toList();
-  final nonBasicLands = deck.cards
-      .where((c) => c.type == 'Land' && !_basicLandNames.contains(c.name))
+  final cardsToSearch = deck.cards
+      .where((c) => c.type != 'Land' ||
+          (c.type == 'Land' && !_basicLandNames.contains(c.name) &&
+              (c.producedMana ?? '').isEmpty))
       .toList();
 
-  final cardsToFetch = <Card>[
-    ...nonLands,
-    ...nonBasicLands.where((l) => (l.producedMana ?? '').isEmpty),
-  ];
-
-  final oracleTexts = await _fetchAllOracleTexts(cardsToFetch);
+  final oracleTexts = _buildOracleTexts(cardsToSearch);
 
   return calculateBasicLandsWithOracleTexts(deck, oracleTexts);
 }
@@ -515,9 +496,9 @@ BasicLandResult calculateBasicLandsWithOracleTexts(
   final B = max(0, L - D);
 
   final weightedPips = _computeWeightedPips(nonLands);
-  final virtualFixing = _computeVirtualFixing(nonLands, deckColorSet, oracleTexts);
-  final basics = _allocateBasics(B, weightedPips, virtualFixing, deckColors);
-  final nonBasicSources = _nonBasicLandSourcesByColor(
+  final (:totals, :cards) = _computeVirtualFixing(nonLands, deckColorSet, oracleTexts);
+  final basics = _allocateBasics(B, weightedPips, totals, deckColors);
+  final (:counts, :sources) = _nonBasicLandSourcesByColor(
     nonBasicLands,
     deckColors,
     oracleTexts,
@@ -525,8 +506,8 @@ BasicLandResult calculateBasicLandsWithOracleTexts(
   final finalBasics = _applyFloorCheck(
     basics,
     nonLands,
-    nonBasicSources,
-    virtualFixing,
+    counts,
+    totals,
     deckColors,
   );
 
@@ -537,6 +518,8 @@ BasicLandResult calculateBasicLandsWithOracleTexts(
     nonBasicLandCount: D,
     rampCount: rampCount,
     weightedPips: weightedPips,
-    virtualFixing: virtualFixing,
+    virtualFixing: totals,
+    fixingCards: cards,
+    nonBasicLandSources: sources,
   );
 }

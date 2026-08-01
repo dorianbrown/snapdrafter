@@ -174,6 +174,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
       String manaCost = "";
       String imageUri = "";
       String? producedMana;
+      String? oracleText;
       for (String type in validTypes) {
         if (val["type_line"].contains(type)) {
           cardType = type;
@@ -187,11 +188,20 @@ class _DownloadScreenState extends State<DownloadScreen> {
         manaCost = val["card_faces"][0]["mana_cost"];
         producedMana = val["card_faces"][0]["produced_mana"] ??
             val["card_faces"][1]["produced_mana"];
+        final faces = (val["card_faces"] as List)
+            .map((f) => (f["oracle_text"] ?? "").toString())
+            .where((t) => t.isNotEmpty)
+            .toList();
+        oracleText = faces.isNotEmpty ? faces.join("\n") : null;
       } else {
         imageUri = val["image_uris"]["normal"];
         colors = val["colors"].join("");
         manaCost = val["mana_cost"];
         producedMana = val["produced_mana"]?.join("");
+        oracleText = val["oracle_text"];
+        if (oracleText == '') {
+          oracleText = null;
+        }
       }
 
       return Card(
@@ -204,7 +214,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
           imageUri: imageUri,
           manaCost: manaCost,
           manaValue: val["cmc"].toInt(),
-          producedMana: producedMana);
+          producedMana: producedMana,
+          oracleText: oracleText);
     }
 
     List<Card> cards = [];

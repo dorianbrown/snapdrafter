@@ -12,6 +12,7 @@ class Card {
   final String? manaCost;
   final int manaValue;
   final String? producedMana;
+  final String? oracleText;
 
   const Card({
     required this.scryfallId,
@@ -23,7 +24,8 @@ class Card {
     this.colors,
     this.manaCost,
     required this.manaValue,
-    this.producedMana
+    this.producedMana,
+    this.oracleText,
   });
 
   // Equality operator for comparing cards
@@ -47,7 +49,8 @@ class Card {
       "colors": colors,
       "mana_cost": manaCost,
       "mana_value": manaValue,
-      "produced_mana": producedMana
+      "produced_mana": producedMana,
+      "oracle_text": oracleText
     };
     return map;
   }
@@ -93,7 +96,8 @@ class Card {
         colors: map["colors"],
         manaCost: map["mana_cost"],
         manaValue: map["mana_value"],
-        producedMana: map["produced_mana"]
+        producedMana: map["produced_mana"],
+        oracleText: map["oracle_text"]
     );
   }
 
