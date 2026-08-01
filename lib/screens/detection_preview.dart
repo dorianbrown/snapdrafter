@@ -20,6 +20,20 @@ import '/data/repositories/deck_repository.dart';
 CardRepository cardRepository = CardRepository();
 DeckRepository deckRepository = DeckRepository();
 
+Uint8List _encodePngFromRgba(Map<String, dynamic> params) {
+  final bytes = params['bytes'] as Uint8List;
+  final width = params['width'] as int;
+  final height = params['height'] as int;
+  final image = img.Image.fromBytes(
+    width: width,
+    height: height,
+    bytes: bytes.buffer,
+    numChannels: 4,
+    order: img.ChannelOrder.rgba,
+  );
+  return img.encodePng(image);
+}
+
 class DetectionPreviewScreen extends StatefulWidget {
   final img.Image image;
   final img.Image originalImage;
@@ -65,7 +79,20 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     detections = List.from(widget.detections);
     detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
     cardRepository.getAllCards().then((value) => setState(() {allCards = value;}));
-    imagePng = img.encodePng(image);
+
+    final rgbaBytes = image.getBytes(order: img.ChannelOrder.rgba);
+    compute(_encodePngFromRgba, {
+      'bytes': rgbaBytes,
+      'width': image.width,
+      'height': image.height,
+    }).then((png) {
+      if (mounted) {
+        setState(() {
+          imagePng = png;
+        });
+      }
+    });
+    imagePng = Uint8List(0);
   }
 
   void _onAddSideboard() async {
@@ -411,12 +438,6 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       );
       return;
     }
-
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Center(child: CircularProgressIndicator()),
-      ),
-    );
     
     final matchedCards = detections
         .where((detection) => detection.card != null)
@@ -427,7 +448,6 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     final img.Image imageToUse;
     
     if (widget.isSideboardStep && widget.baseDeck != null) {
-      // Sideboard step: combine mainboard from baseDeck with sideboard from matchedCards
       upsert = DeckUpsert(
         cards: widget.baseDeck!.cards,
         sideboard: matchedCards,
@@ -441,7 +461,6 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       );
       imageToUse = widget.baseDeckImage ?? originalImage;
     } else {
-      // Main step (no sideboard) or baseDeck is null
       upsert = DeckUpsert(
         cards: matchedCards,
         sideboard: const [],
@@ -456,7 +475,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
       imageToUse = originalImage;
     }
     
-    final newDeck = await deckRepository.saveNewDeck(upsert, image: imageToUse);
+    final newDeck = await deckRepository.saveNewDeck(upsert);
     debugPrint("Deck saved with id: ${newDeck.id}");
 
     _changeNotifier.markNeedsRefresh();
@@ -470,16 +489,28 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
         Navigator.of(context).pop();
       }
     } else {
+      final imageCompleter = Completer<String?>();
       Navigator.of(context).pushAndRemoveUntil(
           MaterialPageRoute(
-            builder: (context) => DeckViewer(deck: newDeck),
+            builder: (context) => DeckViewer(
+              deck: newDeck,
+              pendingImageFuture: imageCompleter.future,
+            ),
           ),
           ModalRoute.withName('/')
       );
+
+      deckRepository.saveDeckImageForDeck(newDeck.id, imageToUse)
+          .then(imageCompleter.complete)
+          .catchError((_) => imageCompleter.complete(null));
+      return;
     }
+
+    deckRepository.saveDeckImageForDeck(newDeck.id, imageToUse);
   }
 
   void _openZoomViewer() {
+    final png = imagePng.isNotEmpty ? imagePng : img.encodePng(image);
     showDialog(
         context: context,
         builder: (innerContext) {
@@ -489,8 +520,8 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
               actions: [
                 TextButton(
                     style: ButtonStyle(
-                      foregroundColor: WidgetStateProperty.all(Colors.white),
-                      backgroundColor: WidgetStateProperty.all(Colors.black38),
+                      foregroundColor: MaterialStateProperty.all(Colors.white),
+                      backgroundColor: MaterialStateProperty.all(Colors.black38),
                     ),
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text("Back")
@@ -505,7 +536,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
                           minScale: 1,
                           maxScale: 4,
                           boundaryMargin: const EdgeInsets.all(double.infinity),
-                          child: Image.memory(imagePng)
+                          child: Image.memory(png)
                       )
                   )
                 ],

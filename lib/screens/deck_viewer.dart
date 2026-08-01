@@ -45,7 +45,8 @@ const _sideboardHeaderStyle = TextStyle(
 
 class DeckViewer extends StatefulWidget {
   final Deck deck;
-  const DeckViewer({super.key, required this.deck});
+  final Future<String?>? pendingImageFuture;
+  const DeckViewer({super.key, required this.deck, this.pendingImageFuture});
 
   @override
   DeckViewerState createState() => DeckViewerState(deck);
@@ -68,10 +69,24 @@ class DeckViewerState extends State<DeckViewer> {
   int columnCount = 3;
   bool _manacurveSplitByColor = false;
   final Set<String> _disabledSeries = {};
+  bool _imageIsLoading = false;
+  String? _loadedImagePath;
 
   @override
   void initState() {
     super.initState();
+    _loadedImagePath = deck.imagePath;
+    if (widget.pendingImageFuture != null) {
+      _imageIsLoading = true;
+      widget.pendingImageFuture!.then((path) {
+        if (mounted) {
+          setState(() {
+            _loadedImagePath = path;
+            _imageIsLoading = false;
+          });
+        }
+      });
+    }
     _loadCards();
     tokenRepository = TokenRepository();
     deckRepository = DeckRepository();
@@ -101,6 +116,7 @@ class DeckViewerState extends State<DeckViewer> {
     final chipColor = Colors.white60;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      constraints: BoxConstraints(maxWidth: 120),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: chipColor.withAlpha(90)),
@@ -113,12 +129,16 @@ class DeckViewerState extends State<DeckViewer> {
             Icon(icon, size: 12, color: chipColor),
             const SizedBox(width: 2),
           ],
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              color: chipColor,
-              fontWeight: FontWeight.w600,
+          Flexible(
+            child: Text(
+              label,
+              overflow: TextOverflow.fade,
+              softWrap: false,
+              style: TextStyle(
+                fontSize: 12,
+                color: chipColor,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -150,7 +170,6 @@ class DeckViewerState extends State<DeckViewer> {
   Widget build(BuildContext context) {
     return LoaderOverlay(
       overlayWidgetBuilder: (_) {
-        //ignored progress for the moment
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -177,7 +196,7 @@ class DeckViewerState extends State<DeckViewer> {
               children: [
                 PopupMenuButton<int>(
                   initialValue: columnCount,
-                  tooltip: "Columns",
+                  tooltip: "Display columns",
                   onSelected: (value) => setState(() => columnCount = value),
                   child: IconButton(
                     icon: Icon(switch (columnCount) {
@@ -209,7 +228,7 @@ class DeckViewerState extends State<DeckViewer> {
                 ),
                 IconButton(
                   tooltip: "Edit Deck Info",
-                  icon: Icon(Icons.edit, color: Colors.amber.withAlpha(175)),
+                  icon: Icon(Icons.edit),
                   onPressed: _dataLoaded
                       ? () => showDeckEditDialog(
                           context,
@@ -231,7 +250,7 @@ class DeckViewerState extends State<DeckViewer> {
                 ),
                 IconButton(
                   tooltip: "Delete Deck",
-                  icon: Icon(Icons.delete, color: Colors.deepOrange.withAlpha(175)),
+                  icon: Icon(Icons.delete),
                   onPressed: _confirmDeleteViewerDeck,
                 ),
               ],
@@ -240,7 +259,7 @@ class DeckViewerState extends State<DeckViewer> {
           bottom: PreferredSize(
             preferredSize: const Size.fromHeight(40),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(35, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(25, 0, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -283,16 +302,17 @@ class DeckViewerState extends State<DeckViewer> {
             padding: const EdgeInsets.all(10),
             children: [
               generateManaCurve(deck.cards),
-              SizedBox(height: 15),
+              SizedBox(height: 20),
               Align(
                 alignment: Alignment.centerRight,
                 child: SegmentedButton<bool>(
+                  showSelectedIcon: false,
                   style: ButtonStyle(
                     visualDensity: VisualDensity.compact,
-                    foregroundColor: WidgetStateProperty.all(Colors.white60),
+                    foregroundColor: WidgetStateProperty.all(Colors.white54),
                     shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                     ),
                   ),
@@ -356,11 +376,20 @@ class DeckViewerState extends State<DeckViewer> {
                     allCards != null ? showDeckEditor(deck, allCards!) : null,
               ),
               IconButton(
-                tooltip: "View Deck Photo",
-                icon: Icon(Icons.image),
-                onPressed: deck.imagePath != null
+                tooltip: _imageIsLoading ? "Saving deck photo..." : "View Deck Photo",
+                icon: _imageIsLoading
+                    ? SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Theme.of(context).iconTheme.color,
+                        ),
+                      )
+                    : Icon(Icons.image),
+                onPressed: _loadedImagePath != null
                     ? () =>
-                          createInteractiveImageViewer(deck.imagePath!, context)
+                        createInteractiveImageViewer(_loadedImagePath!, context)
                     : null,
               ),
               IconButton(
@@ -963,7 +992,7 @@ class DeckViewerState extends State<DeckViewer> {
 
   static const _typeChartColors = {
     "Creature": Color(0xFF2F68C3),
-    "Non-Creature": Color(0xFF61ADE4),
+    "Non-Creature": Color(0xFF7DB6DF),
   };
 
   static const _colorChartColors = {
@@ -972,8 +1001,8 @@ class DeckViewerState extends State<DeckViewer> {
     "Black": Color(0xFF3A3939),
     "Red": Color(0xFFA8333B),
     "Green": Color(0xFF297E31),
-    "Multicolor": Color(0xFFCA9A32),
-    "Colorless": Color(0xFF858484),
+    "Multicolor": Color(0xFFD1A84E),
+    "Colorless": Color(0xFF979393),
   };
 
   // static const _colorChartColors = {
@@ -1007,7 +1036,7 @@ class DeckViewerState extends State<DeckViewer> {
 
       List<Widget> header = [
         Container(
-          padding: const EdgeInsets.fromLTRB(0, 20, 0, 5),
+          padding: const EdgeInsets.fromLTRB(0, 20, 0, 10),
           child: Text("$attribute ($numCards)", style: _headerStyle),
         ),
       ];

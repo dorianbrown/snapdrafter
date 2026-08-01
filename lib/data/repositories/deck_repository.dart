@@ -13,6 +13,21 @@ import '../models/deck_upsert.dart';
 
 import '/utils/utils.dart';
 
+Uint8List _encodeJpgFromRgba(Map<String, dynamic> params) {
+  final bytes = params['bytes'] as Uint8List;
+  final width = params['width'] as int;
+  final height = params['height'] as int;
+  final quality = params['quality'] as int;
+  final image = Image.fromBytes(
+    width: width,
+    height: height,
+    bytes: bytes.buffer,
+    numChannels: 4,
+    order: ChannelOrder.rgba,
+  );
+  return Uint8List.fromList(encodeJpg(image, quality: quality));
+}
+
 class DeckRepository {
   late final DatabaseHelper _dbHelper;
   bool _dbHelperLoaded = false;
@@ -275,19 +290,50 @@ class DeckRepository {
   Future<String?> _saveDeckImage(Image image) async {
     try {
       final directory = await getApplicationDocumentsDirectory();
-      // Create folder if it doesn't exist
-      Directory('${directory.path}/deck_images').createSync(recursive: true);
+      final deckImagesDir = Directory('${directory.path}/deck_images');
+      if (!await deckImagesDir.exists()) {
+        await deckImagesDir.create(recursive: true);
+      }
       final imagePath =
           'deck_images/${DateTime.now().millisecondsSinceEpoch}.jpg';
 
+      final rgbaBytes = image.getBytes(order: ChannelOrder.rgba);
+      final jpgBytes = await compute(_encodeJpgFromRgba, {
+        'bytes': rgbaBytes,
+        'width': image.width,
+        'height': image.height,
+        'quality': 60,
+      });
+
       final file = File("${directory.path}/$imagePath");
-      await file.writeAsBytes(encodeJpg(image, quality: 60));
+      await file.writeAsBytes(jpgBytes);
 
       return imagePath;
     } catch (e) {
       debugPrint('Error saving deck image: $e');
       return null;
     }
+  }
+
+  Future<String?> saveDeckImageForDeck(int deckId, Image image) async {
+    final relativePath = await _saveDeckImage(image);
+    if (relativePath == null) return null;
+
+    final dbClient = await _db;
+    await dbClient.update(
+      'decks',
+      {'image_path': relativePath},
+      where: 'id = ?',
+      whereArgs: [deckId],
+    );
+
+    final directory = await getApplicationDocumentsDirectory();
+    final fullPath = '${directory.path}/$relativePath';
+    final file = File(fullPath);
+    if (await file.exists()) {
+      return fullPath;
+    }
+    return null;
   }
 
   // Tag management methods
