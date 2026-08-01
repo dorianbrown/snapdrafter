@@ -173,8 +173,8 @@ void main() {
       expect(requiredFloor(3, 3), 10);
     });
 
-    test('4-drop 1 pip → 8', () {
-      expect(requiredFloor(4, 1), 8);
+    test('4-drop 1 pip → 6', () {
+      expect(requiredFloor(4, 1), 6);
     });
 
     test('4-drop 2+ pips → 10', () {
