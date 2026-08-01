@@ -30,6 +30,7 @@ import '/data/models/set.dart' as set_model;
 import '/data/models/cube.dart';
 import '/utils/constants.dart';
 import '/utils/deck_change_notifier.dart';
+import '/utils/basic_land_calculator.dart';
 
 const _headerStyle = TextStyle(
   fontSize: 20,
@@ -490,130 +491,98 @@ class DeckViewerState extends State<DeckViewer> {
     showDialog(
       context: context,
       builder: (dialogContext) {
+        bool calculating = false;
         return StatefulBuilder(
           builder: (builderContext, setDialogState) {
             return AlertDialog(
               title: Text('Edit Basic Lands'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
+              content: Stack(
                 children: [
-                  Text('Deck colors: ${deck.colors}'),
-                  SizedBox(height: 20),
-                  ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((
-                    name,
-                  ) {
-                    return Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(name),
-                        Row(
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('Deck colors: ${deck.colors}'),
+                      SizedBox(height: 20),
+                      ...['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].map((
+                        name,
+                      ) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            IconButton(
-                              icon: Icon(Icons.remove),
-                              onPressed: () {
-                                setDialogState(() {
-                                  if (basicCounts[name]! > 0) {
-                                    basicCounts[name] = basicCounts[name]! - 1;
-                                  }
-                                });
-                              },
-                            ),
-                            Text('${basicCounts[name]}'),
-                            IconButton(
-                              icon: Icon(Icons.add),
-                              onPressed: () {
-                                setDialogState(() {
-                                  basicCounts[name] = basicCounts[name]! + 1;
-                                });
-                              },
+                            Text(name),
+                            Row(
+                              children: [
+                                IconButton(
+                                  icon: Icon(Icons.remove),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      if (basicCounts[name]! > 0) {
+                                        basicCounts[name] = basicCounts[name]! - 1;
+                                      }
+                                    });
+                                  },
+                                ),
+                                Text('${basicCounts[name]}'),
+                                IconButton(
+                                  icon: Icon(Icons.add),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      basicCounts[name] = basicCounts[name]! + 1;
+                                    });
+                                  },
+                                ),
+                              ],
                             ),
                           ],
+                        );
+                      }),
+                    ],
+                  ),
+                  if (calculating)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black54,
+                        child: Center(
+                          child: CircularProgressIndicator(),
                         ),
-                      ],
-                    );
-                  }),
+                      ),
+                    ),
                 ],
               ),
               actions: [
                 TextButton(
                   child: Text('Calculate'),
-                  onPressed: () {
-                    // Calculate total colored mana symbols in deck
-                    Map<String, int> colorCounts = {
-                      'W': 0,
-                      'U': 0,
-                      'B': 0,
-                      'R': 0,
-                      'G': 0,
-                    };
-
-                    // Count colored symbols in each card's mana cost
-                    for (var card in deck.cards) {
-                      if (card.manaCost != null) {
-                        for (var symbol in ['W', 'U', 'B', 'R', 'G']) {
-                          colorCounts[symbol] =
-                              colorCounts[symbol]! +
-                              RegExp(symbol).allMatches(card.manaCost!).length;
+                  onPressed: () async {
+                    setDialogState(() => calculating = true);
+                    try {
+                      final result = await calculateBasicLands(deck);
+                      setDialogState(() {
+                        for (final name in [
+                          'Plains',
+                          'Island',
+                          'Swamp',
+                          'Mountain',
+                          'Forest',
+                        ]) {
+                          basicCounts[name] = 0;
                         }
-                      }
+                        const colorToPlains = <String, String>{
+                          'White': 'Plains',
+                          'Blue': 'Island',
+                          'Black': 'Swamp',
+                          'Red': 'Mountain',
+                          'Green': 'Forest',
+                        };
+                        for (final entry in result.basics.entries) {
+                          final plainsName = colorToPlains[entry.key];
+                          if (plainsName != null) {
+                            basicCounts[plainsName] = entry.value;
+                          }
+                        }
+                      });
+                    } finally {
+                      setDialogState(() => calculating = false);
                     }
-
-                    // Count non-basic lands
-                    int nonBasicLands = deck.cards
-                        .where(
-                          (card) =>
-                              card.type == 'Land' &&
-                              ![
-                                'Plains',
-                                'Island',
-                                'Swamp',
-                                'Mountain',
-                                'Forest',
-                              ].contains(card.name),
-                        )
-                        .length;
-
-                    // Calculate total basics needed (17 - non-basic lands)
-                    int totalBasics = 17 - nonBasicLands;
-
-                    // Calculate total colored symbols
-                    int totalSymbols = colorCounts.values.reduce(
-                      (a, b) => a + b,
-                    );
-
-                    // TODO: Take into account the mana production of non-basic lands
-
-                    setDialogState(() {
-                      // Calculate basic land distribution based on color requirements
-                      basicCounts['Plains'] =
-                          (colorCounts['W']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Island'] =
-                          (colorCounts['U']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Swamp'] =
-                          (colorCounts['B']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Mountain'] =
-                          (colorCounts['R']! / totalSymbols * totalBasics)
-                              .round();
-                      basicCounts['Forest'] =
-                          (colorCounts['G']! / totalSymbols * totalBasics)
-                              .round();
-
-                      // Ensure we don't exceed total basics
-                      int currentTotal = basicCounts.values.reduce(
-                        (a, b) => a + b,
-                      );
-                      if (currentTotal > totalBasics) {
-                        // Reduce largest count to match
-                        var maxEntry = basicCounts.entries.reduce(
-                          (a, b) => a.value > b.value ? a : b,
-                        );
-                        basicCounts[maxEntry.key] =
-                            maxEntry.value - (currentTotal - totalBasics);
-                      }
-                    });
                   },
                 ),
                 TextButton(
