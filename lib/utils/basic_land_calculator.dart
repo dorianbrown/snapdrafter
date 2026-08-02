@@ -108,7 +108,7 @@ FixingTag detectFixingTag(String oracleText) {
       .hasMatch(oracleText)) {
     return FixingTag.landTutor;
   }
-  if (RegExp(r'put.*land.*(battlefield|onto the battlefield)',
+  if (RegExp(r'search.*put.*land.*(battlefield|onto the battlefield)',
           caseSensitive: false)
       .hasMatch(oracleText)) {
     return FixingTag.landTutor;
