@@ -130,7 +130,6 @@ bool _isRampCard(Card card, String oracleText, Set<String> deckColors) {
 
   final tag = detectFixingTag(oracleText);
   switch (tag) {
-    case FixingTag.landTutor:
     case FixingTag.repeatableMana:
     case FixingTag.treasure:
       final fixColors = _getFixedColors(card, oracleText, deckColors, tag);
