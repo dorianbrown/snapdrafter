@@ -1,5 +1,5 @@
-import 'dart:async';
-
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart' hide Card;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -27,7 +27,6 @@ class _SettingsState extends State<Settings> {
   ThemeMode currentThemeMode = ThemeMode.light;
   late SharedPreferences prefs;
   bool _debugEnabled = false;
-  Timer? _debugTimer;
 
   @override
   void initState() {
@@ -38,7 +37,6 @@ class _SettingsState extends State<Settings> {
 
   @override
   void dispose() {
-    _debugTimer?.cancel();
     super.dispose();
   }
 
@@ -223,27 +221,30 @@ class _SettingsState extends State<Settings> {
                 launchUrl(Uri.parse(url));
               }
             ),
-            GestureDetector(
-              onLongPressStart: (_) {
-                _debugTimer = Timer(Duration(milliseconds: 4500), () async {
-                  _debugEnabled = !_debugEnabled;
-                  await prefs.setBool("debug_enabled", _debugEnabled);
-                  setState(() {});
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(_debugEnabled
-                            ? "Debug mode enabled"
-                            : "Debug mode disabled"),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  }
-                });
-              },
-              onLongPressEnd: (_) {
-                _debugTimer?.cancel();
-                _debugTimer = null;
+            RawGestureDetector(
+              gestures: {
+                LongPressGestureRecognizer:
+                    GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
+                  () => LongPressGestureRecognizer(duration: Duration(seconds: 2)),
+                  (recognizer) {
+                    recognizer.onLongPress = () async {
+                      HapticFeedback.mediumImpact();
+                      _debugEnabled = !_debugEnabled;
+                      await prefs.setBool("debug_enabled", _debugEnabled);
+                      setState(() {});
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(_debugEnabled
+                                ? "Debug mode enabled"
+                                : "Debug mode disabled"),
+                            duration: Duration(seconds: 1),
+                          ),
+                        );
+                      }
+                    };
+                  },
+                ),
               },
               child: ListTile(
                 title: Text("About"),

@@ -129,6 +129,38 @@ void main() {
     });
   });
 
+  group('parseLandTutorColors', () {
+    test('returns only Forest color for forestcycling', () {
+      final oracle = 'Forestcycling {2} ({2}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)';
+      final result = parseLandTutorColors(oracle, {'White', 'Blue', 'Black', 'Red', 'Green'});
+      expect(result, {'Green'});
+    });
+
+    test('returns Plains/Forest colors for dual-type cycling', () {
+      final oracle = 'Reach\nForestcycling {2}, plainscycling {2} ({2}, Discard this card: Search your library for a Forest or Plains card, reveal it, put it into your hand, then shuffle.)';
+      final result = parseLandTutorColors(oracle, {'White', 'Blue', 'Black', 'Red', 'Green'});
+      expect(result, {'White', 'Green'});
+    });
+
+    test('returns all deck colors for generic basic land tutor', () {
+      final oracle = 'Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.';
+      final result = parseLandTutorColors(oracle, {'White', 'Blue', 'Green'});
+      expect(result, {'White', 'Blue', 'Green'});
+    });
+
+    test('returns specific type for fetch lands', () {
+      final oracle = '{T}, Pay 1 life, Sacrifice Arid Mesa: Search your library for a Mountain or Plains card, put it onto the battlefield, then shuffle.';
+      final result = parseLandTutorColors(oracle, {'White', 'Blue', 'Black', 'Red', 'Green'});
+      expect(result, {'White', 'Red'});
+    });
+
+    test('returns empty deck colors when deck has no colors', () {
+      final oracle = 'Forestcycling {2}';
+      final result = parseLandTutorColors(oracle, <String>{});
+      expect(result, {'Green'});
+    });
+  });
+
   group('getFixingWeight', () {
     test('landTutor = 1.0', () {
       expect(getFixingWeight(FixingTag.landTutor), 1.0);
@@ -355,7 +387,7 @@ void main() {
       expect(result.basics['White']!, greaterThanOrEqualTo(7));
     });
 
-    test('land tutor (Rampant Growth) counts as ramp and fixing', () {
+    test('land tutor (Rampant Growth) counts as fixing but not ramp', () {
       final cards = [
         _card(scryfallId: 'a', name: 'Rampant Growth', manaCost: '{1}{G}', manaValue: 2),
         _card(scryfallId: 'a2', name: 'Rampant Growth 2', manaCost: '{1}{G}', manaValue: 2),
@@ -370,9 +402,9 @@ void main() {
 
       final result = calculateBasicLandsWithOracleTexts(_deck(cards), oracleTexts);
 
-      expect(result.rampCount, 2);
+      expect(result.rampCount, 0);
       expect(result.virtualFixing['Green']!, 2.0);
-      expect(result.totalLands, 16);
+      expect(result.totalLands, 17);
     });
 
     test('empty deck returns zero basics', () {
@@ -462,6 +494,49 @@ void main() {
 
       expect(result.basics.keys, containsAll(['Red', 'Blue', 'Green']));
       expect(result.basics['Red']! + result.basics['Blue']! + result.basics['Green']!, 17);
+    });
+
+    test('forestcycling only fixes Green, not all deck colors', () {
+      final cards = [
+        _card(scryfallId: 'a', name: 'White One Drop', manaCost: '{W}', manaValue: 1),
+        _card(scryfallId: 'b', name: 'Blue One Drop', manaCost: '{U}', manaValue: 1),
+        _card(scryfallId: 'c', name: 'Green One Drop', manaCost: '{G}', manaValue: 1),
+        _card(scryfallId: 'd', name: 'Forestcycler', manaCost: '{5}{G}', manaValue: 6),
+        _card(scryfallId: 'e', name: 'Plains', type: 'Land'),
+        _card(scryfallId: 'f', name: 'Island', type: 'Land'),
+        _card(scryfallId: 'g', name: 'Forest', type: 'Land'),
+      ];
+
+      final oracleTexts = {
+        'd': ['Forestcycling {2} ({2}, Discard this card: Search your library for a Forest card, reveal it, put it into your hand, then shuffle.)'],
+      };
+
+      final result = calculateBasicLandsWithOracleTexts(_deck(cards), oracleTexts);
+
+      expect(result.virtualFixing['Green']!, 1.0);
+      expect(result.virtualFixing['White']!, 0.0);
+      expect(result.virtualFixing['Blue']!, 0.0);
+    });
+
+    test('rampant growth still fixes all deck colors', () {
+      final cards = [
+        _card(scryfallId: 'a', name: 'White One Drop', manaCost: '{W}', manaValue: 1),
+        _card(scryfallId: 'b', name: 'Blue One Drop', manaCost: '{U}', manaValue: 1),
+        _card(scryfallId: 'c', name: 'Rampant Growth', manaCost: '{1}{G}', manaValue: 2),
+        _card(scryfallId: 'd', name: 'Plains', type: 'Land'),
+        _card(scryfallId: 'e', name: 'Island', type: 'Land'),
+        _card(scryfallId: 'f', name: 'Forest', type: 'Land'),
+      ];
+
+      final oracleTexts = {
+        'c': ['Search your library for a basic land card, put that card onto the battlefield tapped, then shuffle.'],
+      };
+
+      final result = calculateBasicLandsWithOracleTexts(_deck(cards), oracleTexts);
+
+      expect(result.virtualFixing['Green']!, 1.0);
+      expect(result.virtualFixing['White']!, 1.0);
+      expect(result.virtualFixing['Blue']!, 1.0);
     });
   });
 }

@@ -164,6 +164,17 @@ Set<String> _parseProducedMana(String producedMana) {
   return colors;
 }
 
+@visibleForTesting
+Set<String> parseLandTutorColors(String oracleText, Set<String> deckColors) {
+  final specificTypes = <String>{};
+  if (oracleText.contains('Plains')) specificTypes.add('White');
+  if (oracleText.contains('Island')) specificTypes.add('Blue');
+  if (oracleText.contains('Swamp')) specificTypes.add('Black');
+  if (oracleText.contains('Mountain')) specificTypes.add('Red');
+  if (oracleText.contains('Forest')) specificTypes.add('Green');
+  return specificTypes.isNotEmpty ? specificTypes : deckColors;
+}
+
 Set<String> _getFixedColors(
   Card card,
   String oracleText,
@@ -172,6 +183,7 @@ Set<String> _getFixedColors(
 ) {
   switch (tag) {
     case FixingTag.landTutor:
+      return parseLandTutorColors(oracleText, deckColors);
     case FixingTag.treasure:
       return deckColors;
     case FixingTag.repeatableMana:
@@ -312,14 +324,7 @@ Map<String, double> _computeWeightedPips(List<Card> nonLands) {
       final tag = detectFixingTag(oracleText);
       if (tag != FixingTag.landTutor) continue;
 
-      final specificTypes = <String>{};
-      if (oracleText.contains('Plains')) specificTypes.add('White');
-      if (oracleText.contains('Island')) specificTypes.add('Blue');
-      if (oracleText.contains('Swamp')) specificTypes.add('Black');
-      if (oracleText.contains('Mountain')) specificTypes.add('Red');
-      if (oracleText.contains('Forest')) specificTypes.add('Green');
-
-      prodColors = specificTypes.isNotEmpty ? specificTypes : Set.of(deckColors);
+        prodColors = parseLandTutorColors(oracleText, Set.of(deckColors));
     }
 
     for (final color in prodColors) {
