@@ -78,24 +78,29 @@ class CardRepository {
   Future<Card?> getCardByName(String name) async {
     final dbClient = await _db;
     final lower = name.toLowerCase();
-    final result = await dbClient.rawQuery(
-      'SELECT * FROM cards WHERE lower(name) = ? OR lower(title) = ? LIMIT 1',
-      [lower, lower],
+
+    // Exact full-name match takes priority over any split-card face match
+    final exact = await dbClient.rawQuery(
+      'SELECT * FROM cards WHERE lower(name) = ? LIMIT 1',
+      [lower],
     );
-    if (result.isEmpty) return null;
+    if (exact.isNotEmpty) return Card.fromMap(exact.first);
 
-    final cards = result.map((map) => Card.fromMap(map)).toList();
-    final card = cards.first;
+    // Front face (title) match
+    final front = await dbClient.rawQuery(
+      'SELECT * FROM cards WHERE lower(title) = ? LIMIT 1',
+      [lower],
+    );
+    if (front.isNotEmpty) return Card.fromMap(front.first);
 
-    if (card.name.contains(' // ')) {
-      final faces = card.name.split(' // ');
-      if (faces.any((face) => face.toLowerCase() == lower)) {
-        return card;
-      }
-      return null;
-    }
+    // Back face match, only when no exact or front-face match was found
+    final back = await dbClient.rawQuery(
+      "SELECT * FROM cards WHERE lower(name) LIKE '% // ' || ? LIMIT 1",
+      [lower],
+    );
+    if (back.isNotEmpty) return Card.fromMap(back.first);
 
-    return card;
+    return null;
   }
 
   Future<List<Card>> getCardsByNames(List<String> names) async {
