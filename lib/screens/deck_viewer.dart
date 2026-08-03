@@ -542,8 +542,11 @@ class DeckViewerState extends State<DeckViewer> {
                 Text('${r.totalLands}', style: _subStyle),
                 if (r.rampCount > 0) ...[
                   SizedBox(width: 4),
-                  Text('(17 − ${r.rampCount ~/ 2} from ${r.rampCount} ramp)',
-                      style: _mutedStyle),
+                  Flexible(
+                    child: Text(
+                        '(17 − ${r.rampCount ~/ 2} from ${r.rampCount} ramp)',
+                        style: _mutedStyle),
+                  ),
                 ],
               ]),
               SizedBox(height: 4),
@@ -552,25 +555,36 @@ class DeckViewerState extends State<DeckViewer> {
                 Text('${r.basicLandSlots}', style: _subStyle),
                 if (r.nonBasicLandCount > 0) ...[
                   SizedBox(width: 4),
-                  Text('(${r.totalLands} total − ${r.nonBasicLandCount} non-basic)',
-                      style: _mutedStyle),
+                  Flexible(
+                    child: Text(
+                        '(${r.totalLands} total − ${r.nonBasicLandCount} non-basic)',
+                        style: _mutedStyle),
+                  ),
                 ],
               ]),
               if (r.nonBasicLandSources.isNotEmpty) ...[
                 SizedBox(height: 4),
-                Text.rich(TextSpan(
-                  children: [
-                    TextSpan(text: 'Non-basic sources: ', style: _boldStyle),
-                    for (int i = 0; i < colorEntries.length; i++) ...[
-                      _manaIcon(_colorToChar[colorEntries[i].key]!),
+                Text.rich(
+                  TextSpan(
+                    children: [
                       TextSpan(
-                          text: ' ${colorEntries[i].value}',
-                          style: _subStyle),
-                      if (i < colorEntries.length - 1)
-                        TextSpan(text: '  ', style: _subStyle),
+                          text: 'Non-basic sources: ',
+                          style: _boldStyle),
+                      for (int i = 0;
+                          i < colorEntries.length;
+                          i++) ...[
+                        _manaIcon(
+                            _colorToChar[colorEntries[i].key]!),
+                        TextSpan(
+                            text: ' ${colorEntries[i].value}',
+                            style: _subStyle),
+                        if (i < colorEntries.length - 1)
+                          TextSpan(
+                              text: '  ', style: _subStyle),
+                      ],
                     ],
-                  ],
-                )),
+                  ),
+                ),
               ],
             ],
           );
@@ -600,10 +614,11 @@ class DeckViewerState extends State<DeckViewer> {
               if (r.fixingCards.isNotEmpty) ...[
                 SizedBox(height: 4),
                 ...r.fixingCards.map((fc) => Padding(
-                  padding: EdgeInsets.only(left: 8),
+                  padding: const EdgeInsets.only(left: 8),
                   child: Text(
-                    '${fc.name} (${fixingTagLabel(fc.tag)}) +${fc.weight.toStringAsFixed(2)}',
+                    '+${fc.weight.toStringAsFixed(2)} (${fixingTagLabel(fc.tag)}): ${fc.name}',
                     style: _mutedStyle,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 )),
               ],
@@ -617,117 +632,147 @@ class DeckViewerState extends State<DeckViewer> {
               title: Text('Edit Basic Lands'),
               content: Stack(
                 children: [
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(builderContext).size.height *
+                            0.6),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                Text.rich(
+                  TextSpan(
+                    style: _subStyle,
                     children: [
-                      Text.rich(TextSpan(
-                        style: _subStyle,
-                        children: [
-                          TextSpan(text: 'Deck colors: '),
-                          for (final c in deck.colors.split(''))
-                            _manaIcon(c, height: 14),
-                        ],
-                      )),
-                      SizedBox(height: 12),
-                      if (_result != null) ...[
-                        _buildSummary(_result!),
-                        if (_result!.fixingCards.isNotEmpty ||
-                            _result!.virtualFixing.values.any((v) => v > 0))
-                          _buildFixingCards(_result!),
-                        SizedBox(height: 15),
-                        Divider(height: 1),
+                      TextSpan(text: 'Deck colors: '),
+                      for (int i = 0; i < deck.colors.length; i++) ...[
+                        if (i > 0)
+                          const WidgetSpan(child: SizedBox(width: 4)),
+                        _manaIcon(deck.colors[i], height: 14),
                       ],
-                      SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
-                            ]
-                                .map((name) => SizedBox(
-                                      height: 32,
-                                      child: Align(
-                                        alignment: Alignment.centerRight,
-                                        child: Text(name, style: _subStyle),
-                                      ),
-                                    ))
-                                .toList(),
-                          ),
+                    ],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                          SizedBox(height: 12),
                           if (_result != null) ...[
-                            SizedBox(width: 28,),
-                            Padding(
-                              padding: EdgeInsetsGeometry.only(top: 14),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                            _buildSummary(_result!),
+                            if (_result!.fixingCards.isNotEmpty ||
+                                _result!.virtualFixing.values
+                                    .any((v) => v > 0))
+                              _buildFixingCards(_result!),
+                            SizedBox(height: 15),
+                            Divider(height: 1),
+                          ],
+                          SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
                                   'Plains',
                                   'Island',
                                   'Swamp',
                                   'Mountain',
                                   'Forest',
-                                ].map((name) => SizedBox(
-                                  height: 32,
-                                  child:
-                                  _pipLabel(name, _result!),
-                                )).toList(),
-                              )
-                            ),
-                          ],
-                          SizedBox(width: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              'Plains', 'Island', 'Swamp', 'Mountain', 'Forest',
-                            ].map((name) {
-                              return SizedBox(
-                                height: 32,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      IconButton(
-                                        iconSize: 18,
-                                        constraints: BoxConstraints(
-                                            minWidth: 24, minHeight: 24),
-                                        padding: EdgeInsets.zero,
-                                        icon: Icon(Icons.remove),
-                                        onPressed: () {
-                                          setDialogState(() {
-                                            if (basicCounts[name]! > 0) {
-                                              basicCounts[name] =
-                                                  basicCounts[name]! - 1;
-                                            }
-                                          });
-                                        },
-                                      ),
-                                      Text('${basicCounts[name]}',
-                                          style: _subStyle),
-                                      IconButton(
-                                        iconSize: 18,
-                                        constraints: BoxConstraints(
-                                            minWidth: 24, minHeight: 24),
-                                        padding: EdgeInsets.zero,
-                                        icon: Icon(Icons.add),
-                                        onPressed: () {
-                                          setDialogState(() {
-                                            basicCounts[name] =
-                                                basicCounts[name]! + 1;
-                                          });
-                                        },
-                                      ),
-                                    ],
-                                  ),
+                                ]
+                                    .map((name) => SizedBox(
+                                          height: 32,
+                                          child: Align(
+                                            alignment: Alignment.centerRight,
+                                            child:
+                                                Text(name, style: _subStyle),
+                                          ),
+                                        ))
+                                    .toList(),
+                              ),
+                              if (_result != null) ...[
+                                SizedBox(
+                                  width: 28,
                                 ),
-                              );
-                            }).toList(),
+                                Padding(
+                                    padding:
+                                        EdgeInsetsGeometry.only(top: 14),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        'Plains',
+                                        'Island',
+                                        'Swamp',
+                                        'Mountain',
+                                        'Forest',
+                                      ].map((name) => SizedBox(
+                                            height: 32,
+                                            child:
+                                                _pipLabel(name, _result!),
+                                          )).toList(),
+                                    )),
+                              ],
+                              SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  'Plains',
+                                  'Island',
+                                  'Swamp',
+                                  'Mountain',
+                                  'Forest',
+                                ].map((name) {
+                                  return SizedBox(
+                                    height: 32,
+                                    child: Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          IconButton(
+                                            iconSize: 18,
+                                            constraints: BoxConstraints(
+                                                minWidth: 24,
+                                                minHeight: 24),
+                                            padding: EdgeInsets.zero,
+                                            icon: Icon(Icons.remove),
+                                            onPressed: () {
+                                              setDialogState(() {
+                                                if (basicCounts[name]! > 0) {
+                                                  basicCounts[name] =
+                                                      basicCounts[name]! -
+                                                          1;
+                                                }
+                                              });
+                                            },
+                                          ),
+                                          Text('${basicCounts[name]}',
+                                              style: _subStyle),
+                                          IconButton(
+                                            iconSize: 18,
+                                            constraints: BoxConstraints(
+                                                minWidth: 24,
+                                                minHeight: 24),
+                                            padding: EdgeInsets.zero,
+                                            icon: Icon(Icons.add),
+                                            onPressed: () {
+                                              setDialogState(() {
+                                                basicCounts[name] =
+                                                    basicCounts[name]! +
+                                                        1;
+                                              });
+                                            },
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                   if (calculating)
                     Positioned.fill(
