@@ -116,6 +116,12 @@ class CardRepository {
     return result.map((map) => Card.fromMap(map)).toList();
   }
 
+  Future<List<String>> getAllDistinctCardNames() async {
+    final dbClient = await _db;
+    final result = await dbClient.rawQuery('SELECT DISTINCT name FROM cards ORDER BY name');
+    return result.map((r) => r['name'] as String).toList();
+  }
+
   Future<List<Map<String, String>>> getAllCardNames() async {
     final dbClient = await _db;
     final result = await dbClient.rawQuery('SELECT scryfall_id, name, title FROM cards');
