@@ -23,6 +23,7 @@ class Settings extends StatefulWidget {
 
 class _SettingsState extends State<Settings> {
 
+  static const String _commitSha = String.fromEnvironment('COMMIT_SHA');
   late PackageInfo _packageInfo;
   ThemeMode currentThemeMode = ThemeMode.light;
   late SharedPreferences prefs;
@@ -258,11 +259,14 @@ class _SettingsState extends State<Settings> {
                       : subtitleColor,
                 ),
                 onTap: () {
+                  final commitSha = _commitSha.isNotEmpty && _commitSha.length >= 7
+                      ? _commitSha.substring(0, 7)
+                      : '';
                   showAboutDialog(
                     context: context,
                     applicationIcon: Icon(Icons.info),
                     applicationName: "SnapDrafter",
-                    applicationVersion: "${_packageInfo.version} (${_packageInfo.buildNumber})",
+                    applicationVersion: "${_packageInfo.version} (${_packageInfo.buildNumber})${commitSha.isNotEmpty ? ' · $commitSha' : ''}",
                     applicationLegalese: "© Copyright Dorian Brown 2025",
                   );
                 },

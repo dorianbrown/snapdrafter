@@ -46,7 +46,7 @@ jobs:
         run: |
           OFFSET=204
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
-          flutter build appbundle --release --build-number $BUILD_NUM --no-pub
+          flutter build appbundle --release --build-number $BUILD_NUM --dart-define=COMMIT_SHA=${{ github.sha }} --no-pub
 
       - name: Sign App Bundle
         id: sign_app
@@ -115,7 +115,7 @@ jobs:
         run: |
           OFFSET=204
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
-          flutter build apk --release --build-number $BUILD_NUM --no-pub
+          flutter build apk --release --build-number $BUILD_NUM --dart-define=COMMIT_SHA=${{ github.sha }} --no-pub
 
       - name: Sign APK
         id: sign_app
@@ -207,6 +207,7 @@ jobs:
           flutter build ipa \
             --build-number=$BUILD_NUM \
             --build-name=$BUILD_NAME \
+            --dart-define=COMMIT_SHA=${{ github.sha }} \
             --export-options-plist=ios/GithubActionsExportOptions.plist
 
       - name: Upload app to TestFlight
