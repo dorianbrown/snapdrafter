@@ -154,6 +154,8 @@ jobs:
   build_ios:
     name: Build & Deploy iOS
     runs-on: macos-15
+    outputs:
+      build_name: ${{ steps.build_ipa.outputs.build_name }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -196,6 +198,7 @@ jobs:
         run: flutter pub get
 
       - name: Build App IPA
+        id: build_ipa
         run: |
           OFFSET=204
           BUILD_NUM=$((${{ github.run_number }} + $OFFSET))
@@ -209,6 +212,7 @@ jobs:
             --build-name=$BUILD_NAME \
             --dart-define=COMMIT_SHA=${{ github.sha }} \
             --export-options-plist=ios/GithubActionsExportOptions.plist
+          echo "build_name=$BUILD_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Upload app to TestFlight
         uses: apple-actions/upload-testflight-build@v5
@@ -218,3 +222,19 @@ jobs:
           api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
           wait-for-processing: false
+
+  write_summary:
+    name: Write build summary
+    runs-on: ubuntu-latest
+    needs: [build_android_bundle, build_ios]
+    if: always() && !cancelled()
+    steps:
+      - name: Write build summary
+        run: |
+          BUILD_NUM=$((${{ github.run_number }} + 204))
+          SHA=${{ github.sha }}
+          echo "## Build $BUILD_NUM" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build number: **$BUILD_NUM**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Commit: \`${SHA:0:7}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Android bundle: ${{ needs.build_android_bundle.result }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- iOS: ${{ needs.build_ios.result }} (${{ needs.build_ios.outputs.build_name }})" >> "$GITHUB_STEP_SUMMARY"
