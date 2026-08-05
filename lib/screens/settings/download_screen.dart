@@ -242,10 +242,11 @@ class _DownloadScreenState extends State<DownloadScreen> {
       if (validCardLayouts.contains(val["layout"])) {
         if (val["card_faces"] == null && val["image_uris"] == null) return;
         if (newestRelease.compareTo(val["released_at"]) < 0 &&
-            val["released_at"].compareTo(convertDatetimeToYMD(
-                    DateTime.now().add(Duration(days: 8)))) <
+            val["released_at"].compareTo(convertDatetimeToYMD(DateTime.now()
+                    .add(Duration(days: SetRepository.releaseNoticeDays)))) <
                 0 &&
-            val["set_type"] == "expansion") {
+            ["expansion", "core", "masters"].contains(val["set_type"]) &&
+            val["digital"] != true) {
           newestRelease = val["released_at"];
           scryfallMetadata["newest_set_name"] = val["set_name"];
         }

@@ -9,6 +9,9 @@ import '/data/models/set.dart';
 import '/utils/utils.dart';
 
 class SetRepository {
+  static const int prereleaseWindowDays = 7;
+  static const int releaseNoticeDays = 14;
+
   late final DatabaseHelper _dbHelper;
 
   SetRepository() {
@@ -74,9 +77,9 @@ class SetRepository {
           validSetTypes.contains(setType) &&
           (setData["digital"] == false)
         ) {
-          // Reduce the release date by 8 days, to account for prereleases
+          // Reduce the release date by 7 days, to account for prereleases
           final actualReleaseDate = DateTime.parse(releasedAt);
-          final releaseDate = actualReleaseDate.subtract(const Duration(days: 8));
+          final releaseDate = actualReleaseDate.subtract(Duration(days: prereleaseWindowDays));
           if (actualReleaseDate.isAfter(now)) {
             upcomingDates[setData["code"]] = {
               "date": releaseDate.toIso8601String(),

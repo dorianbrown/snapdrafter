@@ -155,7 +155,10 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
       final upcomingToPrompt = upcomingDates.entries
           .where((entry) =>
               DateTime.parse(entry.value["date"]!)
-                  .subtract(Duration(days: 2))
+                  .subtract(Duration(
+                      days:
+                          SetRepository.releaseNoticeDays -
+                          SetRepository.prereleaseWindowDays))
                   .isBefore(now) &&
               !promptedSets.contains(entry.key))
           .map((entry) => {"code": entry.key, "name": entry.value["name"]!})
