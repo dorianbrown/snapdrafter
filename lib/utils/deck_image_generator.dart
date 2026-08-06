@@ -33,7 +33,7 @@ Future<Image> generateDeckImage(Deck deck) async {
       .toList();
   final selectedCard = cardCandidates[Random().nextInt(cardCandidates.length)];
   final artUri = CardArtPreferences.resolveCardImageUri(
-          selectedCard.imageUri, selectedCard.nonUbImageUri)!
+          selectedCard.imageUri, selectedCard.firstPrintingImageUri)!
       .replaceAll("normal", "art_crop");
 
   // Fire all independent async work in parallel
@@ -467,7 +467,7 @@ Future<Image> _loadNetworkImage(String uri) async {
 
 Future<Image> _loadCardImage(Card card) async {
   return _loadNetworkImage(CardArtPreferences.resolveCardImageUri(
-      card.imageUri, card.nonUbImageUri)!);
+      card.imageUri, card.firstPrintingImageUri)!);
 }
 
 Future<Map<Card, Image>> _loadAllCardImages(List<Card> cards) async {

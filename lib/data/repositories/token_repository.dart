@@ -58,7 +58,7 @@ class TokenRepository {
         C.name as card_name,  
         T.name as token_name,  
         T.image_uri as token_image,
-        T.non_ub_image_uri as token_non_ub_image
+        T.first_printing_image_uri as token_first_printing_image
       FROM decklists D
         INNER JOIN cards C on D.oracle_id = C.oracle_id
         INNER JOIN cards_to_tokens CT on C.oracle_id = CT.card_oracle_id
@@ -72,7 +72,7 @@ class TokenRepository {
       "token_name": res["token_name"] as String,
       "token_image": CardArtPreferences.resolveCardImageUri(
               res["token_image"] as String?,
-              res["token_non_ub_image"] as String?) ??
+              res["token_first_printing_image"] as String?) ??
           res["token_image"] as String,
     }];
 

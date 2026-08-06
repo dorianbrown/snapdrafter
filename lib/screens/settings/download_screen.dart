@@ -159,17 +159,19 @@ class _DownloadScreenState extends State<DownloadScreen> {
       "prepare"
     ];
 
-    // Keeps the best Universes Beyond and best non-UB printing per oracle id,
-    // so only a single card per oracle id is stored. The challenger is
-    // compared against the stored record without allocating a new one.
+    // Keeps the best overall printing and the first (original) printing per
+    // oracle id, so only a single card per oracle id is stored. Challengers
+    // are compared against the stored records without allocating new ones.
     void considerEntry(Map<String, dynamic> acc, Map<dynamic, dynamic> val) {
-      final isUb = PrintingSelector.isUniversesBeyond(val);
-      final key = isUb ? "ub" : "non_ub";
-      final current = acc[key] as Map<String, dynamic>?;
-      if (current == null) {
-        acc[key] = PrintingSelector.entryRecord(val);
-      } else if (PrintingSelector.compareRawToRecord(val, current) < 0) {
-        acc[key] = PrintingSelector.entryRecord(val);
+      final best = acc["best"] as Map<String, dynamic>?;
+      if (best == null ||
+          PrintingSelector.compareRawToRecord(val, best) < 0) {
+        acc["best"] = PrintingSelector.entryRecord(val);
+      }
+      final first = acc["first"] as Map<String, dynamic>?;
+      if (first == null ||
+          PrintingSelector.compareFirstPrintingRawToRecord(val, first) < 0) {
+        acc["first"] = PrintingSelector.entryRecord(val);
       }
     }
 
@@ -182,6 +184,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
     List<List<String>> cardTokenMapping = [];
     Map<String, String> nameOracleMapping = {};
     String newestRelease = "1900-01-01";
+    Map<String, Map<String, String>> downloadedSets = {};
     Map<String, dynamic> scryfallMetadata = {
       "id": 1,
       "datetime": convertDatetimeToYMDHM(DateTime.now())
@@ -197,6 +200,18 @@ class _DownloadScreenState extends State<DownloadScreen> {
       if (line.trim().isEmpty) return;
       final val = jsonDecode(line);
       if (val is! Map) return;
+      // Record every set seen in the bulk data, including unreleased
+      // (prerelease) sets, so the app knows its cards are already downloaded.
+      final setCode = val["set"];
+      final setReleasedAt = val["released_at"];
+      if (setCode is String &&
+          setReleasedAt is String &&
+          setReleasedAt.isNotEmpty) {
+        downloadedSets[setCode] = {
+          "name": val["set_name"] as String? ?? setCode,
+          "released_at": setReleasedAt,
+        };
+      }
       // Playable Card
       if (validCardLayouts.contains(val["layout"])) {
         if (val["card_faces"] == null && val["image_uris"] == null) return;
@@ -244,13 +259,14 @@ class _DownloadScreenState extends State<DownloadScreen> {
     });
     await completer.future;
 
+    if (downloadedSets.isNotEmpty) {
+      await setRepository.saveDownloadedSets(downloadedSets);
+    }
+
     for (final acc in cardAccumulators.values) {
       final oracle = acc["oracle"] as Map<String, dynamic>;
-      final ub = acc["ub"] as Map<String, dynamic>?;
-      final nonUb = acc["non_ub"] as Map<String, dynamic>?;
-      final best = ub != null && nonUb != null
-          ? (PrintingSelector.compareEntries(ub, nonUb) < 0 ? ub : nonUb)
-          : (ub ?? nonUb)!;
+      final best = acc["best"] as Map<String, dynamic>;
+      final first = acc["first"] as Map<String, dynamic>;
       cards.add(Card(
           scryfallId: best["scryfall_id"] as String,
           oracleId: acc["oracle_id"] as String,
@@ -259,8 +275,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
           type: oracle["type"] as String,
           colors: oracle["colors"] as String?,
           imageUri: best["image_uri"] as String,
-          ubImageUri: ub?["image_uri"] as String?,
-          nonUbImageUri: nonUb?["image_uri"] as String?,
+          firstPrintingImageUri: first["image_uri"] as String?,
           manaCost: oracle["mana_cost"] as String?,
           manaValue: oracle["mana_value"] as int,
           producedMana: oracle["produced_mana"] as String?,
@@ -268,17 +283,13 @@ class _DownloadScreenState extends State<DownloadScreen> {
     }
 
     for (final acc in tokenAccumulators.values) {
-      final ub = acc["ub"] as Map<String, dynamic>?;
-      final nonUb = acc["non_ub"] as Map<String, dynamic>?;
-      final best = ub != null && nonUb != null
-          ? (PrintingSelector.compareEntries(ub, nonUb) < 0 ? ub : nonUb)
-          : (ub ?? nonUb)!;
+      final best = acc["best"] as Map<String, dynamic>;
+      final first = acc["first"] as Map<String, dynamic>;
       tokens.add(Token(
         oracleId: acc["oracle_id"] as String,
         name: acc["name"] as String,
         imageUri: best["image_uri"] as String,
-        ubImageUri: ub?["image_uri"] as String?,
-        nonUbImageUri: nonUb?["image_uri"] as String?,
+        firstPrintingImageUri: first["image_uri"] as String?,
       ));
     }
 

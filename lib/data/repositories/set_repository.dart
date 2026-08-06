@@ -125,6 +125,26 @@ class SetRepository {
     }
   }
 
+  Future<void> saveDownloadedSets(Map<String, Map<String, String>> sets) async {
+    final dbClient = await _db;
+    await dbClient.transaction((txn) async {
+      var batch = txn.batch();
+      for (final entry in sets.entries) {
+        batch.insert(
+          "sets",
+          {
+            "code": entry.key,
+            "name": entry.value["name"]!,
+            "released_at": entry.value["released_at"]!,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+      await batch.commit();
+    });
+    debugPrint("Saved ${sets.length} sets from scryfall download");
+  }
+
   Future<List<Set>> getAllSets() async {
     final dbClient = await _db;
     final result = await dbClient.query('sets');

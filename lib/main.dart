@@ -51,7 +51,7 @@ Future<void> main() async {
   final themeNotifier = ThemeNotifier();
   themeNotifier.setTheme(currentTheme);
 
-  CardArtPreferences.preferNonUbArt.value =
+  CardArtPreferences.preferOriginalArt.value =
       prefs.getBool(CardArtPreferences.prefKey) ?? false;
 
   String deviceId = prefs.getString('device_id') ?? _generateDeviceId();
@@ -155,6 +155,8 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
       final upcomingDates = await _releaseDateHelper.getUpcomingReleaseDates();
       final promptedSets = await _releaseDateHelper.getPromptedSets();
+      final localSetCodes =
+          (await _setRepository.getAllSets()).map((s) => s.code).toSet();
       final now = DateTime.now();
 
       final upcomingToPrompt = upcomingDates.entries
@@ -165,7 +167,8 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
                           SetRepository.releaseNoticeDays -
                           SetRepository.prereleaseWindowDays))
                   .isBefore(now) &&
-              !promptedSets.contains(entry.key))
+              !promptedSets.contains(entry.key) &&
+              !localSetCodes.contains(entry.key))
           .map((entry) => {"code": entry.key, "name": entry.value["name"]!})
           .toList();
 

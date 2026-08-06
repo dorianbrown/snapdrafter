@@ -146,19 +146,22 @@ void main() {
       await db.close();
     });
 
-    test('v8 → v9 keeps ub columns and migrates references', () async {
+    test('v7 → v9 adds first_printing_image_uri and no ub/non-ub columns',
+        () async {
       final db = await _createV7Database();
       await _seedData(db);
 
-      // Simulate v8: add the ub artwork columns
-      await db.execute('ALTER TABLE cards ADD ub_image_uri TEXT');
-      await db.execute('ALTER TABLE cards ADD non_ub_image_uri TEXT');
-
-      await DatabaseHelper.migrateDatabase(db, 8, 9);
+      await DatabaseHelper.migrateDatabase(db, 7, 9);
 
       final cardColumns = await db.rawQuery('PRAGMA table_info(cards)');
       final cardColumnNames = cardColumns.map((c) => c['name']).toList();
-      expect(cardColumnNames, containsAll(['ub_image_uri', 'non_ub_image_uri']));
+      expect(cardColumnNames, contains('first_printing_image_uri'));
+      expect(cardColumnNames, isNot(contains('ub_image_uri')));
+      expect(cardColumnNames, isNot(contains('non_ub_image_uri')));
+
+      final tokenColumns = await db.rawQuery('PRAGMA table_info(tokens)');
+      final tokenColumnNames = tokenColumns.map((c) => c['name']).toList();
+      expect(tokenColumnNames, contains('first_printing_image_uri'));
 
       final decklists = await db.rawQuery(
           'SELECT deck_id, oracle_id FROM decklists ORDER BY id');

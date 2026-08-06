@@ -143,12 +143,12 @@ class CardRepository {
     }).toList();
   }
 
-  /// Returns true when the local database was populated with non-Universes
-  /// Beyond artwork, i.e. after a Scryfall data refresh.
-  Future<bool> hasNonUbCardArt() async {
+  /// Returns true when the local database was populated with first printing
+  /// artwork, i.e. after a Scryfall data refresh.
+  Future<bool> hasFirstPrintingCardArt() async {
     final dbClient = await _db;
     final result = await dbClient.rawQuery(
-        'SELECT 1 FROM cards WHERE non_ub_image_uri IS NOT NULL LIMIT 1');
+        'SELECT 1 FROM cards WHERE first_printing_image_uri IS NOT NULL LIMIT 1');
     return result.isNotEmpty;
   }
 }

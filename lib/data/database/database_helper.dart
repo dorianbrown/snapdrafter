@@ -44,8 +44,7 @@ class DatabaseHelper {
         title TEXT NOT NULL,
         type TEXT NOT NULL,
         image_uri TEXT,
-        ub_image_uri TEXT,
-        non_ub_image_uri TEXT,
+        first_printing_image_uri TEXT,
         colors TEXT,
         mana_cost TEXT,
         mana_value INTEGER NOT NULL,
@@ -96,8 +95,7 @@ class DatabaseHelper {
         oracle_id STRING PRIMARY KEY,
         name STRING NOT NULL,
         image_uri STRING NOT NULL,
-        ub_image_uri STRING,
-        non_ub_image_uri STRING
+        first_printing_image_uri STRING
       )
     """);
     // Card Collections
@@ -291,31 +289,19 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 8) {
-      // Store the best Universes Beyond and best non-UB artwork per card/token
+      // Store the first (original) printing artwork per card/token
       var cardColumns = await db.rawQuery('PRAGMA table_info(cards)');
-      if (!cardColumns.any((col) => col['name'] == 'ub_image_uri')) {
+      if (!cardColumns.any((col) => col['name'] == 'first_printing_image_uri')) {
         await db.execute("""
           ALTER TABLE cards
-          ADD ub_image_uri TEXT
-        """);
-      }
-      if (!cardColumns.any((col) => col['name'] == 'non_ub_image_uri')) {
-        await db.execute("""
-          ALTER TABLE cards
-          ADD non_ub_image_uri TEXT
+          ADD first_printing_image_uri TEXT
         """);
       }
       var tokenColumns = await db.rawQuery('PRAGMA table_info(tokens)');
-      if (!tokenColumns.any((col) => col['name'] == 'ub_image_uri')) {
+      if (!tokenColumns.any((col) => col['name'] == 'first_printing_image_uri')) {
         await db.execute("""
           ALTER TABLE tokens
-          ADD ub_image_uri STRING
-        """);
-      }
-      if (!tokenColumns.any((col) => col['name'] == 'non_ub_image_uri')) {
-        await db.execute("""
-          ALTER TABLE tokens
-          ADD non_ub_image_uri STRING
+          ADD first_printing_image_uri STRING
         """);
       }
       debugPrint("sqflite: Upgraded to V8");

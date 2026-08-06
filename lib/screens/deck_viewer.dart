@@ -1296,7 +1296,7 @@ class DeckViewerState extends State<DeckViewer> {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(25),
         child: Image.network(CardArtPreferences.resolveCardImageUri(
-            card.imageUri, card.nonUbImageUri)!),
+            card.imageUri, card.firstPrintingImageUri)!),
       ),
     );
   }
@@ -1446,7 +1446,7 @@ class _CardPopupState extends State<CardPopup> {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(25),
               child: Image.network(CardArtPreferences.resolveCardImageUri(
-                  widget.card.imageUri, widget.card.nonUbImageUri)!),
+                  widget.card.imageUri, widget.card.firstPrintingImageUri)!),
             ),
           ),
         ),

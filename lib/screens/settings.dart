@@ -60,7 +60,7 @@ class _SettingsState extends State<Settings> with RouteAware {
   }
 
   Future<void> _checkNonUbArtworkAvailability() async {
-    final available = await CardRepository().hasNonUbCardArt();
+    final available = await CardRepository().hasFirstPrintingCardArt();
     if (mounted) {
       setState(() {
         _nonUbArtworkAvailable = available;
@@ -124,18 +124,18 @@ class _SettingsState extends State<Settings> with RouteAware {
               },
             ),
             SwitchListTile(
-              title: Text("Prefer non-Universes Beyond art"),
+              title: Text("Prefer original printings"),
               subtitle: Text(
                   _nonUbArtworkAvailable
-                      ? "Show in-universe printings for cards and tokens when available"
+                      ? "Show the first printing of each card and token when available"
                       : "A refresh of the scryfall database is needed to enable this",
                   style: subtitleColor),
               secondary: Icon(Icons.image_outlined),
               value: _nonUbArtworkAvailable &&
-                  CardArtPreferences.preferNonUbArt.value,
+                  CardArtPreferences.preferOriginalArt.value,
               onChanged: _nonUbArtworkAvailable
                   ? (val) {
-                      CardArtPreferences.preferNonUbArt.value = val;
+                      CardArtPreferences.preferOriginalArt.value = val;
                       prefs.setBool(CardArtPreferences.prefKey, val);
                       setState(() {});
                     }
