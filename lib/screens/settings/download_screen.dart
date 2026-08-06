@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '/utils/utils.dart';
 import '/utils/deck_change_notifier.dart';
 import '/utils/release_date_helper.dart';
+import '/utils/printing_selector.dart';
 import '/data/models/card.dart';
 import '/data/models/token.dart';
 import '/data/repositories/card_repository.dart';
@@ -125,7 +126,7 @@ class _DownloadScreenState extends State<DownloadScreen> {
       var responseMap = jsonDecode(getResponse.body);
       try {
         final dataMap = responseMap["data"]
-            .where((x) => x["type"] == "oracle_cards")
+            .where((x) => x["type"] == "unique_artwork")
             .toList()[0];
         downloadUri = dataMap["jsonl_download_uri"];
       } on Exception catch (e) {
@@ -157,69 +158,27 @@ class _DownloadScreenState extends State<DownloadScreen> {
       "leveler",
       "prepare"
     ];
-    List<String> validTypes = [
-      "Creature",
-      "Artifact",
-      "Enchantment",
-      "Land",
-      "Instant",
-      "Sorcery",
-      "Planeswalker",
-      "Battle"
-    ];
 
-    mapToCard(Map val) {
-      String cardType = "";
-      String colors = "";
-      String manaCost = "";
-      String imageUri = "";
-      String? producedMana;
-      String? oracleText;
-      for (String type in validTypes) {
-        if (val["type_line"].contains(type)) {
-          cardType = type;
-          break;
-        }
+    // Keeps the best Universes Beyond and best non-UB printing per oracle id,
+    // so only a single card per oracle id is stored. The challenger is
+    // compared against the stored record without allocating a new one.
+    void considerEntry(Map<String, dynamic> acc, Map<dynamic, dynamic> val) {
+      final isUb = PrintingSelector.isUniversesBeyond(val);
+      final key = isUb ? "ub" : "non_ub";
+      final current = acc[key] as Map<String, dynamic>?;
+      if (current == null) {
+        acc[key] = PrintingSelector.entryRecord(val);
+      } else if (PrintingSelector.compareRawToRecord(val, current) < 0) {
+        acc[key] = PrintingSelector.entryRecord(val);
       }
-
-      if (val["image_uris"] == null && val["card_faces"] != null) {
-        imageUri = val["card_faces"][0]["image_uris"]["normal"];
-        colors = val["card_faces"][0]["colors"].join("");
-        manaCost = val["card_faces"][0]["mana_cost"];
-        producedMana = val["card_faces"][0]["produced_mana"] ??
-            val["card_faces"][1]["produced_mana"];
-        final faces = (val["card_faces"] as List)
-            .map((f) => (f["oracle_text"] ?? "").toString())
-            .where((t) => t.isNotEmpty)
-            .toList();
-        oracleText = faces.isNotEmpty ? faces.join("\n") : null;
-      } else {
-        imageUri = val["image_uris"]["normal"];
-        colors = val["colors"].join("");
-        manaCost = val["mana_cost"];
-        producedMana = val["produced_mana"]?.join("");
-        oracleText = val["oracle_text"];
-        if (oracleText == '') {
-          oracleText = null;
-        }
-      }
-
-      return Card(
-          scryfallId: val["id"],
-          oracleId: val["oracle_id"],
-          name: val["name"],
-          title: val["name"].split(" // ")[0],
-          type: cardType,
-          colors: colors,
-          imageUri: imageUri,
-          manaCost: manaCost,
-          manaValue: val["cmc"].toInt(),
-          producedMana: producedMana,
-          oracleText: oracleText);
     }
 
+    final releaseNoticeCutoff = convertDatetimeToYMD(DateTime.now()
+        .add(const Duration(days: SetRepository.releaseNoticeDays)));
     List<Card> cards = [];
     List<Token> tokens = [];
+    Map<String, Map<String, dynamic>> cardAccumulators = {};
+    Map<String, Map<String, dynamic>> tokenAccumulators = {};
     List<List<String>> cardTokenMapping = [];
     Map<String, String> nameOracleMapping = {};
     String newestRelease = "1900-01-01";
@@ -241,39 +200,87 @@ class _DownloadScreenState extends State<DownloadScreen> {
       // Playable Card
       if (validCardLayouts.contains(val["layout"])) {
         if (val["card_faces"] == null && val["image_uris"] == null) return;
+        final imageUri = PrintingSelector.extractImageUri(val);
+        if (imageUri == null) return;
         if (newestRelease.compareTo(val["released_at"]) < 0 &&
-            val["released_at"].compareTo(convertDatetimeToYMD(DateTime.now()
-                    .add(Duration(days: SetRepository.releaseNoticeDays)))) <
-                0 &&
+            val["released_at"].compareTo(releaseNoticeCutoff) < 0 &&
             ["expansion", "core", "masters"].contains(val["set_type"]) &&
             val["digital"] != true) {
           newestRelease = val["released_at"];
           scryfallMetadata["newest_set_name"] = val["set_name"];
         }
         nameOracleMapping[val["name"]] = val["oracle_id"];
-        cards.add(mapToCard(val));
+        final oracleId = val["oracle_id"];
+        var acc = cardAccumulators[oracleId];
+        if (acc == null) {
+          acc = {
+            "oracle_id": oracleId,
+            "oracle": PrintingSelector.oracleFields(val)
+          };
+          cardAccumulators[oracleId] = acc;
+        }
+        considerEntry(acc, val);
       }
       // Tokens
       if (val["layout"] == "token") {
         if (val["all_parts"] == null || val["all_parts"].isEmpty) return;
+        if (PrintingSelector.extractImageUri(val) == null) return;
         List<Map<String, dynamic>> allParts = val["all_parts"]
             .whereType<Map<String, dynamic>>()
             .where((obj) => obj["component"] == "combo_piece")
             .toList();
-        cardTokenMapping.addAll(allParts
-            .map((obj) => [obj["name"] as String, val["oracle_id"] as String]));
-        tokens.add(Token(
-          oracleId: val["oracle_id"],
-          name: val["name"],
-          imageUri: val["card_faces"] != null
-              ? val["card_faces"][0]["image_uris"]["normal"]
-              : val["image_uris"]["normal"],
-        ));
+        final oracleId = val["oracle_id"];
+        var acc = tokenAccumulators[oracleId];
+        if (acc == null) {
+          acc = {"oracle_id": oracleId, "name": val["name"]};
+          tokenAccumulators[oracleId] = acc;
+          cardTokenMapping.addAll(allParts
+              .map((obj) => [obj["name"] as String, oracleId]));
+        }
+        considerEntry(acc, val);
       }
     }, onDone: () {
       completer.complete();
     });
     await completer.future;
+
+    for (final acc in cardAccumulators.values) {
+      final oracle = acc["oracle"] as Map<String, dynamic>;
+      final ub = acc["ub"] as Map<String, dynamic>?;
+      final nonUb = acc["non_ub"] as Map<String, dynamic>?;
+      final best = ub != null && nonUb != null
+          ? (PrintingSelector.compareEntries(ub, nonUb) < 0 ? ub : nonUb)
+          : (ub ?? nonUb)!;
+      cards.add(Card(
+          scryfallId: best["scryfall_id"] as String,
+          oracleId: acc["oracle_id"] as String,
+          name: oracle["name"] as String,
+          title: oracle["title"] as String,
+          type: oracle["type"] as String,
+          colors: oracle["colors"] as String?,
+          imageUri: best["image_uri"] as String,
+          ubImageUri: ub?["image_uri"] as String?,
+          nonUbImageUri: nonUb?["image_uri"] as String?,
+          manaCost: oracle["mana_cost"] as String?,
+          manaValue: oracle["mana_value"] as int,
+          producedMana: oracle["produced_mana"] as String?,
+          oracleText: oracle["oracle_text"] as String?));
+    }
+
+    for (final acc in tokenAccumulators.values) {
+      final ub = acc["ub"] as Map<String, dynamic>?;
+      final nonUb = acc["non_ub"] as Map<String, dynamic>?;
+      final best = ub != null && nonUb != null
+          ? (PrintingSelector.compareEntries(ub, nonUb) < 0 ? ub : nonUb)
+          : (ub ?? nonUb)!;
+      tokens.add(Token(
+        oracleId: acc["oracle_id"] as String,
+        name: acc["name"] as String,
+        imageUri: best["image_uri"] as String,
+        ubImageUri: ub?["image_uri"] as String?,
+        nonUbImageUri: nonUb?["image_uri"] as String?,
+      ));
+    }
 
     downloadPhaseNotifier.value = "Filling database...";
     debugPrint("tokenMapping: ${cardTokenMapping.length}");

@@ -3,6 +3,7 @@ import 'package:sqflite/sqflite.dart';
 import '../database/database_helper.dart';
 import 'package:collection/collection.dart'; // For groupFoldBy method
 import '../models/token.dart'; // Adjust import path as needed
+import '/utils/card_art.dart';
 
 class TokenRepository {
   late final DatabaseHelper _dbHelper;
@@ -56,9 +57,10 @@ class TokenRepository {
       SELECT  
         C.name as card_name,  
         T.name as token_name,  
-        T.image_uri as token_image
+        T.image_uri as token_image,
+        T.non_ub_image_uri as token_non_ub_image
       FROM decklists D
-        INNER JOIN cards C on D.scryfall_id = C.scryfall_id
+        INNER JOIN cards C on D.oracle_id = C.oracle_id
         INNER JOIN cards_to_tokens CT on C.oracle_id = CT.card_oracle_id
         INNER JOIN tokens T on CT.token_oracle_id = T.oracle_id
       WHERE deck_id = ?
@@ -68,7 +70,10 @@ class TokenRepository {
     final resultsList = [for (final res in result) {
       "card_name": res["card_name"] as String,
       "token_name": res["token_name"] as String,
-      "token_image": res["token_image"] as String,
+      "token_image": CardArtPreferences.resolveCardImageUri(
+              res["token_image"] as String?,
+              res["token_non_ub_image"] as String?) ??
+          res["token_image"] as String,
     }];
 
     final groupedTokens = resultsList.groupFoldBy((obj) => obj["token_image"]!, (Map? obj1, Map obj2) {

@@ -68,7 +68,7 @@ class DeckRepository {
     for (final card in cards) {
       batch.insert(
         tableName,
-        {'deck_id': deckId, 'scryfall_id': card.scryfallId},
+        {'deck_id': deckId, 'oracle_id': card.oracleId},
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     }
@@ -125,14 +125,14 @@ class DeckRepository {
       SELECT decklists.deck_id, cards.*
       FROM decklists 
       INNER JOIN cards 
-      ON decklists.scryfall_id = cards.scryfall_id 
+      ON decklists.oracle_id = cards.oracle_id 
     """);
 
     final sideboardCardsData = await dbClient.rawQuery("""
       SELECT sideboard_lists.deck_id, cards.*
       FROM sideboard_lists
       INNER JOIN cards 
-      ON sideboard_lists.scryfall_id = cards.scryfall_id 
+      ON sideboard_lists.oracle_id = cards.oracle_id 
     """);
 
     // Get tags for all decks

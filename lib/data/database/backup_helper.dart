@@ -57,7 +57,7 @@ class BackupHelper {
       },
       'images': images,
       'metadata': {
-        'backup_version': 2,
+        'backup_version': 3,
         'created': DateTime.now().toIso8601String(),
       }
     };
@@ -91,7 +91,11 @@ class BackupHelper {
       List<dynamic>? cubelists = dbData['cubelists'];
       if (cubelists != null) {
         for (final cubelist in cubelists) {
-          batch.insert('cubelists', cubelist as Map<String, Object?>);
+          final row =
+              await convertCardRefRow(txn, Map.from(cubelist as Map<String, Object?>));
+          if (row != null) {
+            batch.insert('cubelists', row);
+          }
         }
       }
 
@@ -123,7 +127,11 @@ class BackupHelper {
       List<dynamic>? decklists = dbData['decklists'];
       if (decklists != null) {
         for (final decklist in decklists) {
-          batch.insert('decklists', decklist as Map<String, Object?>);
+          final row = await convertCardRefRow(
+              txn, Map.from(decklist as Map<String, Object?>));
+          if (row != null) {
+            batch.insert('decklists', row);
+          }
         }
       }
       
@@ -157,5 +165,27 @@ class BackupHelper {
       }
     }
     // For legacy backups (version 1), images remain untouched
+  }
+
+  /// Converts a backed-up decklist/cubelist row to the current schema.
+  ///
+  /// Backups from version 3 store card references as `oracle_id`. Legacy
+  /// backups (versions 1-2) store `scryfall_id` (a printing id), which is
+  /// resolved to the current `oracle_id` via the local cards table. Rows
+  /// whose card cannot be resolved are dropped (returns null).
+  static Future<Map<String, Object?>?> convertCardRefRow(
+      DatabaseExecutor dbClient, Map<String, Object?> row) async {
+    if (row.containsKey('oracle_id')) {
+      return row;
+    }
+    final scryfallId = row.remove('scryfall_id');
+    if (scryfallId is! String) return null;
+    final result = await dbClient.rawQuery(
+      'SELECT oracle_id FROM cards WHERE scryfall_id = ?',
+      [scryfallId],
+    );
+    if (result.isEmpty) return null;
+    row['oracle_id'] = result.first['oracle_id'];
+    return row;
   }
 }

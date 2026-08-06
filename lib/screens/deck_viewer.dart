@@ -31,6 +31,7 @@ import '/data/models/cube.dart';
 import '/utils/constants.dart';
 import '/utils/deck_change_notifier.dart';
 import '/utils/basic_land_calculator.dart';
+import '/utils/card_art.dart';
 
 const _headerStyle = TextStyle(
   fontSize: 20,
@@ -1294,7 +1295,8 @@ class DeckViewerState extends State<DeckViewer> {
     return FittedBox(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(25),
-        child: Image.network(card.imageUri!),
+        child: Image.network(CardArtPreferences.resolveCardImageUri(
+            card.imageUri, card.nonUbImageUri)!),
       ),
     );
   }
@@ -1443,7 +1445,8 @@ class _CardPopupState extends State<CardPopup> {
           child: FittedBox(
             child: ClipRRect(
               borderRadius: BorderRadius.circular(25),
-              child: Image.network(widget.card.imageUri!),
+              child: Image.network(CardArtPreferences.resolveCardImageUri(
+                  widget.card.imageUri, widget.card.nonUbImageUri)!),
             ),
           ),
         ),

@@ -9,6 +9,7 @@ import '/data/models/deck.dart';
 import '/data/models/card.dart';
 import '/data/repositories/set_repository.dart';
 import '/data/repositories/cube_repository.dart';
+import '/utils/card_art.dart';
 
 SetRepository setRepository = SetRepository();
 CubeRepository cubeRepository = CubeRepository();
@@ -30,7 +31,9 @@ Future<Image> generateDeckImage(Deck deck) async {
   final cardCandidates = deck.cards
       .where((card) => card.isCreature() || card.isNoncreatureSpell())
       .toList();
-  final artUri = cardCandidates[Random().nextInt(cardCandidates.length)].imageUri!
+  final selectedCard = cardCandidates[Random().nextInt(cardCandidates.length)];
+  final artUri = CardArtPreferences.resolveCardImageUri(
+          selectedCard.imageUri, selectedCard.nonUbImageUri)!
       .replaceAll("normal", "art_crop");
 
   // Fire all independent async work in parallel
@@ -463,7 +466,8 @@ Future<Image> _loadNetworkImage(String uri) async {
 }
 
 Future<Image> _loadCardImage(Card card) async {
-  return _loadNetworkImage(card.imageUri!);
+  return _loadNetworkImage(CardArtPreferences.resolveCardImageUri(
+      card.imageUri, card.nonUbImageUri)!);
 }
 
 Future<Map<Card, Image>> _loadAllCardImages(List<Card> cards) async {

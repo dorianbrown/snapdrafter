@@ -8,6 +8,8 @@ class Card {
   final String title;
   final String type;  // First hit from list Creature, Artifact, etc
   final String? imageUri;  // URL to image
+  final String? ubImageUri;  // URL to best Universes Beyond printing image
+  final String? nonUbImageUri;  // URL to best non-UB printing image
   final String? colors;  // ('R','WUBRG')
   final String? manaCost;
   final int manaValue;
@@ -21,6 +23,8 @@ class Card {
     required this.title,
     required this.type,
     required this.imageUri,
+    this.ubImageUri,
+    this.nonUbImageUri,
     this.colors,
     this.manaCost,
     required this.manaValue,
@@ -46,6 +50,8 @@ class Card {
       "title": title,
       "type": type,
       "image_uri": imageUri,
+      "ub_image_uri": ubImageUri,
+      "non_ub_image_uri": nonUbImageUri,
       "colors": colors,
       "mana_cost": manaCost,
       "mana_value": manaValue,
@@ -93,6 +99,8 @@ class Card {
         title: map["title"],
         type: map["type"],
         imageUri: map["image_uri"],
+        ubImageUri: map["ub_image_uri"],
+        nonUbImageUri: map["non_ub_image_uri"],
         colors: map["colors"],
         manaCost: map["mana_cost"],
         manaValue: map["mana_value"],

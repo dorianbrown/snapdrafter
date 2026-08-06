@@ -13,6 +13,9 @@ import 'settings/user.dart';
 import 'settings/help.dart';
 import 'settings/donations.dart';
 import '/utils/theme_notifier.dart';
+import '/utils/card_art.dart';
+import '/utils/route_observer.dart';
+import '/data/repositories/card_repository.dart';
 
 class Settings extends StatefulWidget {
   const Settings({super.key});
@@ -21,24 +24,48 @@ class Settings extends StatefulWidget {
   State<Settings> createState() => _SettingsState();
 }
 
-class _SettingsState extends State<Settings> {
+class _SettingsState extends State<Settings> with RouteAware {
 
   static const String _commitSha = String.fromEnvironment('COMMIT_SHA');
   late PackageInfo _packageInfo;
   ThemeMode currentThemeMode = ThemeMode.light;
   late SharedPreferences prefs;
   bool _debugEnabled = false;
+  bool _nonUbArtworkAvailable = false;
 
   @override
   void initState() {
     super.initState();
     _initPackageInfo();
     _getSharedPreferences();
+    _checkNonUbArtworkAvailability();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
   }
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Re-check after returning from the Scryfall download screen
+    _checkNonUbArtworkAvailability();
+  }
+
+  Future<void> _checkNonUbArtworkAvailability() async {
+    final available = await CardRepository().hasNonUbCardArt();
+    if (mounted) {
+      setState(() {
+        _nonUbArtworkAvailable = available;
+      });
+    }
   }
 
   Future<void> _initPackageInfo() async {
@@ -95,6 +122,24 @@ class _SettingsState extends State<Settings> {
                   MaterialPageRoute(builder: (context) => DownloadScreen()),
                 );
               },
+            ),
+            SwitchListTile(
+              title: Text("Prefer non-Universes Beyond art"),
+              subtitle: Text(
+                  _nonUbArtworkAvailable
+                      ? "Show in-universe printings for cards and tokens when available"
+                      : "A refresh of the scryfall database is needed to enable this",
+                  style: subtitleColor),
+              secondary: Icon(Icons.image_outlined),
+              value: _nonUbArtworkAvailable &&
+                  CardArtPreferences.preferNonUbArt.value,
+              onChanged: _nonUbArtworkAvailable
+                  ? (val) {
+                      CardArtPreferences.preferNonUbArt.value = val;
+                      prefs.setBool(CardArtPreferences.prefKey, val);
+                      setState(() {});
+                    }
+                  : null,
             ),
             ListTile(
               title: Text("Theme"),

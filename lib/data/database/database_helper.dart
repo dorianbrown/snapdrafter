@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   static Database? _database;
   static const String _databaseName = "draftTracker.db";
-  static const int _databaseVersion = 7; // Latest db version after all upgrades
+  static const int _databaseVersion = 9; // Latest db version after all upgrades
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -44,6 +44,8 @@ class DatabaseHelper {
         title TEXT NOT NULL,
         type TEXT NOT NULL,
         image_uri TEXT,
+        ub_image_uri TEXT,
+        non_ub_image_uri TEXT,
         colors TEXT,
         mana_cost TEXT,
         mana_value INTEGER NOT NULL,
@@ -51,6 +53,9 @@ class DatabaseHelper {
         oracle_text TEXT
       )
     """);
+    // Cards are referenced by oracle id (one row per oracle card)
+    await db.execute(
+        'CREATE UNIQUE INDEX IF NOT EXISTS idx_cards_oracle_id ON cards(oracle_id)');
     await db.execute("""
       CREATE TABLE decks(
         id INTEGER PRIMARY KEY, 
@@ -67,14 +72,14 @@ class DatabaseHelper {
       CREATE TABLE decklists(
         id INTEGER PRIMARY KEY, 
         deck_id INTEGER NOT NULL, 
-        scryfall_id TEXT NOT NULL)
+        oracle_id TEXT NOT NULL)
     """);
     // Sideboard table
     await db.execute("""
       CREATE TABLE sideboard_lists(
         id INTEGER PRIMARY KEY,
         deck_id INTEGER NOT NULL,
-        scryfall_id TEXT NOT NULL,
+        oracle_id TEXT NOT NULL,
         FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
       )
     """);
@@ -90,7 +95,9 @@ class DatabaseHelper {
       CREATE TABLE tokens(
         oracle_id STRING PRIMARY KEY,
         name STRING NOT NULL,
-        image_uri STRING NOT NULL
+        image_uri STRING NOT NULL,
+        ub_image_uri STRING,
+        non_ub_image_uri STRING
       )
     """);
     // Card Collections
@@ -120,7 +127,7 @@ class DatabaseHelper {
       CREATE TABLE cubelists(
         id INTEGER PRIMARY KEY,
         cubecobra_id STRING NOT NULL,
-        scryfall_id STRING NOT NULL
+        oracle_id STRING NOT NULL
       )
     """);
     // Add tables for tags
@@ -144,6 +151,15 @@ class DatabaseHelper {
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     debugPrint("sqflite: Upgrading tables from $oldVersion to $newVersion");
+    await migrateDatabase(db, oldVersion, newVersion);
+  }
+
+  /// Applies all schema migrations between [oldVersion] and [newVersion].
+  ///
+  /// Exposed as a static method so migrations can be exercised against an
+  /// in-memory database in tests.
+  static Future<void> migrateDatabase(
+      Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute("""
         CREATE TABLE IF NOT EXISTS cards_to_tokens(
@@ -272,6 +288,102 @@ class DatabaseHelper {
         ALTER TABLE cards
         ADD oracle_text TEXT
       """);
+    }
+
+    if (oldVersion < 8) {
+      // Store the best Universes Beyond and best non-UB artwork per card/token
+      var cardColumns = await db.rawQuery('PRAGMA table_info(cards)');
+      if (!cardColumns.any((col) => col['name'] == 'ub_image_uri')) {
+        await db.execute("""
+          ALTER TABLE cards
+          ADD ub_image_uri TEXT
+        """);
+      }
+      if (!cardColumns.any((col) => col['name'] == 'non_ub_image_uri')) {
+        await db.execute("""
+          ALTER TABLE cards
+          ADD non_ub_image_uri TEXT
+        """);
+      }
+      var tokenColumns = await db.rawQuery('PRAGMA table_info(tokens)');
+      if (!tokenColumns.any((col) => col['name'] == 'ub_image_uri')) {
+        await db.execute("""
+          ALTER TABLE tokens
+          ADD ub_image_uri STRING
+        """);
+      }
+      if (!tokenColumns.any((col) => col['name'] == 'non_ub_image_uri')) {
+        await db.execute("""
+          ALTER TABLE tokens
+          ADD non_ub_image_uri STRING
+        """);
+      }
+      debugPrint("sqflite: Upgraded to V8");
+    }
+
+    if (oldVersion < 9) {
+      // Cards are now referenced by oracle id (one row per oracle card),
+      // instead of scryfall_id (a printing id that can change between
+      // downloads). Deck and cube card references are migrated over, and
+      // rows whose card can no longer be resolved are dropped.
+      // Defensive: the cards table should already have one row per oracle
+      // id, but dedupe anyway so the unique index below cannot fail.
+      await db.execute("""
+        DELETE FROM cards WHERE scryfall_id NOT IN (
+          SELECT MIN(scryfall_id) FROM cards GROUP BY oracle_id
+        )
+      """);
+      await db.execute(
+          'CREATE UNIQUE INDEX IF NOT EXISTS idx_cards_oracle_id ON cards(oracle_id)');
+
+      await db.execute("""
+        CREATE TABLE decklists_new(
+          id INTEGER PRIMARY KEY,
+          deck_id INTEGER NOT NULL,
+          oracle_id TEXT NOT NULL)
+      """);
+      await db.execute("""
+        INSERT INTO decklists_new (id, deck_id, oracle_id)
+        SELECT d.id, d.deck_id, c.oracle_id
+        FROM decklists d
+        INNER JOIN cards c ON c.scryfall_id = d.scryfall_id
+      """);
+      await db.execute('DROP TABLE decklists');
+      await db.execute('ALTER TABLE decklists_new RENAME TO decklists');
+
+      await db.execute("""
+        CREATE TABLE sideboard_lists_new(
+          id INTEGER PRIMARY KEY,
+          deck_id INTEGER NOT NULL,
+          oracle_id TEXT NOT NULL,
+          FOREIGN KEY (deck_id) REFERENCES decks(id) ON DELETE CASCADE
+        )
+      """);
+      await db.execute("""
+        INSERT INTO sideboard_lists_new (id, deck_id, oracle_id)
+        SELECT d.id, d.deck_id, c.oracle_id
+        FROM sideboard_lists d
+        INNER JOIN cards c ON c.scryfall_id = d.scryfall_id
+      """);
+      await db.execute('DROP TABLE sideboard_lists');
+      await db.execute('ALTER TABLE sideboard_lists_new RENAME TO sideboard_lists');
+
+      await db.execute("""
+        CREATE TABLE cubelists_new(
+          id INTEGER PRIMARY KEY,
+          cubecobra_id STRING NOT NULL,
+          oracle_id STRING NOT NULL)
+      """);
+      await db.execute("""
+        INSERT INTO cubelists_new (id, cubecobra_id, oracle_id)
+        SELECT d.id, d.cubecobra_id, c.oracle_id
+        FROM cubelists d
+        INNER JOIN cards c ON c.scryfall_id = d.scryfall_id
+      """);
+      await db.execute('DROP TABLE cubelists');
+      await db.execute('ALTER TABLE cubelists_new RENAME TO cubelists');
+
+      debugPrint("sqflite: Upgraded to V9");
     }
 
     // Add further migration steps for future versions here

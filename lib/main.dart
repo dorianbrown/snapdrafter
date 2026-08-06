@@ -18,6 +18,8 @@ import '/services/draft/notification_service.dart';
 import '/utils/release_date_helper.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
+import '/utils/card_art.dart';
+import '/utils/route_observer.dart';
 import '/widgets/update_prompt_dialog.dart';
 
 import 'dart:math';
@@ -48,6 +50,9 @@ Future<void> main() async {
   };
   final themeNotifier = ThemeNotifier();
   themeNotifier.setTheme(currentTheme);
+
+  CardArtPreferences.preferNonUbArt.value =
+      prefs.getBool(CardArtPreferences.prefKey) ?? false;
 
   String deviceId = prefs.getString('device_id') ?? _generateDeviceId();
   await prefs.setString('device_id', deviceId);
@@ -229,6 +234,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
           darkTheme: darkTheme,
           themeMode: themeNotifier.themeMode,
           navigatorKey: navigatorKey,
+          navigatorObservers: [routeObserver],
           home: MyDecksOverview(),
           debugShowCheckedModeBanner: false,
         );

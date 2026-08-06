@@ -67,6 +67,17 @@ class CardRepository {
     return result.map((map) => Card.fromMap(map)).toList();
   }
 
+  Future<List<Card>> getCardsByOracleIds(List<String> oracleIds) async {
+    if (oracleIds.isEmpty) return [];
+    final dbClient = await _db;
+    final placeholders = oracleIds.map((_) => '?').join(',');
+    final result = await dbClient.rawQuery(
+      'SELECT * FROM cards WHERE oracle_id IN ($placeholders)',
+      oracleIds,
+    );
+    return result.map((map) => Card.fromMap(map)).toList();
+  }
+
   Future<List<Card>> getBasicLands() async {
     final dbClient = await _db;
     final result = await dbClient.rawQuery(
@@ -130,5 +141,14 @@ class CardRepository {
       'name': r['name'] as String,
       'title': r['title'] as String,
     }).toList();
+  }
+
+  /// Returns true when the local database was populated with non-Universes
+  /// Beyond artwork, i.e. after a Scryfall data refresh.
+  Future<bool> hasNonUbCardArt() async {
+    final dbClient = await _db;
+    final result = await dbClient.rawQuery(
+        'SELECT 1 FROM cards WHERE non_ub_image_uri IS NOT NULL LIMIT 1');
+    return result.isNotEmpty;
   }
 }

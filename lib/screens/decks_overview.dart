@@ -16,6 +16,7 @@ import 'deck_viewer.dart';
 import 'deck_scanner.dart';
 import 'image_processing_screen.dart';
 import 'settings.dart';
+import 'settings/backup.dart';
 import 'draft/draft_lobby.dart';
 
 import '/data/models/deck.dart';
@@ -25,6 +26,7 @@ import '/data/repositories/deck_repository.dart';
 import '/data/repositories/set_repository.dart';
 import '/data/repositories/cube_repository.dart';
 import '/data/repositories/card_repository.dart';
+import '/data/database/database_helper.dart';
 
 class MyDecksOverview extends StatefulWidget {
   const MyDecksOverview({super.key});
@@ -63,6 +65,8 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
     _loadFirstDeckStatus();
     _loadTags();
     WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => launchBackendMigrationNotice());
   }
 
   Future<void> _loadInitialData() async {
@@ -809,6 +813,57 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                 },
                 child: Text("Close")),
           ],
+        ),
+      );
+    }
+  }
+
+  /// One-time notice about the backend change from scryfall_id to oracle_id
+  /// for card identifiers. Only shown to users with existing data, and only
+  /// once.
+  Future launchBackendMigrationNotice() async {
+    final prefs = await SharedPreferences.getInstance();
+    bool hasSeenNotice = prefs.getBool("oracle_migration_notice_seen") ?? false;
+    if (hasSeenNotice) return;
+
+    final dbHelper = DatabaseHelper();
+    final deckCount = await dbHelper.countRows('decks') ?? 0;
+    final cubeCount = await dbHelper.countRows('cubes') ?? 0;
+    if (deckCount == 0 && cubeCount == 0) return;
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          scrollable: true,
+          title: Text("Backend Change Notice"),
+          content: Text(
+              "SnapDrafter has moved from scryfall_id to oracle_id as the "
+              "card identifier.\n\n"
+              "This is a large backend change, so you should create a new "
+              "backup.\n\n"
+              "Importing from old backups will cause some cards to be "
+              "dropped, but the original deck image will still be imported "
+              "just fine."),
+          actions: [
+            TextButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await prefs.setBool("oracle_migration_notice_seen", true);
+                },
+                child: Text("Got it")),
+            ElevatedButton(
+                onPressed: () async {
+                  Navigator.of(context).pop();
+                  await prefs.setBool("oracle_migration_notice_seen", true);
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (context) => BackupSettings()),
+                  );
+                },
+                child: Text("Back up now")),
+          ],
+          actionsAlignment: MainAxisAlignment.spaceEvenly,
         ),
       );
     }

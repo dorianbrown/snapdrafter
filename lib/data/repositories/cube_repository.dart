@@ -25,13 +25,13 @@ class CubeRepository {
 
     for (final cubeRow in cubeResults) {
       final cubecobraId = cubeRow["cubecobra_id"] as String;
-      final cardIds = cubeListsResults
+      final oracleIds = cubeListsResults
           .where((cubeListRow) => cubeListRow["cubecobra_id"] == cubecobraId)
-          .map((cubeListRow) => cubeListRow["scryfall_id"] as String?)
+          .map((cubeListRow) => cubeListRow["oracle_id"] as String?)
           .whereType<String>()
           .toList();
 
-      final cubeCards = await _cardRepository.getCardsByScryfallIds(cardIds);
+      final cubeCards = await _cardRepository.getCardsByOracleIds(oracleIds);
 
       outputList.add(Cube(
           cubecobraId: cubeRow["cubecobra_id"] as String,
@@ -62,7 +62,7 @@ class CubeRepository {
           'cubelists',
           {
             'cubecobra_id': cubecobraId,
-            'scryfall_id': card.scryfallId
+            'oracle_id': card.oracleId
           },
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
