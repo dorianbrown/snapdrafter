@@ -79,6 +79,21 @@ class PrintingSelector {
     return false;
   }
 
+  /// Basic lands, which are always shown with the best printing instead of
+  /// the first (original) printing.
+  static const List<String> _excludedFromFirstPrinting = [
+    'Plains',
+    'Island',
+    'Swamp',
+    'Mountain',
+    'Forest',
+  ];
+
+  /// Returns true when the card should always use the best printing and is
+  /// excluded from the first-printing selection.
+  static bool isExcludedFromFirstPrinting(Map<dynamic, dynamic> val) =>
+      _excludedFromFirstPrinting.contains(val['name']);
+
   /// Builds a compact record of a printing, retaining only the fields needed
   /// for deduplication and comparison. Used instead of keeping the full
   /// Scryfall JSON of every artwork in memory.
