@@ -39,6 +39,11 @@ class _DeckTextEditorState extends State<DeckTextEditor>
   static const double _panelWidth = 360;
   static const double _panelMaxHeight = 320;
   static const double _itemHeight = 44;
+  // Smallest dropdown height worth showing: a single suggestion row.
+  static const double _minDropdownHeight = _itemHeight + 8;
+  // Below this screen width the dialog action buttons cannot all fit on one
+  // line with full labels, so a compact variant is used instead.
+  static const double _compactActionsWidth = 400;
 
   late TextEditingController _controller;
   final FocusNode _focusNode = FocusNode();
@@ -143,7 +148,43 @@ class _DeckTextEditorState extends State<DeckTextEditor>
     _caretBottomLeft.value =
         renderEditable.localToGlobal(caretRect.bottomLeft);
 
+    final mediaQuery = MediaQuery.of(context);
+    if (_computeDropdownRect(
+          caretBottomLeft: _caretBottomLeft.value!,
+          caretHeight: caretRect.height,
+          screenSize: mediaQuery.size,
+          keyboardInset: mediaQuery.viewInsets.bottom,
+        ) ==
+        null) {
+      // Not enough room for even one suggestion without covering the caret
+      // line; keep the field fully visible.
+      _hideDropdown();
+      return;
+    }
+
     _showDropdown();
+  }
+
+  // Panel size for the current suggestions, plus its placement. Returns null
+  // when the panel cannot fit without covering the caret's text line.
+  Rect? _computeDropdownRect({
+    required Offset caretBottomLeft,
+    required double caretHeight,
+    required Size screenSize,
+    required double keyboardInset,
+  }) {
+    final panelSize = Size(
+      math.min(_panelWidth, screenSize.width - 16),
+      math.min(_panelMaxHeight, _suggestions.value.length * _itemHeight + 8),
+    );
+    return dropdownPlacement(
+      caretBottomLeft: caretBottomLeft,
+      caretHeight: caretHeight,
+      screenSize: screenSize,
+      keyboardInset: keyboardInset,
+      panelSize: panelSize,
+      minPanelHeight: _minDropdownHeight,
+    );
   }
 
   // Locates the field's internal EditableText (and its Scrollable) once so the
@@ -262,17 +303,13 @@ class _DeckTextEditorState extends State<DeckTextEditor>
           builder: (context, caret, _) {
             if (caret == null) return const SizedBox.shrink();
             final mediaQuery = MediaQuery.of(context);
-            final panelSize = Size(
-              math.min(_panelWidth, mediaQuery.size.width - 16),
-              math.min(_panelMaxHeight, suggestions.length * _itemHeight + 8),
-            );
-            final rect = dropdownPlacement(
+            final rect = _computeDropdownRect(
               caretBottomLeft: caret,
               caretHeight: _caretHeight.value,
               screenSize: mediaQuery.size,
               keyboardInset: mediaQuery.viewInsets.bottom,
-              panelSize: panelSize,
             );
+            if (rect == null) return const SizedBox.shrink();
             return Stack(
               children: [
                 Positioned.fill(
@@ -426,6 +463,70 @@ class _DeckTextEditorState extends State<DeckTextEditor>
     return result;
   }
 
+  Future<void> _copyAll() async {
+    await Clipboard.setData(ClipboardData(text: _controller.text));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Copied to clipboard')),
+    );
+  }
+
+  bool get _compactActions {
+    return MediaQuery.sizeOf(context).width < _compactActionsWidth;
+  }
+
+  ButtonStyle? _compactTextButtonStyle() {
+    if (!_compactActions) return null;
+    return TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      minimumSize: const Size(0, 40),
+    );
+  }
+
+  ButtonStyle? _compactElevatedButtonStyle() {
+    if (!_compactActions) return null;
+    return ElevatedButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      minimumSize: const Size(0, 40),
+    );
+  }
+
+  Widget _buildCopyAction() {
+    if (_compactActions) {
+      return IconButton(
+        tooltip: 'Copy All',
+        icon: const Icon(Icons.copy),
+        onPressed: _copyAll,
+      );
+    }
+    return TextButton(
+      onPressed: _copyAll,
+      child: const Text('Copy All'),
+    );
+  }
+
+  Widget _buildDiscardAction(BuildContext context) {
+    return TextButton(
+      style: _compactTextButtonStyle(),
+      onPressed: () => Navigator.of(context).pop(),
+      child: const Text('Discard'),
+    );
+  }
+
+  Widget _buildSaveAction(BuildContext context) {
+    return ElevatedButton(
+      style: _compactElevatedButtonStyle(),
+      onPressed: _isLoading ? null : () => _parseAndSave(context),
+      child: _isLoading
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : const Text('Save'),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
@@ -518,29 +619,19 @@ class _DeckTextEditorState extends State<DeckTextEditor>
         ),
       ),
       actions: [
-        if (widget.isEditing)
-          TextButton(
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: _controller.text));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Copied to clipboard')),
-              );
-            },
-            child: const Text('Copy All'),
-          ),
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Discard'),
-        ),
-        ElevatedButton(
-          onPressed: _isLoading ? null : () => _parseAndSave(context),
-          child: _isLoading
-              ? SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('Save'),
+        // A single Row child so the OverflowBar inside AlertDialog can never
+        // wrap the buttons onto additional rows on narrow screens.
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            if (widget.isEditing) ...[
+              Flexible(child: _buildCopyAction()),
+              const SizedBox(width: 8),
+            ],
+            Flexible(child: _buildDiscardAction(context)),
+            const SizedBox(width: 8),
+            Flexible(child: _buildSaveAction(context)),
+          ],
         ),
       ],
     );
