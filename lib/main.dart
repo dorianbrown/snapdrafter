@@ -230,6 +230,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
           themeMode: themeNotifier.themeMode,
           navigatorKey: navigatorKey,
           home: MyDecksOverview(),
+          debugShowCheckedModeBanner: false,
         );
       },
     );

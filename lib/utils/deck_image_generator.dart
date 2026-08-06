@@ -100,15 +100,29 @@ Future<Image> generateDeckImage(Deck deck) async {
     Paint()..color = const Color(0xFFFFFFFF),
   );
 
-  // Art crop — some images have a different aspect ratio than standard cards
+  // Art crop — fill the full header height, cropping left/right if the image
+  // is wider than the target aspect ratio
   final artDstW = (pageHeaderMargin * 571 ~/ 460).toDouble();
-  final artCropH = (artCropImage.width * 460 ~/ 571).toDouble();
-  final artSrcRect = Rect.fromLTWH(
-    0,
-    (artCropImage.height - artCropH) / 2,
-    artCropImage.width.toDouble(),
-    artCropH,
-  );
+  final destAspect = artDstW / pageHeaderMargin;
+  final imageAspect = artCropImage.width / artCropImage.height;
+  final Rect artSrcRect;
+  if (imageAspect > destAspect) {
+    final srcW = artCropImage.height.toDouble() * destAspect;
+    artSrcRect = Rect.fromLTWH(
+      (artCropImage.width - srcW) / 2,
+      0,
+      srcW,
+      artCropImage.height.toDouble(),
+    );
+  } else {
+    final srcH = artCropImage.width.toDouble() / destAspect;
+    artSrcRect = Rect.fromLTWH(
+      0,
+      (artCropImage.height - srcH) / 2,
+      artCropImage.width.toDouble(),
+      srcH,
+    );
+  }
 
   canvas.drawImageRect(
     artCropImage,
