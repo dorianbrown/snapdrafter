@@ -323,7 +323,7 @@ void main() {
       expect(fakeBle.characteristicUpdates.length, count);
     });
 
-    test('pushes to each subscribed device', () async {
+    test('pushes to each subscribed device (no connection events, iOS)', () async {
       fakeBle.maximumNotifyLength = 500;
       await leader.startAsLeader(_testState());
 
@@ -332,18 +332,66 @@ void main() {
       fakeBle.emitSubscription(
           'dev2', DraftBleService.stateCharUuid, true);
 
+      // Settle the subscribe-time re-pushes.
       await Future<void>.delayed(const Duration(milliseconds: 50));
+      final countBefore = fakeBle.characteristicUpdates.length;
 
       final newState = _testState().bumpSequence();
       await leader.pushState(newState);
 
-      final pushedDeviceIds = fakeBle.characteristicUpdates
+      // pushState itself must deliver to every subscribed device even though
+      // no connection events were emitted (iOS peripherals never get them).
+      final newUpdates = fakeBle.characteristicUpdates
+          .skip(countBefore)
+          .toList();
+      final pushedDeviceIds = newUpdates
           .map((u) => u['deviceId'] as String?)
           .toSet();
       expect(pushedDeviceIds, containsAll(['dev1', 'dev2']));
+      for (final update in newUpdates) {
+        expect(update['characteristicId'], DraftBleService.stateCharUuid);
+      }
     });
 
-    test('skips subscribed devices that have disconnected', () async {
+    test('pushes to subscribed device even when only subscription events arrived', () async {
+      fakeBle.maximumNotifyLength = 500;
+      await leader.startAsLeader(_testState());
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      final countBefore = fakeBle.characteristicUpdates.length;
+
+      final newState = _testState().bumpSequence();
+      await leader.pushState(newState);
+
+      final newUpdates = fakeBle.characteristicUpdates
+          .skip(countBefore)
+          .toList();
+      expect(newUpdates, isNotEmpty);
+      expect(newUpdates.every((u) => u['deviceId'] == 'dev1'), isTrue);
+    });
+
+    test('skips devices that have unsubscribed', () async {
+      fakeBle.maximumNotifyLength = 500;
+      await leader.startAsLeader(_testState());
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, false);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final countBefore = fakeBle.characteristicUpdates.length;
+      await leader.pushState(_testState().bumpSequence());
+
+      // No push should reach the unsubscribed device.
+      expect(fakeBle.characteristicUpdates.length, countBefore);
+    });
+
+    test('skips devices that disconnected (connection event + unsubscribe)', () async {
       fakeBle.maximumNotifyLength = 500;
       await leader.startAsLeader(_testState());
 
@@ -352,13 +400,16 @@ void main() {
           'dev1', DraftBleService.stateCharUuid, true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
+      // Android's peripheral plugin emits an unsubscribe for every
+      // characteristic when a central disconnects.
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, false);
       fakeBle.emitConnection('dev1', false);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       final countBefore = fakeBle.characteristicUpdates.length;
       await leader.pushState(_testState().bumpSequence());
 
-      // No push should reach the disconnected device.
       expect(fakeBle.characteristicUpdates.length, countBefore);
     });
 
@@ -632,26 +683,144 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('connection tracking', () {
-    test('tracks follower connections', () async {
+    test('tracks follower connections via connection events (Android)', () async {
       await leader.startAsLeader(_testState());
 
-      fakeBle.emitConnection('dev1', true);
+      final connectedEvents = <String>[];
+      leader.followerConnected?.listen(connectedEvents.add);
 
+      fakeBle.emitConnection('dev1', true);
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      // pushState tries to push when subscribed
+      expect(connectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 1);
+
+      fakeBle.emitConnection('dev2', true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(leader.connectedDeviceCount, 2);
+    });
+
+    test('tracks follower connections via subscription events (iOS)', () async {
+      await leader.startAsLeader(_testState());
+
+      final connectedEvents = <String>[];
+      leader.followerConnected?.listen(connectedEvents.add);
+
+      // iOS never emits connection events; subscriptions are the only signal.
       fakeBle.emitSubscription(
           'dev1', DraftBleService.stateCharUuid, true);
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      final newState = _testState().bumpSequence();
-      await leader.pushState(newState);
+      expect(connectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 1);
 
-      expect(fakeBle.characteristicUpdates.isNotEmpty, isTrue);
+      // Subscribing another characteristic must not double-emit.
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.metaCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(connectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 1);
     });
 
-    test('tracks follower disconnections', () async {
+    test('does not double-emit connect when connection and subscription both fire', () async {
       await leader.startAsLeader(_testState());
+
+      final connectedEvents = <String>[];
+      leader.followerConnected?.listen(connectedEvents.add);
+
+      fakeBle.emitConnection('dev1', true);
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(connectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 1);
+    });
+
+    test('keeps device connected while it holds other subscriptions', () async {
+      await leader.startAsLeader(_testState());
+
+      final disconnectedEvents = <String>[];
+      leader.followerDisconnected?.listen(disconnectedEvents.add);
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, true);
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.metaCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, false);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      // Still connected via the meta subscription.
+      expect(disconnectedEvents, isEmpty);
+      expect(leader.connectedDeviceCount, 1);
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.metaCharUuid, false);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(disconnectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 0);
+    });
+
+    test('tracks follower disconnections via subscription events (iOS)', () async {
+      await leader.startAsLeader(_testState());
+
+      final disconnectedEvents = <String>[];
+      leader.followerDisconnected?.listen(disconnectedEvents.add);
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, false);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(disconnectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 0);
+
+      // No subscribed devices after disconnect
+      final countBefore = fakeBle.characteristicUpdates.length;
+      await leader.pushState(_testState().bumpSequence());
+      expect(fakeBle.characteristicUpdates.length, countBefore);
+    });
+
+    test('does not double-emit disconnect when connection and subscription both fire', () async {
+      await leader.startAsLeader(_testState());
+
+      final disconnectedEvents = <String>[];
+      leader.followerDisconnected?.listen(disconnectedEvents.add);
+
+      fakeBle.emitConnection('dev1', true);
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      // Android: connection event fires, then the plugin emits unsubscribes.
+      fakeBle.emitConnection('dev1', false);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(disconnectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 0);
+
+      // The unsubscribe event that follows must not emit a second event.
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, false);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(disconnectedEvents, ['dev1']);
+    });
+
+    test('tracks follower disconnections via connection events (Android)', () async {
+      await leader.startAsLeader(_testState());
+
+      final disconnectedEvents = <String>[];
+      leader.followerDisconnected?.listen(disconnectedEvents.add);
 
       fakeBle.emitConnection('dev1', true);
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -659,15 +828,8 @@ void main() {
       fakeBle.emitConnection('dev1', false);
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      // No subscribed devices after disconnect
-      final newState = _testState().bumpSequence();
-      await leader.pushState(newState);
-
-      // No pushes should happen (no subscribed devices)
-      final statePushes = fakeBle.characteristicUpdates
-          .where((u) => u['characteristicId'] == DraftBleService.stateCharUuid)
-          .length;
-      expect(statePushes, 0);
+      expect(disconnectedEvents, ['dev1']);
+      expect(leader.connectedDeviceCount, 0);
     });
   });
 

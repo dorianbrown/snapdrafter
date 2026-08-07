@@ -44,6 +44,7 @@ class DraftBleLeader extends DraftBleService {
 
   final _connectedDevices = <String>{};
   final _subscribedStateDeviceIds = <String>{};
+  final _subscriptionCounts = <String, int>{};
   StreamController<String>? _followerConnectedCtrl;
   StreamController<String>? _followerDisconnectedCtrl;
   StreamSubscription<BlePeripheralAdvertisingStateChanged>? _advStateSub;
@@ -201,6 +202,7 @@ class DraftBleLeader extends DraftBleService {
         _connectedDevices.remove(event.deviceId);
         _followerDisconnectedCtrl?.add(event.deviceId);
         _subscribedStateDeviceIds.remove(event.deviceId);
+        _subscriptionCounts.remove(event.deviceId);
         _commandChunkers.remove(event.deviceId);
         _metaChunkers.remove(event.deviceId);
         _stateChunkers.remove(event.deviceId);
@@ -214,9 +216,16 @@ class DraftBleLeader extends DraftBleService {
     // current state fresh. Relying on pre-cached _currentStateBytes can
     // return stale data because:
     //   - iOS peripheral GATT read requests return cached values
-    //   - connection-state-dependent early returns in pushState may skip
-    //     re-encoding if _connectedDevices is briefly empty
     // Re-encoding guarantees every subscriber always sees the latest state.
+    //
+    // Subscription events are also the only connection signal available on
+    // iOS: CoreBluetooth gives the peripheral no central connect/disconnect
+    // callbacks, so connectionStateStream never emits there. Tracking
+    // per-device subscription counts keeps _connectedDevices,
+    // connectedDeviceCount, and the followerConnected/followerDisconnected
+    // streams accurate on both platforms (on Android the connection events
+    // already fire, so subscription events only re-confirm existing entries
+    // and never double-emit).
     _charSubStreamSub = _ble.characteristicSubscriptionStream.listen((event) async {
       if (event.characteristicId == DraftBleService.stateCharUuid) {
         if (event.isSubscribed) {
@@ -226,6 +235,7 @@ class DraftBleLeader extends DraftBleService {
         }
         _log('[BLE_ADV] state char ${event.isSubscribed ? "SUBSCRIBED" : "UNSUBSCRIBED"}: ${event.deviceId} (total=${_subscribedStateDeviceIds.length})');
       }
+      _updateConnectionTracking(event.deviceId, event.isSubscribed);
       if (!event.isSubscribed) return;
       if (event.characteristicId == DraftBleService.stateCharUuid && _currentState != null) {
         _currentStateBytes = DraftBleService.encodeState(_currentState!);
@@ -348,20 +358,26 @@ class DraftBleLeader extends DraftBleService {
   /// specific device. Automatically chunks the payload if it exceeds the
   /// negotiated MTU.
   ///
-  /// Pushes to all subscribed-and-connected followers concurrently so one
-  /// follower's chunk pacing or a slow link cannot delay the others.
+  /// Pushes to all subscribed followers concurrently so one follower's chunk
+  /// pacing or a slow link cannot delay the others.
+  ///
+  /// Targets are derived from subscription events only (not connection
+  /// events): iOS peripherals never receive central connect/disconnect
+  /// callbacks from CoreBluetooth, so `_connectedDevices` would always be
+  /// empty on iOS hosts and every push would be skipped. Subscription events
+  /// are reliable on both platforms — Android also emits an unsubscribe for
+  /// every characteristic when a central disconnects — and a push to a
+  /// stale/removed central fails harmlessly.
   @override
   Future<void> pushState(DraftState state) async {
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
-    final targets = _subscribedStateDeviceIds
-        .where(_connectedDevices.contains)
-        .toList();
+    final targets = _subscribedStateDeviceIds.toList();
     _log('[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, subscribedDevices=${targets.length}');
     _log('[BLE_ADV] current rounds: ${state.rounds}');
     if (targets.isEmpty) {
-      _log('[BLE_ADV] pushState SKIPPED — no connected+subscribed devices!');
+      _log('[BLE_ADV] pushState SKIPPED — no subscribed devices!');
       return;
     }
 
@@ -427,6 +443,36 @@ class DraftBleLeader extends DraftBleService {
           _log('[BLE_ADV] RETRY FAILED for chunk $i: $e2');
         }
       }
+    }
+  }
+
+  /// Tracks device connection state from characteristic subscription events.
+  ///
+  /// iOS never emits central connect/disconnect events to the peripheral, so
+  /// subscriptions are the only reliable connection signal there. A device is
+  /// considered connected while it holds at least one active characteristic
+  /// subscription. On Android the connection stream already handles
+  /// connect/disconnect; these events only re-confirm existing entries and
+  /// never duplicate the follower streams.
+  void _updateConnectionTracking(String deviceId, bool isSubscribed) {
+    if (isSubscribed) {
+      _subscriptionCounts[deviceId] = (_subscriptionCounts[deviceId] ?? 0) + 1;
+      if (_connectedDevices.add(deviceId)) {
+        _followerConnectedCtrl?.add(deviceId);
+        _log('[BLE_ADV] follower CONNECTED (via subscription): $deviceId (total=${_connectedDevices.length})');
+      }
+      return;
+    }
+
+    final remaining = (_subscriptionCounts[deviceId] ?? 1) - 1;
+    if (remaining <= 0) {
+      _subscriptionCounts.remove(deviceId);
+      if (_connectedDevices.remove(deviceId)) {
+        _followerDisconnectedCtrl?.add(deviceId);
+        _log('[BLE_ADV] follower DISCONNECTED (no subscriptions left): $deviceId (total=${_connectedDevices.length})');
+      }
+    } else {
+      _subscriptionCounts[deviceId] = remaining;
     }
   }
 
@@ -507,6 +553,7 @@ class DraftBleLeader extends DraftBleService {
     _commandChunkers.clear();
     _mtuKnownDevices.clear();
     _subscribedStateDeviceIds.clear();
+    _subscriptionCounts.clear();
     try {
       _ble.setReadRequestHandlers(null);
     } catch (_) {}
