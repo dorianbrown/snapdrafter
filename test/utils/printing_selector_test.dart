@@ -16,6 +16,7 @@ Map<String, dynamic> _entry({
   bool boosterFun = false,
   bool promoPack = false,
   String lang = 'en',
+  bool arenaOnly = false,
 }) {
   final promoTypes = <String>[
     if (ub) 'universesbeyond',
@@ -32,7 +33,7 @@ Map<String, dynamic> _entry({
     'full_art': fullArt,
     'textless': textless,
     'lang': lang,
-    'digital': false,
+    'games': arenaOnly ? ['arena'] : ['paper'],
     'set_name': 'Test Set',
   };
   if (faces) {
@@ -104,6 +105,26 @@ void main() {
     });
   });
 
+  group('PrintingSelector.isArenaOnly', () {
+    test('true when games is exactly arena', () {
+      expect(PrintingSelector.isArenaOnly({'games': ['arena']}), true);
+    });
+
+    test('true for arena + mtgo without paper', () {
+      expect(PrintingSelector.isArenaOnly({'games': ['arena', 'mtgo']}), true);
+    });
+
+    test('false when games includes paper', () {
+      expect(PrintingSelector.isArenaOnly({'games': ['paper', 'arena']}), false);
+      expect(PrintingSelector.isArenaOnly({'games': ['paper']}), false);
+      expect(PrintingSelector.isArenaOnly({'games': ['paper', 'mtgo']}), false);
+    });
+
+    test('false when games is absent', () {
+      expect(PrintingSelector.isArenaOnly({}), false);
+    });
+  });
+
   group('PrintingSelector.entryRecord', () {
     test('captures the fields needed for comparison', () {
       final record = PrintingSelector.entryRecord(
@@ -127,6 +148,17 @@ void main() {
       final japanese = PrintingSelector.entryRecord(
           _entry(releasedAt: '2024-05-01', lang: 'ja'));
       expect(japanese['english'], false);
+    });
+
+    test('captures mainline set types', () {
+      final expansion = PrintingSelector.entryRecord(_entry(releasedAt: '2024-05-01'));
+      expect(expansion['mainline'], true);
+      final box = PrintingSelector.entryRecord(
+          _entry(releasedAt: '2024-05-01', setType: 'box'));
+      expect(box['mainline'], false);
+      final commander = PrintingSelector.entryRecord(
+          _entry(releasedAt: '2024-05-01', setType: 'commander'));
+      expect(commander['mainline'], false);
     });
   });
 
@@ -338,6 +370,69 @@ void main() {
       );
     });
 
+    test('mainline raw entry beats non-mainline stored record', () {
+      final mainline = _entry(releasedAt: '1999-10-04');
+      final commanderRecord = PrintingSelector.entryRecord(
+          _entry(releasedAt: '2026-06-26', setType: 'commander'));
+      expect(PrintingSelector.compareRawToRecord(mainline, commanderRecord), lessThan(0));
+      expect(
+        PrintingSelector.compareRawToRecord(mainline, commanderRecord),
+        PrintingSelector.compareEntries(
+            PrintingSelector.entryRecord(mainline), commanderRecord),
+      );
+    });
+
+    test('earlier special raw entry beats newer special stored record', () {
+      final original = _entry(
+          releasedAt: '2023-11-17',
+          setType: 'commander',
+          frameEffects: ['extendedart'],
+          boosterFun: true);
+      final newerSldRecord = PrintingSelector.entryRecord(_entry(
+          releasedAt: '2026-05-18',
+          setType: 'box',
+          frameEffects: ['inverted'],
+          fullArt: true));
+      expect(
+          PrintingSelector.compareRawToRecord(original, newerSldRecord), lessThan(0));
+      expect(
+        PrintingSelector.compareRawToRecord(original, newerSldRecord),
+        PrintingSelector.compareEntries(
+            PrintingSelector.entryRecord(original), newerSldRecord),
+      );
+    });
+
+    test('regular raw entry beats special mainline stored record', () {
+      final regularOriginal =
+          _entry(releasedAt: '2014-11-07', setType: 'commander');
+      final specialMainlineRecord = PrintingSelector.entryRecord(_entry(
+          releasedAt: '2021-06-18',
+          setType: 'draft_innovation',
+          frameEffects: ['legendary', 'inverted'],
+          boosterFun: true,
+          fullArt: true));
+      expect(
+          PrintingSelector.compareRawToRecord(regularOriginal, specialMainlineRecord),
+          lessThan(0));
+      expect(
+        PrintingSelector.compareRawToRecord(regularOriginal, specialMainlineRecord),
+        PrintingSelector.compareEntries(
+            PrintingSelector.entryRecord(regularOriginal), specialMainlineRecord),
+      );
+    });
+
+    test('paper raw entry beats newer Arena-only stored record', () {
+      final paper = _entry(releasedAt: '2014-09-26');
+      final arenaOnlyRecord = PrintingSelector.entryRecord(
+          _entry(releasedAt: '2023-12-12', arenaOnly: true));
+      expect(PrintingSelector.compareRawToRecord(paper, arenaOnlyRecord), lessThan(0));
+      expect(
+        PrintingSelector.compareRawToRecord(paper, arenaOnlyRecord),
+        PrintingSelector.compareEntries(
+            PrintingSelector.entryRecord(paper), arenaOnlyRecord),
+      );
+    });
+
     test('newer raw entry beats stored record', () {
       final val = _entry(releasedAt: '2025-01-01');
       final record = PrintingSelector.entryRecord(_entry(releasedAt: '2023-01-01'));
@@ -446,11 +541,67 @@ void main() {
     Map<String, dynamic> record(Map<String, dynamic> entry) =>
         PrintingSelector.entryRecord(entry);
 
-    test('regular printing wins over newer special printing', () {
-      final regular = record(_entry(releasedAt: '2023-01-01'));
-      final specialNewer =
-          record(_entry(releasedAt: '2026-01-01', frameEffects: ['inverted']));
-      expect(PrintingSelector.compareEntries(regular, specialNewer), lessThan(0));
+    test('mainline set beats newer non-mainline printing', () {
+      final mainline = record(_entry(releasedAt: '1999-10-04'));
+      final commander =
+          record(_entry(releasedAt: '2026-06-26', setType: 'commander'));
+      expect(PrintingSelector.compareEntries(mainline, commander), lessThan(0));
+    });
+
+    test('non-UB non-mainline printing beats mainline UB printing', () {
+      final mainlineUb = record(
+          _entry(releasedAt: '2023-06-23', setType: 'draft_innovation', ub: true));
+      final nonMainlineNonUb =
+          record(_entry(releasedAt: '2025-01-01', setType: 'commander'));
+      expect(
+          PrintingSelector.compareEntries(nonMainlineNonUb, mainlineUb), lessThan(0));
+    });
+
+    test('regular non-mainline printing beats special mainline printing', () {
+      final regularOriginal =
+          record(_entry(releasedAt: '2014-11-07', setType: 'commander'));
+      final specialMainline = record(_entry(
+          releasedAt: '2021-06-18',
+          setType: 'draft_innovation',
+          frameEffects: ['legendary', 'inverted'],
+          boosterFun: true,
+          fullArt: true));
+      expect(PrintingSelector.compareEntries(regularOriginal, specialMainline),
+          lessThan(0));
+    });
+
+    test('paper printing beats newer Arena-only printing', () {
+      final paper = record(_entry(releasedAt: '2014-09-26'));
+      final arenaOnly = record(_entry(releasedAt: '2023-12-12', arenaOnly: true));
+      expect(PrintingSelector.compareEntries(paper, arenaOnly), lessThan(0));
+    });
+
+    test('newest Arena-only printing wins when no paper printing exists', () {
+      final arenaOlder = record(_entry(releasedAt: '2023-01-01', arenaOnly: true));
+      final arenaNewer = record(_entry(releasedAt: '2024-01-01', arenaOnly: true));
+      expect(PrintingSelector.compareEntries(arenaNewer, arenaOlder), lessThan(0));
+    });
+
+    test('newest non-mainline wins when no mainline printing exists', () {
+      final older = record(_entry(releasedAt: '2023-01-01', setType: 'commander'));
+      final newer = record(_entry(releasedAt: '2025-01-01', setType: 'commander'));
+      expect(PrintingSelector.compareEntries(newer, older), lessThan(0));
+    });
+
+    test('regular printing beats special printing on equal mainline, '
+        'language, UB status and date', () {
+      final showcase = record(
+          _entry(releasedAt: '2023-06-23', frameEffects: ['showcase']));
+      final regular = record(_entry(releasedAt: '2023-06-23'));
+      expect(PrintingSelector.compareEntries(regular, showcase), lessThan(0));
+    });
+
+    test('regular printing beats newer special printing in the same '
+        'mainline set type', () {
+      final olderRegular = record(_entry(releasedAt: '2023-01-01'));
+      final newerSpecial = record(
+          _entry(releasedAt: '2026-01-01', frameEffects: ['inverted']));
+      expect(PrintingSelector.compareEntries(olderRegular, newerSpecial), lessThan(0));
     });
 
     test('newest release wins among regular printings', () {
@@ -485,12 +636,26 @@ void main() {
       expect(PrintingSelector.compareEntries(newer, older), lessThan(0));
     });
 
-    test('newest special printing wins when no regular exists', () {
+    test('earliest special printing wins when no regular exists', () {
       final olderSpecial =
           record(_entry(releasedAt: '2023-01-01', setType: 'box'));
       final newerSpecial =
           record(_entry(releasedAt: '2026-01-01', setType: 'box'));
-      expect(PrintingSelector.compareEntries(newerSpecial, olderSpecial), lessThan(0));
+      expect(PrintingSelector.compareEntries(olderSpecial, newerSpecial), lessThan(0));
+    });
+
+    test('original special printing beats newer special printing', () {
+      final original = record(_entry(
+          releasedAt: '2023-11-17',
+          setType: 'commander',
+          frameEffects: ['extendedart'],
+          boosterFun: true));
+      final newerSld = record(_entry(
+          releasedAt: '2026-05-18',
+          setType: 'box',
+          frameEffects: ['inverted'],
+          fullArt: true));
+      expect(PrintingSelector.compareEntries(original, newerSld), lessThan(0));
     });
 
     test('non-UB wins on equal date and special status', () {

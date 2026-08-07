@@ -42,6 +42,15 @@ class PrintingSelector {
     'miracle',
   ];
 
+  /// Set types of mainline (playable) sets. Printings from these sets are
+  /// preferred for the best-printing selection.
+  static const List<String> _mainlineSetTypes = [
+    'core',
+    'expansion',
+    'masters',
+    'draft_innovation',
+  ];
+
   /// Set types of special products: Secret Lair Drop (sld/slu/slc), Secret
   /// Lair Promo (slp), Showcase Planes (pssc), 30th Anniversary (30a) and the
   /// premium reprint products (expeditions, invocations, Special Guests...).
@@ -94,6 +103,15 @@ class PrintingSelector {
   static bool isExcludedFromFirstPrinting(Map<dynamic, dynamic> val) =>
       _excludedFromFirstPrinting.contains(val['name']);
 
+  /// Returns true for Arena-only printings, i.e. entries whose games are
+  /// digital (Arena) with no paper availability.
+  static bool isArenaOnly(Map<dynamic, dynamic> val) {
+    final games = val['games'];
+    return games is List &&
+        games.contains('arena') &&
+        !games.contains('paper');
+  }
+
   /// Builds a compact record of a printing, retaining only the fields needed
   /// for deduplication and comparison. Used instead of keeping the full
   /// Scryfall JSON of every artwork in memory.
@@ -103,9 +121,10 @@ class PrintingSelector {
     'released_at': val['released_at'],
     'special': isSpecialPrinting(val),
     'english': val['lang'] == 'en',
+    'mainline': _mainlineSetTypes.contains(val['set_type']),
     'is_ub': isUniversesBeyond(val),
+    'arena_only': isArenaOnly(val),
     'set_type': val['set_type'],
-    'digital': val['digital'] == true,
     'set_name': val['set_name'],
   };
 
@@ -182,13 +201,31 @@ class PrintingSelector {
   /// [val] is the better choice.
   static int compareRawToRecord(
       Map<dynamic, dynamic> val, Map<dynamic, dynamic> record) {
-    final tieBreak = _compareTieBreaks(val['lang'] == 'en',
-        isSpecialPrinting(val), record['english'] == true, record['special'] == true);
-    if (tieBreak != 0) return tieBreak;
+    final arenaOnlyCompare = (isArenaOnly(val) ? 1 : 0) -
+        (record['arena_only'] == true ? 1 : 0);
+    if (arenaOnlyCompare != 0) return arenaOnlyCompare;
+
+    final englishCompare = (val['lang'] == 'en' ? 0 : 1) -
+        (record['english'] == true ? 0 : 1);
+    if (englishCompare != 0) return englishCompare;
 
     final ubCompare = (isUniversesBeyond(val) ? 1 : 0) -
         (record['is_ub'] == true ? 1 : 0);
     if (ubCompare != 0) return ubCompare;
+
+    final specialCompare = (isSpecialPrinting(val) ? 1 : 0) -
+        (record['special'] == true ? 1 : 0);
+    if (specialCompare != 0) return specialCompare;
+
+    final mainlineCompare = (_mainlineSetTypes.contains(val['set_type']) ? 0 : 1) -
+        (record['mainline'] == true ? 0 : 1);
+    if (mainlineCompare != 0) return mainlineCompare;
+
+    if (isSpecialPrinting(val) && record['special'] == true) {
+      // Between special printings, prefer the original (earliest) printing.
+      return (val['released_at'] as String)
+          .compareTo(record['released_at'] as String);
+    }
 
     final releaseCompare = (record['released_at'] as String)
         .compareTo(val['released_at'] as String);
@@ -200,16 +237,38 @@ class PrintingSelector {
   /// Compares two compact printing records (see [entryRecord]).
   /// Returns a negative value when [a] is the better choice.
   ///
-  /// Ordering: regular printings before special printings (Secret Lair
-  /// drops, promos, alternate frames), then English before other languages,
-  /// then non-Universes Beyond, then newest release date.
+  /// Ordering: paper-available printings before Arena-only printings, then
+  /// English before other languages, then non-Universes Beyond, then regular
+  /// printings before special printings (Secret Lair drops, promos,
+  /// alternate frames), then mainline set types (core, expansion, masters,
+  /// draft_innovation) before other products, then newest release date.
+  /// Between two special printings, the original (earliest) printing is
+  /// preferred instead of the newest.
   static int compareEntries(Map<dynamic, dynamic> a, Map<dynamic, dynamic> b) {
-    final tieBreak = _compareTieBreaks(a['english'] == true, a['special'] == true,
-        b['english'] == true, b['special'] == true);
-    if (tieBreak != 0) return tieBreak;
+    final arenaOnlyCompare = (a['arena_only'] == true ? 1 : 0) -
+        (b['arena_only'] == true ? 1 : 0);
+    if (arenaOnlyCompare != 0) return arenaOnlyCompare;
+
+    final englishCompare = (a['english'] == true ? 0 : 1) -
+        (b['english'] == true ? 0 : 1);
+    if (englishCompare != 0) return englishCompare;
 
     final ubCompare = (a['is_ub'] == true ? 1 : 0) - (b['is_ub'] == true ? 1 : 0);
     if (ubCompare != 0) return ubCompare;
+
+    final specialCompare = (a['special'] == true ? 1 : 0) -
+        (b['special'] == true ? 1 : 0);
+    if (specialCompare != 0) return specialCompare;
+
+    final mainlineCompare = (a['mainline'] == true ? 0 : 1) -
+        (b['mainline'] == true ? 0 : 1);
+    if (mainlineCompare != 0) return mainlineCompare;
+
+    if (a['special'] == true && b['special'] == true) {
+      // Between special printings, prefer the original (earliest) printing.
+      return (a['released_at'] as String)
+          .compareTo(b['released_at'] as String);
+    }
 
     final releaseCompare =
         (b['released_at'] as String).compareTo(a['released_at'] as String);
@@ -255,8 +314,8 @@ class PrintingSelector {
     return (a['is_ub'] == true ? 1 : 0) - (b['is_ub'] == true ? 1 : 0);
   }
 
-  /// Shared preference tie-breaks used by all comparators: regular before
-  /// special, English before other languages, non-UB before UB. Returns a
+  /// Shared preference tie-breaks used by the first-printing comparators:
+  /// regular before special, English before other languages. Returns a
   /// negative value when [a] is the better choice.
   static int _compareTieBreaks(bool aEnglish, bool aSpecial, bool bEnglish,
       bool bSpecial) {
