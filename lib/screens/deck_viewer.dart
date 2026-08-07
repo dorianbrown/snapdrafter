@@ -114,7 +114,7 @@ class DeckViewerState extends State<DeckViewer> {
   }
 
   Widget _buildMetadataChip(String label, {IconData? icon}) {
-    final chipColor = Colors.white60;
+    final chipColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       constraints: BoxConstraints(maxWidth: 120),
@@ -205,7 +205,6 @@ class DeckViewerState extends State<DeckViewer> {
                       _ => Icons.looks_3,
                     }),
                     onPressed: null,
-                    disabledColor: Colors.white70,
                   ),
                   itemBuilder: (context) => [
                     CheckedPopupMenuItem(
@@ -284,7 +283,7 @@ class DeckViewerState extends State<DeckViewer> {
                       Text(
                         "${deck.cards.length} cards",
                         style: TextStyle(
-                          color: Colors.white60,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13
                         ),
                       ),
@@ -308,7 +307,6 @@ class DeckViewerState extends State<DeckViewer> {
                   showSelectedIcon: false,
                   style: ButtonStyle(
                     visualDensity: VisualDensity.compact,
-                    foregroundColor: WidgetStateProperty.all(Colors.white54),
                     shape: WidgetStateProperty.all(
                       RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(6),
