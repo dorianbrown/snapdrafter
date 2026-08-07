@@ -676,21 +676,22 @@ class DraftSessionNotifier extends ChangeNotifier {
     return hasSubmittedDecklist(_myDeviceId);
   }
 
-  /// Polls the leader for updated state via a GATT read.
-  /// Useful as a fallback when notification-based pushes are unreliable
-  /// (e.g. cross-platform BLE). Called periodically by follower UI screens.
+  /// Reconciles with the leader by forcing a fresh state push via
+  /// unsubscribe+resubscribe on the state characteristic. Called on screen
+  /// entry and app resume so followers recover any dropped notifications
+  /// without periodic polling.
   ///
-  /// Uses a plain GATT read ([readCurrentState]) instead of the more
-  /// intrusive [resubscribeAndReadState] to avoid disrupting the BLE
-  /// notification subscription every poll cycle, which can overwhelm the
-  /// leader's peripheral stack on iOS.
-  Future<void> pollState() async {
+  /// State sync is notification-only: the leader pushes the full [DraftState]
+  /// on every change (and on every subscribe), so a resubscribe is the only
+  /// read-style fallback needed — it avoids Android's stale GATT read cache
+  /// and works identically on iOS.
+  Future<void> refreshFromLeader() async {
     if (!isFollower || _state == null || _bleService == null) return;
     try {
-      final updated = await _bleService!.readCurrentState();
-      if (updated != null &&
-          updated.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
-        _state = updated;
+      final fresh = await _bleService!.resubscribeAndReadState();
+      if (fresh != null &&
+          fresh.sequenceNumber > (_state?.sequenceNumber ?? -1)) {
+        _state = fresh;
         notifyListeners();
       }
     } catch (_) {}

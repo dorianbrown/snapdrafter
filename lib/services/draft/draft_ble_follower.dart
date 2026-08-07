@@ -321,23 +321,6 @@ class DraftBleFollower extends DraftBleService {
     }
   }
 
-  /// Legacy read -- subject to Android BLE cache staleness.
-  /// Prefer [resubscribeAndReadState] for cross-platform state sync.
-  Future<DraftState?> readCurrentState() async {
-    if (_leaderDeviceId == null) return null;
-    try {
-      final bytes = await _ble.readCharacteristic(
-        _leaderDeviceId!,
-        DraftBleService.serviceUuid,
-        DraftBleService.stateCharUuid,
-      );
-      return DraftBleService.decodeState(bytes);
-    } catch (e) {
-      _log('[BLE_FOLLOWER] READ state FAILED: $e');
-      return null;
-    }
-  }
-
   /// Derives a short session ID from the draft name by hashing it.
   String _extractSessionId(String name) {
     int hash = 0;

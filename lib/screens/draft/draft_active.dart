@@ -17,29 +17,36 @@ class DraftActiveScreen extends StatefulWidget {
   State<DraftActiveScreen> createState() => _DraftActiveScreenState();
 }
 
-class _DraftActiveScreenState extends State<DraftActiveScreen> {
+class _DraftActiveScreenState extends State<DraftActiveScreen>
+    with WidgetsBindingObserver {
   Timer? _tickTimer;
-  Timer? _pollTimer;
   int? _timeElapsedNotifiedRound;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _syncTickTimer();
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<DraftSessionNotifier>().pollState();
+        context.read<DraftSessionNotifier>().refreshFromLeader();
       }
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tickTimer?.cancel();
     _tickTimer = null;
-    _pollTimer?.cancel();
-    _pollTimer = null;
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<DraftSessionNotifier>().refreshFromLeader();
+    }
   }
 
   void _syncTickTimer() {

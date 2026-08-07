@@ -14,24 +14,31 @@ class DraftWaitingScreen extends StatefulWidget {
   State<DraftWaitingScreen> createState() => _DraftWaitingScreenState();
 }
 
-class _DraftWaitingScreenState extends State<DraftWaitingScreen> {
-  Timer? _pollTimer;
-
+class _DraftWaitingScreenState extends State<DraftWaitingScreen>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _watchPhase();
-    _pollTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<DraftSessionNotifier>().pollState();
+        context.read<DraftSessionNotifier>().refreshFromLeader();
       }
     });
   }
 
   @override
   void dispose() {
-    _pollTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context.read<DraftSessionNotifier>().refreshFromLeader();
+    }
   }
 
   void _watchPhase() {

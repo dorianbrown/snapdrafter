@@ -85,10 +85,6 @@ abstract class DraftBleService {
   /// Stream that emits `true` when connected and `false` on disconnect.
   Stream<bool> get leaderConnected;
 
-  /// Reads the current [DraftState] from the leader's state characteristic
-  /// via a GATT read. Used as a fallback for unreliable notification delivery.
-  Future<DraftState?> readCurrentState() async => null;
-
   /// Gets the current [DraftState] by forcing a notification via
   /// unsubscribe+resubscribe on the state characteristic. Avoids Android's
   /// BLE GATT read cache that returns stale values.

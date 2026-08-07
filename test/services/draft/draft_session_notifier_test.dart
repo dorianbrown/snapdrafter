@@ -14,6 +14,7 @@ class FakeDraftBleLeader extends DraftBleService {
   DraftState? startedState;
   final List<DraftState> pushedStates = [];
   bool stopCalled = false;
+  int resubscribeCallCount = 0;
 
   final Set<String> connectedDevices = {};
 
@@ -70,6 +71,8 @@ class FakeDraftBleFollower extends DraftBleService {
   DraftState? reconnectResult;
   int reconnectFailCount = 0;
   Object? sendCommandThrow;
+  int resubscribeCallCount = 0;
+  DraftState? resubscribeResult;
 
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
 
@@ -127,6 +130,12 @@ class FakeDraftBleFollower extends DraftBleService {
 
   void emitConnected(bool connected) {
     _leaderConnectedCtrl.add(connected);
+  }
+
+  @override
+  Future<DraftState?> resubscribeAndReadState() async {
+    resubscribeCallCount++;
+    return resubscribeResult;
   }
 
   @override
@@ -196,6 +205,19 @@ void main() {
       expect(notifier.state, isNotNull);
       expect(notifier.state!.session.name, 'Test Draft');
       expect(notifyCount, 1);
+    });
+
+    test('refreshFromLeader is a no-op when not a follower', () async {
+      await notifier.createAndHost(
+        name: 'Test Draft',
+        seatCount: 8,
+        playerName: 'Host Player',
+      );
+
+      await notifier.refreshFromLeader();
+
+      expect(fakeLeader.resubscribeCallCount, 0);
+      expect(notifier.role, DraftRole.leader);
     });
 
     test('createAndHost stops previous BLE service first', () async {
@@ -709,6 +731,81 @@ void main() {
       );
       fakeFollower.onStatePush?.call(staleState);
 
+      expect(notifyCount, 0);
+    });
+
+    test('leader-submitted result reaches follower via push only (no polling)', () async {
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+
+      int notifyCount = 0;
+      notifier.addListener(() => notifyCount++);
+
+      // The host submits its result; the follower never polls — the push
+      // alone must surface the reported match.
+      final pushed = notifier.state!.bumpSequence().copyWith(
+        rounds: [
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'opponent-device',
+                aWins: 1,
+                bWins: 2,
+                reportedByDeviceId: 'opponent-device',
+                status: MatchStatus.reported,
+              ),
+            ],
+          ),
+        ],
+      );
+      fakeFollower.onStatePush?.call(pushed);
+
+      final myMatch = notifier.state!.getMyMatch('my-device', 1);
+      expect(myMatch!.status, MatchStatus.reported);
+      expect(notifier.hasReportedResult(1), isFalse);
+      expect(notifier.canReportResult(1), isFalse);
+      expect(notifyCount, 1);
+    });
+
+    test('refreshFromLeader applies fresher state from resubscribe', () async {
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+      fakeFollower.resubscribeResult = notifier.state!.bumpSequence();
+      final callsBefore = fakeFollower.resubscribeCallCount;
+
+      int notifyCount = 0;
+      notifier.addListener(() => notifyCount++);
+
+      await notifier.refreshFromLeader();
+
+      expect(fakeFollower.resubscribeCallCount, callsBefore + 1);
+      expect(notifier.state!.sequenceNumber,
+          fakeFollower.resubscribeResult!.sequenceNumber);
+      expect(notifyCount, 1);
+    });
+
+    test('refreshFromLeader ignores stale resubscribe result', () async {
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+      fakeFollower.resubscribeResult = notifier.state!;
+      final callsBefore = fakeFollower.resubscribeCallCount;
+
+      int notifyCount = 0;
+      notifier.addListener(() => notifyCount++);
+
+      await notifier.refreshFromLeader();
+
+      expect(fakeFollower.resubscribeCallCount, callsBefore + 1);
       expect(notifyCount, 0);
     });
 
