@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import 'package:snapdrafter/services/draft/ble_chunked.dart';
 import 'package:snapdrafter/services/draft/ble_platform.dart';
 import 'package:snapdrafter/services/draft/draft_ble_leader.dart';
 import 'package:snapdrafter/services/draft/draft_ble_service.dart';
@@ -342,6 +343,25 @@ void main() {
       expect(pushedDeviceIds, containsAll(['dev1', 'dev2']));
     });
 
+    test('skips subscribed devices that have disconnected', () async {
+      fakeBle.maximumNotifyLength = 500;
+      await leader.startAsLeader(_testState());
+
+      fakeBle.emitConnection('dev1', true);
+      fakeBle.emitSubscription(
+          'dev1', DraftBleService.stateCharUuid, true);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      fakeBle.emitConnection('dev1', false);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+
+      final countBefore = fakeBle.characteristicUpdates.length;
+      await leader.pushState(_testState().bumpSequence());
+
+      // No push should reach the disconnected device.
+      expect(fakeBle.characteristicUpdates.length, countBefore);
+    });
+
     test('characteristic update contains correct UUID', () async {
       fakeBle.maximumNotifyLength = 500;
       await leader.startAsLeader(_testState());
@@ -458,6 +478,82 @@ void main() {
       expect(receivedCmd, isA<SubmitDecklist>());
       expect(
           (receivedCmd as SubmitDecklist).mainboardScryfallIds, ['abc', 'def']);
+    });
+
+    test('reassembles chunked SubmitDecklist from a follower', () async {
+      await leader.startAsLeader(_testState());
+
+      DraftCommand? receivedCmd;
+      String? receivedDeviceId;
+      leader.onCommandReceived = (deviceId, cmd) {
+        receivedDeviceId = deviceId;
+        receivedCmd = cmd;
+      };
+
+      final cmd = SubmitDecklist(
+        mainboardScryfallIds: [
+          'aaaaaaaa-1111-1111-1111-111111111111',
+          'bbbbbbbb-2222-2222-2222-222222222222',
+          'cccccccc-3333-3333-3333-333333333333',
+        ],
+        sideboardScryfallIds: ['dddddddd-4444-4444-4444-444444444444'],
+      );
+      final bytes = Uint8List.fromList(utf8.encode(jsonEncode(cmd.toJson())));
+      final chunker = BleChunkedStream(maxPayloadPerChunk: 11);
+      final chunks = chunker.chunkBytes(bytes);
+
+      for (final chunk in chunks) {
+        fakeBle.writeHandler!(
+          'follower-1',
+          DraftBleService.commandCharUuid,
+          0,
+          chunk,
+        );
+      }
+
+      expect(receivedDeviceId, 'follower-1');
+      expect(receivedCmd, isA<SubmitDecklist>());
+      final received = receivedCmd as SubmitDecklist;
+      expect(received.mainboardScryfallIds,
+          ['aaaaaaaa-1111-1111-1111-111111111111', 'bbbbbbbb-2222-2222-2222-222222222222', 'cccccccc-3333-3333-3333-333333333333']);
+      expect(received.sideboardScryfallIds,
+          ['dddddddd-4444-4444-4444-444444444444']);
+    });
+
+    test('dispatches plain and chunked commands independently per device',
+        () async {
+      await leader.startAsLeader(_testState());
+
+      final received = <String, List<DraftCommand>>{};
+      leader.onCommandReceived = (deviceId, cmd) {
+        received.putIfAbsent(deviceId, () => []).add(cmd);
+      };
+
+      // dev1 sends a small plain JSON command.
+      final join = JoinRequest(playerName: 'Alice', deviceName: 'alice-device');
+      fakeBle.writeHandler!(
+        'dev1',
+        DraftBleService.commandCharUuid,
+        0,
+        Uint8List.fromList(utf8.encode(jsonEncode(join.toJson()))),
+      );
+
+      // dev2 sends the same command chunked.
+      final chunker = BleChunkedStream(maxPayloadPerChunk: 2);
+      for (final chunk in chunker.chunkBytes(
+          Uint8List.fromList(utf8.encode(jsonEncode(join.toJson()))))) {
+        fakeBle.writeHandler!(
+          'dev2',
+          DraftBleService.commandCharUuid,
+          0,
+          chunk,
+        );
+      }
+
+      expect(received['dev1'], hasLength(1));
+      expect(received['dev1']!.single, isA<JoinRequest>());
+      expect(received['dev2'], hasLength(1));
+      expect(received['dev2']!.single, isA<JoinRequest>());
     });
 
     test('ignores writes to non-command characteristic', () async {

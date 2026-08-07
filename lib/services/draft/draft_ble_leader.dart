@@ -62,6 +62,7 @@ class DraftBleLeader extends DraftBleService {
 
   final _metaChunkers = <String, BleChunkedStream>{};
   final _stateChunkers = <String, BleChunkedStream>{};
+  final _commandChunkers = <String, BleChunkedStream>{};
   final _mtuKnownDevices = <String>{};
 
   @override
@@ -199,6 +200,11 @@ class DraftBleLeader extends DraftBleService {
       } else {
         _connectedDevices.remove(event.deviceId);
         _followerDisconnectedCtrl?.add(event.deviceId);
+        _subscribedStateDeviceIds.remove(event.deviceId);
+        _commandChunkers.remove(event.deviceId);
+        _metaChunkers.remove(event.deviceId);
+        _stateChunkers.remove(event.deviceId);
+        _mtuKnownDevices.remove(event.deviceId);
         _log('[BLE_ADV] follower DISCONNECTED: ${event.deviceId} (total=${_connectedDevices.length})');
       }
     });
@@ -338,32 +344,34 @@ class DraftBleLeader extends DraftBleService {
   // State broadcast
   // -------------------------------------------------------------------------
 
-  /// Re-encodes and pushes the updated [DraftState] to all subscribed
-  /// followers via the state characteristic.
+  /// Pushes bytes to a characteristic for either all connected devices or a
+  /// specific device. Automatically chunks the payload if it exceeds the
+  /// negotiated MTU.
   ///
-  /// Always re-encodes _currentStateBytes and _currentMetaBytes before any
-  /// early return, so that GATT reads, re-subscription handlers, and future
-  /// pushes always serve the latest state regardless of connection tracking
-  /// glitches.
+  /// Pushes to all subscribed-and-connected followers concurrently so one
+  /// follower's chunk pacing or a slow link cannot delay the others.
   @override
   Future<void> pushState(DraftState state) async {
     _currentState = state;
     _currentMetaBytes = DraftBleService.encodeMeta(state.session);
     _currentStateBytes = DraftBleService.encodeState(state);
-    _log('[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, subscribedDevices=${_subscribedStateDeviceIds.length}');
+    final targets = _subscribedStateDeviceIds
+        .where(_connectedDevices.contains)
+        .toList();
+    _log('[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, subscribedDevices=${targets.length}');
     _log('[BLE_ADV] current rounds: ${state.rounds}');
-    if (_subscribedStateDeviceIds.isEmpty) {
-      _log('[BLE_ADV] pushState SKIPPED — no subscribed devices!');
+    if (targets.isEmpty) {
+      _log('[BLE_ADV] pushState SKIPPED — no connected+subscribed devices!');
       return;
     }
 
-    for (final deviceId in _subscribedStateDeviceIds.toList()) {
-      await _pushCharacteristicValue(
-        characteristicId: DraftBleService.stateCharUuid,
-        bytes: _currentStateBytes!,
-        deviceId: deviceId,
-      );
-    }
+    await Future.wait(
+      targets.map((deviceId) => _pushCharacteristicValue(
+            characteristicId: DraftBleService.stateCharUuid,
+            bytes: _currentStateBytes!,
+            deviceId: deviceId,
+          )),
+    );
   }
 
   /// Pushes bytes to a characteristic for either all connected devices or a
@@ -444,9 +452,28 @@ class DraftBleLeader extends DraftBleService {
   // Incoming commands
   // -------------------------------------------------------------------------
 
+  /// Handles a raw write to the command characteristic, reassembling chunked
+  /// command payloads (e.g. large decklists) before dispatch.
+  void _handleWriteRequest(String deviceId, Uint8List value) {
+    if (BleChunkedStream.isChunked(value)) {
+      final chunker = _commandChunkers.putIfAbsent(
+        deviceId,
+        () => BleChunkedStream(chunkTimeout: const Duration(seconds: 15)),
+      );
+      chunker.feed(value);
+      while (chunker.hasCompleteMessage) {
+        final assembled = chunker.data;
+        if (assembled == null) continue;
+        _dispatchCommand(deviceId, assembled);
+      }
+      return;
+    }
+    _dispatchCommand(deviceId, value);
+  }
+
   /// Decodes a JSON payload written by a follower on the command
   /// characteristic and dispatches it via [onCommandReceived].
-  void _handleWriteRequest(String deviceId, Uint8List value) {
+  void _dispatchCommand(String deviceId, Uint8List value) {
     try {
       final json = utf8.decode(value);
       final map = jsonDecode(json) as Map<String, dynamic>;
@@ -474,8 +501,10 @@ class DraftBleLeader extends DraftBleService {
     _connStateSub = null;
     for (final c in _metaChunkers.values) { c.reset(); }
     for (final c in _stateChunkers.values) { c.reset(); }
+    for (final c in _commandChunkers.values) { c.reset(); }
     _metaChunkers.clear();
     _stateChunkers.clear();
+    _commandChunkers.clear();
     _mtuKnownDevices.clear();
     _subscribedStateDeviceIds.clear();
     try {

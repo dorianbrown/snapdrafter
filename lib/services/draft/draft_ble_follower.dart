@@ -31,6 +31,7 @@ class DraftBleFollower extends DraftBleService {
   StreamSubscription? _stateValueSub;
   StreamSubscription? _connectionStreamSub;
   final _streamChunker = BleChunkedStream();
+  final _commandChunker = BleChunkedStream();
 
   @override
   Stream<bool> get leaderConnected => _leaderConnectedCtrl.stream;
@@ -182,6 +183,7 @@ class DraftBleFollower extends DraftBleService {
     await _ble.connect(deviceId);
 
     final negotiatedMtu = await _ble.requestMtu(deviceId, 512);
+    _commandChunker.reconfigure(negotiatedMtu);
     _log('[BLE_FOLLOWER] connected to $deviceId (MTU: $negotiatedMtu)');
 
     await _ble.discoverServices(deviceId);
@@ -221,6 +223,10 @@ class DraftBleFollower extends DraftBleService {
 
   /// Serializes a [DraftCommand] to JSON and writes it to the leader's
   /// command characteristic.
+  ///
+  /// Payloads that fit within the negotiated MTU are written as a single
+  /// plain JSON write. Larger payloads (e.g. decklists) are chunked with the
+  /// same [BleChunkedStream] protocol used for state pushes.
   @override
   Future<void> sendCommand(DraftCommand cmd) async {
     if (_leaderDeviceId == null) {
@@ -229,12 +235,28 @@ class DraftBleFollower extends DraftBleService {
     final json = jsonEncode(cmd.toJson());
     final bytes = Uint8List.fromList(utf8.encode(json));
     _log('[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $_leaderDeviceId (${json.length} chars)');
-    await _ble.write(
-      _leaderDeviceId!,
-      DraftBleService.serviceUuid,
-      DraftBleService.commandCharUuid,
-      bytes,
-    );
+    if (bytes.length <= _commandChunker.maxRawPayload) {
+      await _ble.write(
+        _leaderDeviceId!,
+        DraftBleService.serviceUuid,
+        DraftBleService.commandCharUuid,
+        bytes,
+      );
+      return;
+    }
+
+    final chunks = _commandChunker.chunkBytes(bytes);
+    for (var i = 0; i < chunks.length; i++) {
+      if (i > 0) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      await _ble.write(
+        _leaderDeviceId!,
+        DraftBleService.serviceUuid,
+        DraftBleService.commandCharUuid,
+        chunks[i],
+      );
+    }
   }
 
   /// Reads the current [DraftState] from the leader by unsubscribing from and

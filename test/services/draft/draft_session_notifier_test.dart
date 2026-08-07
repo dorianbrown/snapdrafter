@@ -69,6 +69,7 @@ class FakeDraftBleFollower extends DraftBleService {
   DraftState? connectResult;
   DraftState? reconnectResult;
   int reconnectFailCount = 0;
+  Object? sendCommandThrow;
 
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
 
@@ -114,6 +115,7 @@ class FakeDraftBleFollower extends DraftBleService {
 
   @override
   Future<void> sendCommand(DraftCommand cmd) async {
+    if (sendCommandThrow != null) throw sendCommandThrow!;
     sentCommands.add(cmd);
   }
 
@@ -557,11 +559,12 @@ void main() {
 
     test('submitDecklist as leader processes locally', () async {
       final beforeLen = fakeLeader.pushStateCallCount;
-      await notifier.submitDecklist(
+      final ok = await notifier.submitDecklist(
         mainboardScryfallIds: ['id-1'],
         sideboardScryfallIds: [],
       );
 
+      expect(ok, isTrue);
       expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
       expect(notifier.hasSubmittedDecklist('my-device'), isTrue);
       expect(notifier.state!.getPlayer('my-device')!.decklistMainboard, ['id-1']);
@@ -825,6 +828,78 @@ void main() {
   });
 
   // -----------------------------------------------------------------------
+  // Follower: decklist submission
+  // -----------------------------------------------------------------------
+
+  group('follower: submitDecklist', () {
+    setUp(() {
+      fakeFollower = FakeDraftBleFollower();
+      notifier = _createFollowerNotifier(fakeFollower);
+    });
+
+    test('returns true when the confirmation push arrives', () async {
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+
+      final withDecklist = notifier.state!.copyWith(
+        players: [
+          ...notifier.state!.players,
+          DraftPlayer(
+            deviceId: 'my-device',
+            playerName: 'Bob',
+            deviceName: 'my-device',
+            joinOrder: 1,
+            status: PlayerStatus.accepted,
+            decklistMainboard: ['id-1', 'id-2'],
+          ),
+        ],
+      ).bumpSequence();
+
+      final okFuture = notifier.submitDecklist(
+        mainboardScryfallIds: ['id-1', 'id-2'],
+        sideboardScryfallIds: [],
+      );
+
+      // The leader's confirmation push arrives while waiting for the update.
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      fakeFollower.onStatePush?.call(withDecklist);
+
+      final ok = await okFuture;
+      expect(ok, isTrue);
+      expect(fakeFollower.lastSentCommand, isA<SubmitDecklist>());
+    });
+
+    test('returns false when the command write fails', () async {
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+      fakeFollower.sendCommandThrow = Exception('write failed');
+
+      final ok = await notifier.submitDecklist(
+        mainboardScryfallIds: ['id-1'],
+        sideboardScryfallIds: [],
+      );
+      expect(ok, isFalse);
+    });
+
+    test('returns false when the state never confirms', () async {
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+
+      final ok = await notifier.submitDecklist(
+        mainboardScryfallIds: ['id-1'],
+        sideboardScryfallIds: [],
+      );
+      expect(ok, isFalse);
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Follower: reconnect
   // -----------------------------------------------------------------------
 
@@ -865,6 +940,60 @@ void main() {
 
       await Future.delayed(const Duration(milliseconds: 50));
       expect(fakeFollower.reconnectAttempts, 1);
+    });
+
+    test('reconnect re-sends JoinRequest when player is missing from state',
+        () async {
+      fakeFollower.reconnectResult = DraftState.create(
+        name: 'Reconnected', leaderDeviceId: 'leader-device', leaderPlayerName: 'Host', seatCount: 4,
+      );
+
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+
+      fakeFollower.emitConnected(false);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      expect(fakeFollower.reconnectAttempts, 1);
+      final lastCmd = fakeFollower.lastSentCommand;
+      expect(lastCmd, isA<JoinRequest>());
+      expect((lastCmd as JoinRequest).deviceName, 'my-device');
+      expect(lastCmd.playerName, 'Bob');
+    });
+
+    test('reconnect does not re-send JoinRequest when player already in state',
+        () async {
+      final joined = DraftState.create(
+        name: 'Reconnected', leaderDeviceId: 'leader-device', leaderPlayerName: 'Host', seatCount: 4,
+      );
+      final withPlayer = joined.copyWith(
+        players: [
+          ...joined.players,
+          DraftPlayer(
+            deviceId: 'my-device',
+            playerName: 'Bob',
+            deviceName: 'my-device',
+            joinOrder: 1,
+            status: PlayerStatus.accepted,
+          ),
+        ],
+      ).bumpSequence();
+      fakeFollower.reconnectResult = withPlayer;
+
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+      final commandsBefore = fakeFollower.sentCommands.length;
+
+      fakeFollower.emitConnected(false);
+
+      await Future.delayed(const Duration(milliseconds: 100));
+      expect(fakeFollower.reconnectAttempts, 1);
+      // No new command should have been sent for the rejoin.
+      expect(fakeFollower.sentCommands.length, commandsBefore);
     });
 
     test('reconnect gives up after all attempts fail', () async {

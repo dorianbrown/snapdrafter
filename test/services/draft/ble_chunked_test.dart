@@ -217,6 +217,65 @@ void main() {
       });
     });
 
+    group('timeout behavior', () {
+      test('idle-based timeout: completes when chunks arrive within timeout',
+          () async {
+        final stream = BleChunkedStream(
+          maxPayloadPerChunk: 5,
+          chunkTimeout: const Duration(milliseconds: 300),
+        );
+        final original = _payload(15); // 3 chunks
+        final chunks = stream.chunkBytes(original);
+
+        stream.feed(chunks[0]);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        stream.feed(chunks[1]);
+        await Future<void>.delayed(const Duration(milliseconds: 200));
+        stream.feed(chunks[2]);
+
+        // Total elapsed (400ms) exceeds chunkTimeout, but no gap between
+        // chunks did — the message must still complete.
+        expect(stream.hasCompleteMessage, isTrue);
+        expect(stream.data, equals(original));
+      });
+
+      test('stalled message is dropped after the timeout', () async {
+        final stream = BleChunkedStream(
+          maxPayloadPerChunk: 5,
+          chunkTimeout: const Duration(milliseconds: 150),
+        );
+        final chunks = stream.chunkBytes(_payload(10)); // 2 chunks
+
+        stream.feed(chunks[0]);
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+
+        // The buffer was dropped; the late chunk starts a fresh buffer that
+        // is still missing chunk 0.
+        stream.feed(chunks[1]);
+        expect(stream.hasCompleteMessage, isFalse);
+      });
+
+      test('timeout grows with total chunk count', () async {
+        final stream = BleChunkedStream(
+          maxPayloadPerChunk: 5,
+          chunkTimeout: const Duration(milliseconds: 200),
+        );
+        final original = _payload(50); // 10 chunks -> 500ms size-based timeout
+        final chunks = stream.chunkBytes(original);
+
+        stream.feed(chunks[0]);
+        // 350ms > chunkTimeout but < the size-based timeout; the message must
+        // still be alive.
+        await Future<void>.delayed(const Duration(milliseconds: 350));
+        for (final chunk in chunks.skip(1)) {
+          stream.feed(chunk);
+        }
+
+        expect(stream.hasCompleteMessage, isTrue);
+        expect(stream.data, equals(original));
+      });
+    });
+
     group('reset()', () {
       test('clears in-progress buffers', () {
         final stream = BleChunkedStream(maxPayloadPerChunk: 5);

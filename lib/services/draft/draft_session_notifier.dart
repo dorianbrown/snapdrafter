@@ -571,7 +571,19 @@ class DraftSessionNotifier extends ChangeNotifier {
       if (bleService == null) break;
 
       try {
-        await bleService.reconnectToLeader(leaderDeviceId);
+        final state = await bleService.reconnectToLeader(leaderDeviceId);
+        if (_role == DraftRole.follower &&
+            _myPlayerName != null &&
+            state.getPlayer(_myDeviceId) == null) {
+          // The join request was lost in the disconnect race; re-join so
+          // this device is not left connected but invisible to the lobby.
+          _log('[NOTIFIER] reconnect: player missing from state, re-sending JoinRequest');
+          try {
+            await bleService.sendCommand(
+              JoinRequest(playerName: _myPlayerName!, deviceName: _myDeviceId),
+            );
+          } catch (_) {}
+        }
         _isReconnecting = false;
         notifyListeners();
         return;
@@ -633,11 +645,15 @@ class DraftSessionNotifier extends ChangeNotifier {
   /// Sends a [SubmitDecklist] command. Followers send over BLE; the leader
   /// processes it locally. Silently ignored when reconnecting to avoid
   /// attempting a write on a disconnected BLE link.
-  Future<void> submitDecklist({
+  ///
+  /// Returns `true` if the decklist was accepted (the leader's state now
+  /// contains it), `false` if the write failed or the update could not be
+  /// confirmed — callers should surface this to the user.
+  Future<bool> submitDecklist({
     required List<String> mainboardScryfallIds,
     required List<String> sideboardScryfallIds,
   }) async {
-    if (isFollower && isReconnecting) return;
+    if (isFollower && isReconnecting) return false;
 
     final cmd = SubmitDecklist(
       mainboardScryfallIds: mainboardScryfallIds,
@@ -646,14 +662,18 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     if (isLeader) {
       _handleDecklistSubmission(_myDeviceId, cmd);
-      return;
+      return hasSubmittedDecklist(_myDeviceId);
     }
 
-    if (!isFollower) return;
+    if (!isFollower) return false;
 
-    await _bleService!.sendCommand(cmd);
-
-    await _waitForStateUpdate();
+    try {
+      await _bleService!.sendCommand(cmd);
+      await _waitForStateUpdate();
+    } catch (_) {
+      return false;
+    }
+    return hasSubmittedDecklist(_myDeviceId);
   }
 
   /// Polls the leader for updated state via a GATT read.

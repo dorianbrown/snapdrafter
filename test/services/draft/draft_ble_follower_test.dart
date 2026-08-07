@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:universal_ble/universal_ble.dart';
 
+import 'package:snapdrafter/services/draft/ble_chunked.dart';
 import 'package:snapdrafter/services/draft/ble_platform.dart';
 import 'package:snapdrafter/services/draft/draft_ble_follower.dart';
 import 'package:snapdrafter/services/draft/draft_ble_leader.dart';
@@ -570,6 +572,72 @@ void main() {
         opponentWins: 0,
       ));
       expect(fake.writes.length, 1);
+    });
+
+    test('small command is written as a single plain JSON write', () async {
+      fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
+      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+
+      final future = follower.connectToLeader('leader');
+      fake.emitCharacteristicValue(
+        'leader',
+        DraftBleService.stateCharUuid,
+        DraftBleService.encodeState(testState),
+      );
+      await future;
+
+      await follower.sendCommand(JoinRequest(playerName: 'Alice', deviceName: 'Phone'));
+
+      expect(fake.writes.length, 1);
+      final value = fake.writes[0]['value'] as Uint8List;
+      expect(BleChunkedStream.isChunked(value), isFalse);
+      expect(utf8.decode(value), jsonEncode(JoinRequest(playerName: 'Alice', deviceName: 'Phone').toJson()));
+    });
+
+    test('oversized decklist is chunked and reassembles to the original JSON',
+        () async {
+      fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
+      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+
+      final future = follower.connectToLeader('leader');
+      fake.emitCharacteristicValue(
+        'leader',
+        DraftBleService.stateCharUuid,
+        DraftBleService.encodeState(testState),
+      );
+      await future;
+
+      // 55 scryfall-style UUIDs (~36 chars each) — far larger than the
+      // negotiated MTU (512) can carry in a single write.
+      final ids = List.generate(
+        55,
+        (i) =>
+            '${i.toString().padLeft(12, '0')}-1111-1111-1111-111111111111',
+      );
+      final cmd = SubmitDecklist(
+        mainboardScryfallIds: ids.sublist(0, 40),
+        sideboardScryfallIds: ids.sublist(40),
+      );
+
+      await follower.sendCommand(cmd);
+
+      expect(fake.writes.length, greaterThan(1));
+      final values =
+          fake.writes.map((w) => w['value'] as Uint8List).toList();
+      expect(values.every(BleChunkedStream.isChunked), isTrue);
+
+      // Each chunk must fit within the negotiated ATT write payload.
+      for (final value in values) {
+        expect(value.length, lessThanOrEqualTo(512 - 3));
+      }
+
+      final reassembler = BleChunkedStream();
+      for (final value in values) {
+        reassembler.feed(value);
+      }
+      expect(reassembler.hasCompleteMessage, isTrue);
+      final expected = Uint8List.fromList(utf8.encode(jsonEncode(cmd.toJson())));
+      expect(reassembler.data, equals(expected));
     });
   });
 

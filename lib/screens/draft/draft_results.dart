@@ -173,10 +173,19 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 deck.cards.map((c) => c.scryfallId).toList();
             _capturedSideboardIds =
                 deck.sideboard.map((c) => c.scryfallId).toList();
-            notifier.submitDecklist(
+            final submitted = await notifier.submitDecklist(
               mainboardScryfallIds: _capturedMainboardIds!,
               sideboardScryfallIds: _capturedSideboardIds ?? [],
             );
+            if (!submitted && mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Couldn\'t submit decklist — check your connection and try again',
+                  ),
+                ),
+              );
+            }
           },
         ),
       ),

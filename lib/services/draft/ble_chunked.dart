@@ -79,7 +79,7 @@ class BleChunkedStream {
       messageId,
       () => _ChunkBuffer(
         totalChunks,
-        timeout: _chunkTimeout,
+        timeout: _effectiveTimeout(totalChunks),
         onTimeout: () {
           _buffers.remove(messageId);
         },
@@ -110,11 +110,24 @@ class BleChunkedStream {
     _buffers.clear();
     _currentCompleteMessageId = null;
   }
+
+  /// The timeout for a message is the configured [chunkTimeout] (idle-based,
+  /// refreshed on every chunk) but grows with message size so that large
+  /// payloads sent slowly are not dropped, bounded by an absolute cap.
+  Duration _effectiveTimeout(int totalChunks) {
+    const cap = Duration(seconds: 60);
+    final sizeBased = Duration(milliseconds: totalChunks * 50);
+    var timeout = sizeBased > _chunkTimeout ? sizeBased : _chunkTimeout;
+    if (timeout > cap) timeout = cap;
+    return timeout;
+  }
 }
 
 class _ChunkBuffer {
   final int totalChunks;
   final List<Uint8List?> _chunks;
+  final Duration _timeout;
+  final void Function() _onTimeout;
   int _received = 0;
   Timer? _timer;
   bool _cancelled = false;
@@ -123,11 +136,10 @@ class _ChunkBuffer {
     this.totalChunks, {
     required Duration timeout,
     required void Function() onTimeout,
-  }) : _chunks = List.filled(totalChunks, null) {
-    _timer = Timer(timeout, () {
-      _cancelled = true;
-      onTimeout();
-    });
+  }) : _chunks = List.filled(totalChunks, null),
+       _timeout = timeout,
+       _onTimeout = onTimeout {
+    _restartTimer();
   }
 
   void addChunk(int index, Uint8List data) {
@@ -137,6 +149,17 @@ class _ChunkBuffer {
       _chunks[index] = data;
       _received++;
     }
+    _restartTimer();
+  }
+
+  /// Resets the deadline on every received chunk so the message only fails
+  /// if the sender stalls mid-transmission.
+  void _restartTimer() {
+    _timer?.cancel();
+    _timer = Timer(_timeout, () {
+      _cancelled = true;
+      _onTimeout();
+    });
   }
 
   bool get isComplete => !_cancelled && _received == totalChunks;
