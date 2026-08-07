@@ -70,7 +70,18 @@ void main() {
     group('feed() reassembly', () {
       test('out-of-order chunks reassemble correctly', () {
         final stream = BleChunkedStream(maxPayloadPerChunk: 5);
-        final original = Uint8List.fromList([10, 20, 30, 40, 50, 60, 70, 80, 90, 100]);
+        final original = Uint8List.fromList([
+          10,
+          20,
+          30,
+          40,
+          50,
+          60,
+          70,
+          80,
+          90,
+          100,
+        ]);
         final chunks = stream.chunkBytes(original);
         expect(chunks.length, 2);
 
@@ -104,7 +115,12 @@ void main() {
 
       test('chunk shorter than chunkOverhead is ignored', () {
         final stream = BleChunkedStream(maxPayloadPerChunk: 100);
-        final tooShort = Uint8List.fromList([BleChunkedStream.chunkedFlag, 1, 2, 3]);
+        final tooShort = Uint8List.fromList([
+          BleChunkedStream.chunkedFlag,
+          1,
+          2,
+          3,
+        ]);
         stream.feed(tooShort);
         expect(stream.hasCompleteMessage, isFalse);
       });
@@ -153,7 +169,18 @@ void main() {
       test('interleaved chunks from two messages reassemble separately', () {
         final stream = BleChunkedStream(maxPayloadPerChunk: 5);
         final msg1 = Uint8List.fromList([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-        final msg2 = Uint8List.fromList([100, 200, 100, 200, 100, 200, 100, 200, 100, 200]);
+        final msg2 = Uint8List.fromList([
+          100,
+          200,
+          100,
+          200,
+          100,
+          200,
+          100,
+          200,
+          100,
+          200,
+        ]);
 
         final chunks1 = stream.chunkBytes(msg1);
         final chunks2 = stream.chunkBytes(msg2);
@@ -193,7 +220,10 @@ void main() {
       test('maxPayloadPerChunk updates from MTU', () {
         final stream = BleChunkedStream(maxPayloadPerChunk: 11);
         stream.reconfigure(50);
-        expect(stream.maxPayloadPerChunk, 50 - 3 - BleChunkedStream.chunkOverhead - 3);
+        expect(
+          stream.maxPayloadPerChunk,
+          50 - 3 - BleChunkedStream.chunkOverhead - 3,
+        );
       });
 
       test('maxRawPayload = maxPayloadPerChunk + chunkOverhead', () {
@@ -218,26 +248,28 @@ void main() {
     });
 
     group('timeout behavior', () {
-      test('idle-based timeout: completes when chunks arrive within timeout',
-          () async {
-        final stream = BleChunkedStream(
-          maxPayloadPerChunk: 5,
-          chunkTimeout: const Duration(milliseconds: 300),
-        );
-        final original = _payload(15); // 3 chunks
-        final chunks = stream.chunkBytes(original);
+      test(
+        'idle-based timeout: completes when chunks arrive within timeout',
+        () async {
+          final stream = BleChunkedStream(
+            maxPayloadPerChunk: 5,
+            chunkTimeout: const Duration(milliseconds: 300),
+          );
+          final original = _payload(15); // 3 chunks
+          final chunks = stream.chunkBytes(original);
 
-        stream.feed(chunks[0]);
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-        stream.feed(chunks[1]);
-        await Future<void>.delayed(const Duration(milliseconds: 200));
-        stream.feed(chunks[2]);
+          stream.feed(chunks[0]);
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+          stream.feed(chunks[1]);
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+          stream.feed(chunks[2]);
 
-        // Total elapsed (400ms) exceeds chunkTimeout, but no gap between
-        // chunks did — the message must still complete.
-        expect(stream.hasCompleteMessage, isTrue);
-        expect(stream.data, equals(original));
-      });
+          // Total elapsed (400ms) exceeds chunkTimeout, but no gap between
+          // chunks did — the message must still complete.
+          expect(stream.hasCompleteMessage, isTrue);
+          expect(stream.data, equals(original));
+        },
+      );
 
       test('stalled message is dropped after the timeout', () async {
         final stream = BleChunkedStream(
@@ -308,8 +340,18 @@ void main() {
 
     group('isChunked()', () {
       test('returns true for bytes starting with chunkedFlag', () {
-        final chunked = Uint8List.fromList(
-            [BleChunkedStream.chunkedFlag, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        final chunked = Uint8List.fromList([
+          BleChunkedStream.chunkedFlag,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+        ]);
         expect(BleChunkedStream.isChunked(chunked), isTrue);
       });
 
@@ -344,8 +386,10 @@ void main() {
         final stream = BleChunkedStream(maxPayloadPerChunk: 10);
         final original = _payload(8);
         final chunks = stream.chunkBytes(original);
-        expect(chunks[0].length,
-            BleChunkedStream.chunkOverhead + original.length);
+        expect(
+          chunks[0].length,
+          BleChunkedStream.chunkOverhead + original.length,
+        );
       });
     });
   });

@@ -134,7 +134,6 @@ void main() {
           DraftPlayer(
             deviceId: 'p1',
             playerName: 'Test',
-            deviceName: 'Phone',
             joinOrder: 0,
             status: PlayerStatus.accepted,
           ),
@@ -162,12 +161,14 @@ void main() {
 
       test('null fields (setCode, cubeId, seatNumber) handled correctly', () {
         final state = state8.copyWith(
-          session: state8.session.copyWith(clearSetCode: true, clearCubeId: true),
+          session: state8.session.copyWith(
+            clearSetCode: true,
+            clearCubeId: true,
+          ),
           players: [
             DraftPlayer(
               deviceId: 'p1',
               playerName: 'Test',
-              deviceName: 'Phone',
               joinOrder: 0,
               seatNumber: null,
             ),
@@ -225,36 +226,34 @@ void main() {
             DraftPlayer(
               deviceId: 'a',
               playerName: 'AA',
-              deviceName: 'Phone',
               joinOrder: 0,
               status: PlayerStatus.accepted,
             ),
             DraftPlayer(
               deviceId: 'b',
               playerName: 'BB',
-              deviceName: 'Phone',
               joinOrder: 1,
               status: PlayerStatus.pending,
             ),
             DraftPlayer(
               deviceId: 'c',
               playerName: 'CC',
-              deviceName: 'Phone',
               joinOrder: 2,
               status: PlayerStatus.accepted,
             ),
             DraftPlayer(
               deviceId: 'd',
               playerName: 'DD',
-              deviceName: 'Phone',
               joinOrder: 3,
               status: PlayerStatus.dropped,
             ),
           ],
         );
         expect(state.acceptedPlayers.length, 2);
-        expect(state.acceptedPlayers.map((p) => p.deviceId),
-            containsAll(['a', 'c']));
+        expect(
+          state.acceptedPlayers.map((p) => p.deviceId),
+          containsAll(['a', 'c']),
+        );
       });
     });
 
@@ -265,31 +264,32 @@ void main() {
             DraftPlayer(
               deviceId: 'a',
               playerName: 'AA',
-              deviceName: 'Phone',
               joinOrder: 0,
               status: PlayerStatus.accepted,
             ),
             DraftPlayer(
               deviceId: 'b',
               playerName: 'BB',
-              deviceName: 'Phone',
               joinOrder: 1,
               status: PlayerStatus.pending,
             ),
             DraftPlayer(
               deviceId: 'c',
               playerName: 'CC',
-              deviceName: 'Phone',
               joinOrder: 2,
               status: PlayerStatus.dropped,
             ),
           ],
         );
         expect(state.activePlayers.length, 2);
-        expect(state.activePlayers.map((p) => p.deviceId),
-            containsAll(['a', 'b']));
-        expect(state.activePlayers.map((p) => p.deviceId),
-            isNot(contains('c')));
+        expect(
+          state.activePlayers.map((p) => p.deviceId),
+          containsAll(['a', 'b']),
+        );
+        expect(
+          state.activePlayers.map((p) => p.deviceId),
+          isNot(contains('c')),
+        );
       });
     });
 
@@ -297,18 +297,8 @@ void main() {
       test('returns player by deviceId', () {
         final state = state8.copyWith(
           players: [
-            DraftPlayer(
-              deviceId: 'p1',
-              playerName: 'Alice',
-              deviceName: 'Phone',
-              joinOrder: 0,
-            ),
-            DraftPlayer(
-              deviceId: 'p2',
-              playerName: 'Bob',
-              deviceName: 'Phone',
-              joinOrder: 1,
-            ),
+            DraftPlayer(deviceId: 'p1', playerName: 'Alice', joinOrder: 0),
+            DraftPlayer(deviceId: 'p2', playerName: 'Bob', joinOrder: 1),
           ],
         );
         final player = state.getPlayer('p2');
@@ -328,12 +318,7 @@ void main() {
           sequenceNumber: 0,
           session: state8.session,
           players: [
-            DraftPlayer(
-              deviceId: 'p1',
-              playerName: 'Alice',
-              deviceName: 'Phone',
-              joinOrder: 0,
-            ),
+            DraftPlayer(deviceId: 'p1', playerName: 'Alice', joinOrder: 0),
           ],
           rounds: [
             DraftRound(
@@ -360,9 +345,7 @@ void main() {
           sequenceNumber: 0,
           session: state8.session,
           players: [],
-          rounds: [
-            DraftRound(roundNumber: 1, matches: []),
-          ],
+          rounds: [DraftRound(roundNumber: 1, matches: [])],
         );
         expect(state.getMyMatch('p1', 99), isNull);
       });
@@ -404,7 +387,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p1',
               playerName: 'Alice',
-              deviceName: 'Phone',
               joinOrder: 0,
               status: PlayerStatus.accepted,
               matchWins: 1,
@@ -412,7 +394,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p2',
               playerName: 'Bob',
-              deviceName: 'Phone',
               joinOrder: 1,
               status: PlayerStatus.accepted,
               matchWins: 3,
@@ -420,7 +401,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p3',
               playerName: 'Charlie',
-              deviceName: 'Phone',
               joinOrder: 2,
               status: PlayerStatus.accepted,
               matchWins: 0,
@@ -441,7 +421,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p1',
               playerName: 'Alice',
-              deviceName: 'Phone',
               joinOrder: 0,
               status: PlayerStatus.accepted,
               matchWins: 2,
@@ -449,7 +428,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p2',
               playerName: 'Bob',
-              deviceName: 'Phone',
               joinOrder: 1,
               status: PlayerStatus.accepted,
               matchWins: 2,
@@ -457,7 +435,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p3',
               playerName: 'Charlie',
-              deviceName: 'Phone',
               joinOrder: 2,
               status: PlayerStatus.accepted,
               matchWins: 0,
@@ -465,7 +442,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p4',
               playerName: 'Diana',
-              deviceName: 'Phone',
               joinOrder: 3,
               status: PlayerStatus.accepted,
               matchWins: 0,
@@ -512,7 +488,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p1',
               playerName: 'Alice',
-              deviceName: 'Phone',
               joinOrder: 0,
               status: PlayerStatus.accepted,
               matchWins: 2,
@@ -520,7 +495,6 @@ void main() {
             DraftPlayer(
               deviceId: 'p2',
               playerName: 'Bob',
-              deviceName: 'Phone',
               joinOrder: 1,
               status: PlayerStatus.accepted,
               matchWins: 2,
@@ -604,16 +578,51 @@ void main() {
     final player = DraftPlayer(
       deviceId: 'd1',
       playerName: 'Alice',
-      deviceName: 'Phone',
       joinOrder: 0,
       status: PlayerStatus.accepted,
     );
 
     test('matchPoints = 3×wins + 1×draws', () {
-      expect(DraftPlayer(deviceId: 'p', playerName: 'n', deviceName: 'd', joinOrder: 0, matchWins: 2, matchDraws: 1).matchPoints, 7);
-      expect(DraftPlayer(deviceId: 'p', playerName: 'n', deviceName: 'd', joinOrder: 0, matchWins: 0, matchDraws: 3).matchPoints, 3);
-      expect(DraftPlayer(deviceId: 'p', playerName: 'n', deviceName: 'd', joinOrder: 0, matchWins: 0, matchDraws: 0).matchPoints, 0);
-      expect(DraftPlayer(deviceId: 'p', playerName: 'n', deviceName: 'd', joinOrder: 0, matchWins: 5, matchDraws: 0).matchPoints, 15);
+      expect(
+        DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          joinOrder: 0,
+          matchWins: 2,
+          matchDraws: 1,
+        ).matchPoints,
+        7,
+      );
+      expect(
+        DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          joinOrder: 0,
+          matchWins: 0,
+          matchDraws: 3,
+        ).matchPoints,
+        3,
+      );
+      expect(
+        DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          joinOrder: 0,
+          matchWins: 0,
+          matchDraws: 0,
+        ).matchPoints,
+        0,
+      );
+      expect(
+        DraftPlayer(
+          deviceId: 'p',
+          playerName: 'n',
+          joinOrder: 0,
+          matchWins: 5,
+          matchDraws: 0,
+        ).matchPoints,
+        15,
+      );
     });
 
     test('gameWinPercentage returns 0.0 when 0 games played', () {
@@ -624,7 +633,6 @@ void main() {
       final p = DraftPlayer(
         deviceId: 'p',
         playerName: 'n',
-        deviceName: 'd',
         joinOrder: 0,
         matchWins: 2,
         matchLosses: 1,
@@ -669,12 +677,7 @@ void main() {
       });
 
       test('matchWins/matchLosses/matchDraws default to 0 when null', () {
-        final json = {
-          'd': 'p',
-          'n': 'X',
-          'j': 0,
-          's': 'accepted',
-        };
+        final json = {'d': 'p', 'n': 'X', 'j': 0, 's': 'accepted'};
         final decoded = DraftPlayer.fromJson(json);
         expect(decoded.matchWins, 0);
         expect(decoded.matchLosses, 0);
@@ -692,7 +695,6 @@ void main() {
         final p = DraftPlayer(
           deviceId: 'd1',
           playerName: 'Alice',
-          deviceName: 'Phone',
           joinOrder: 0,
           decklistMainboard: ['id-1', 'id-2'],
           decklistSideboard: ['id-3'],
@@ -716,7 +718,6 @@ void main() {
         final p = DraftPlayer(
           deviceId: 'p',
           playerName: 'n',
-          deviceName: 'd',
           joinOrder: 0,
           decklistMainboard: ['abc'],
         );
@@ -729,7 +730,6 @@ void main() {
         final p = DraftPlayer(
           deviceId: 'p',
           playerName: 'n',
-          deviceName: 'd',
           joinOrder: 0,
           decklistMainboard: ['abc'],
         );
@@ -746,7 +746,6 @@ void main() {
         final p = DraftPlayer(
           deviceId: 'p',
           playerName: 'n',
-          deviceName: 'd',
           joinOrder: 0,
           decklistMainboard: ['abc'],
         );
@@ -758,7 +757,6 @@ void main() {
         final p = DraftPlayer(
           deviceId: 'p',
           playerName: 'n',
-          deviceName: 'd',
           joinOrder: 0,
           decklistSideboard: ['abc'],
         );
@@ -770,11 +768,7 @@ void main() {
 
   group('DraftMatch', () {
     test('isBye → true when playerBId is null', () {
-      final match = DraftMatch(
-        matchId: 'm1',
-        roundNumber: 1,
-        playerAId: 'p1',
-      );
+      final match = DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'p1');
       expect(match.isBye, isTrue);
     });
 
@@ -936,10 +930,7 @@ void main() {
       });
 
       test('null roundStartTime survives', () {
-        final round = DraftRound(
-          roundNumber: 1,
-          matches: [],
-        );
+        final round = DraftRound(roundNumber: 1, matches: []);
         final json = round.toJson();
         final decoded = DraftRound.fromJson(json);
         expect(decoded.roundStartTime, isNull);
@@ -956,15 +947,15 @@ void main() {
         final decoded = DraftRound.fromJson(json);
         expect(decoded.roundStartTime, isNotNull);
         // DateTime precision: ISO string truncates microseconds
-        final diff = decoded.roundStartTime!.difference(now).inMilliseconds.abs();
+        final diff = decoded.roundStartTime!
+            .difference(now)
+            .inMilliseconds
+            .abs();
         expect(diff, lessThan(1000));
       });
 
       test('complete defaults to false when missing', () {
-        final json = {
-          'r': 1,
-          'm': <Map<String, dynamic>>[],
-        };
+        final json = {'r': 1, 'm': <Map<String, dynamic>>[]};
         final decoded = DraftRound.fromJson(json);
         expect(decoded.complete, isFalse);
       });
@@ -974,19 +965,14 @@ void main() {
   group('enums', () {
     group('DraftPhase', () {
       test('name returns correct string for each value', () {
-        expect(DraftPhase.advertising.name, 'advertising');
         expect(DraftPhase.lobby.name, 'lobby');
-        expect(DraftPhase.seatingsAssigned.name, 'seatings_assigned');
         expect(DraftPhase.inProgress.name, 'in_progress');
         expect(DraftPhase.complete.name, 'complete');
         expect(DraftPhase.cancelled.name, 'cancelled');
       });
 
       test('fromString returns correct value for known strings', () {
-        expect(DraftPhase.fromString('advertising'), DraftPhase.advertising);
         expect(DraftPhase.fromString('lobby'), DraftPhase.lobby);
-        expect(DraftPhase.fromString('seatings_assigned'),
-            DraftPhase.seatingsAssigned);
         expect(DraftPhase.fromString('in_progress'), DraftPhase.inProgress);
         expect(DraftPhase.fromString('complete'), DraftPhase.complete);
         expect(DraftPhase.fromString('cancelled'), DraftPhase.cancelled);

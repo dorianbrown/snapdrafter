@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 import 'ble_chunked.dart';
 import 'draft_ble_service.dart';
-import 'draft_ble_leader.dart';
 import 'draft_state.dart';
 import 'draft_message.dart';
 import 'ble_platform.dart';
@@ -73,33 +72,30 @@ class DraftBleFollower extends DraftBleService {
 
       final draftName = name ?? device.deviceId;
 
-      final sessionId = _extractSessionId(draftName);
-
-      ctrl.add(DiscoveredDraft(
-        deviceId: device.deviceId,
-        draftName: draftName,
-        sessionId: sessionId,
-        playerCount: 0,
-        seatCount: 0,
-        rssi: device.rssi ?? 0,
-      ));
-    });
-
-    _ble.startScan(
-      scanFilter: ScanFilter(
-        withServices: [DraftBleService.serviceUuid],
-      ),
-      platformConfig: PlatformConfig(
-        android: AndroidOptions(
-          scanMode: AndroidScanMode.lowLatency,
-          callbackType: [AndroidScanCallbackType.allMatches],
-          requestLocationPermission: false,
+      ctrl.add(
+        DiscoveredDraft(
+          deviceId: device.deviceId,
+          draftName: draftName,
+          rssi: device.rssi ?? 0,
         ),
-      ),
-    ).catchError((error) {
-      _log('[BLE_SCAN] startScan failed: $error');
-      ctrl.addError(error);
+      );
     });
+
+    _ble
+        .startScan(
+          scanFilter: ScanFilter(withServices: [DraftBleService.serviceUuid]),
+          platformConfig: PlatformConfig(
+            android: AndroidOptions(
+              scanMode: AndroidScanMode.lowLatency,
+              callbackType: [AndroidScanCallbackType.allMatches],
+              requestLocationPermission: false,
+            ),
+          ),
+        )
+        .catchError((error) {
+          _log('[BLE_SCAN] startScan failed: $error');
+          ctrl.addError(error);
+        });
 
     return ctrl.stream;
   }
@@ -139,21 +135,20 @@ class DraftBleFollower extends DraftBleService {
   Future<DraftState> _performConnection(String deviceId) async {
     // Listen for state notifications (may arrive in chunks).
     final stateCompleter = Completer<DraftState>();
-    _stateValueSub = _ble.characteristicValueStream(
-      deviceId,
-      DraftBleService.stateCharUuid,
-    ).listen((bytes) {
-      if (BleChunkedStream.isChunked(bytes)) {
-        _streamChunker.feed(bytes);
-        while (_streamChunker.hasCompleteMessage) {
-          final assembled = _streamChunker.data;
-          if (assembled == null) continue;
-          _processState(assembled, stateCompleter);
-        }
-      } else {
-        _processState(bytes, stateCompleter);
-      }
-    });
+    _stateValueSub = _ble
+        .characteristicValueStream(deviceId, DraftBleService.stateCharUuid)
+        .listen((bytes) {
+          if (BleChunkedStream.isChunked(bytes)) {
+            _streamChunker.feed(bytes);
+            while (_streamChunker.hasCompleteMessage) {
+              final assembled = _streamChunker.data;
+              if (assembled == null) continue;
+              _processState(assembled, stateCompleter);
+            }
+          } else {
+            _processState(bytes, stateCompleter);
+          }
+        });
 
     // Subscribe to connection state before connecting so we catch
     // the full lifecycle including connect failures.
@@ -163,9 +158,10 @@ class DraftBleFollower extends DraftBleService {
     });
 
     try {
-      return await _doConnect(deviceId, stateCompleter).timeout(
-        const Duration(seconds: 15),
-      );
+      return await _doConnect(
+        deviceId,
+        stateCompleter,
+      ).timeout(const Duration(seconds: 15));
     } catch (e) {
       // Tear down the connection on any mid-pipeline failure.
       try {
@@ -197,7 +193,8 @@ class DraftBleFollower extends DraftBleService {
 
     final state = await stateCompleter.future.timeout(
       const Duration(seconds: 5),
-      onTimeout: () => throw Exception('No state notification received from leader'),
+      onTimeout: () =>
+          throw Exception('No state notification received from leader'),
     );
     return state;
   }
@@ -211,7 +208,9 @@ class DraftBleFollower extends DraftBleService {
       return;
     }
     if (!stateCompleter.isCompleted) {
-      _log('[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}');
+      _log(
+        '[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}',
+      );
       stateCompleter.complete(newState);
     }
     onStatePush?.call(newState);
@@ -234,7 +233,9 @@ class DraftBleFollower extends DraftBleService {
     }
     final json = jsonEncode(cmd.toJson());
     final bytes = Uint8List.fromList(utf8.encode(json));
-    _log('[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $_leaderDeviceId (${json.length} chars)');
+    _log(
+      '[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $_leaderDeviceId (${json.length} chars)',
+    );
     if (bytes.length <= _commandChunker.maxRawPayload) {
       await _ble.write(
         _leaderDeviceId!,
@@ -289,17 +290,17 @@ class DraftBleFollower extends DraftBleService {
     _stateValueSub = _ble
         .characteristicValueStream(deviceId, DraftBleService.stateCharUuid)
         .listen((bytes) {
-      if (BleChunkedStream.isChunked(bytes)) {
-        _streamChunker.feed(bytes);
-        while (_streamChunker.hasCompleteMessage) {
-          final assembled = _streamChunker.data;
-          if (assembled == null) continue;
-          _processState(assembled, completer);
-        }
-      } else {
-        _processState(bytes, completer);
-      }
-    });
+          if (BleChunkedStream.isChunked(bytes)) {
+            _streamChunker.feed(bytes);
+            while (_streamChunker.hasCompleteMessage) {
+              final assembled = _streamChunker.data;
+              if (assembled == null) continue;
+              _processState(assembled, completer);
+            }
+          } else {
+            _processState(bytes, completer);
+          }
+        });
 
     try {
       await _ble.subscribeNotifications(
@@ -319,15 +320,6 @@ class DraftBleFollower extends DraftBleService {
       _log('[BLE_FOLLOWER] resubscribe FAILED: $e');
       return null;
     }
-  }
-
-  /// Derives a short session ID from the draft name by hashing it.
-  String _extractSessionId(String name) {
-    int hash = 0;
-    for (var i = 0; i < name.length; i++) {
-      hash = (hash * 31 + name.codeUnitAt(i)) & 0xFFFFFFFF;
-    }
-    return hash.toRadixString(16).padLeft(8, '0');
   }
 
   // -------------------------------------------------------------------------

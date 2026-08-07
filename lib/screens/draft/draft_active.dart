@@ -51,7 +51,8 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
 
   void _syncTickTimer() {
     final notifier = context.read<DraftSessionNotifier>();
-    final inProgress = notifier.state != null &&
+    final inProgress =
+        notifier.state != null &&
         notifier.state!.session.phase == DraftPhase.inProgress;
 
     if (inProgress && _tickTimer == null) {
@@ -89,8 +90,10 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text(isLeader ? 'Cancel Draft' : 'Drop',
-                style: const TextStyle(color: Colors.red)),
+            child: Text(
+              isLeader ? 'Cancel Draft' : 'Drop',
+              style: const TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -109,8 +112,9 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
 
   int _remainingSeconds(DraftRound? round, DraftSession session) {
     if (round == null || round.roundStartTime == null) return 0;
-    final endTime =
-        round.roundStartTime!.add(Duration(seconds: session.roundDurationSeconds));
+    final endTime = round.roundStartTime!.add(
+      Duration(seconds: session.roundDurationSeconds),
+    );
     final remaining = endTime.difference(DateTime.now()).inSeconds;
     return remaining < 0 ? 0 : remaining;
   }
@@ -123,8 +127,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
     final currentRound = state.rounds.last;
     if (currentRound.complete) return;
 
-    final remaining =
-        _remainingSeconds(currentRound, state.session);
+    final remaining = _remainingSeconds(currentRound, state.session);
     if (remaining == 0 &&
         _timeElapsedNotifiedRound != currentRound.roundNumber) {
       _timeElapsedNotifiedRound = currentRound.roundNumber;
@@ -217,8 +220,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
       );
     }
 
-    final currentRound =
-        state.rounds.isNotEmpty ? state.rounds.last : null;
+    final currentRound = state.rounds.isNotEmpty ? state.rounds.last : null;
     final roundNum = currentRound?.roundNumber ?? 0;
     final totalRounds = state.session.totalRounds;
     final remaining = _remainingSeconds(currentRound, state.session);
@@ -257,17 +259,23 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
               icon: const Icon(Icons.leaderboard),
               tooltip: 'Current Standings',
               onPressed: () => showStandingsSheet(
-                  context: context,
-                  state: state,
-                  myDeviceId: notifier.myDeviceId,
-                ),
+                context: context,
+                state: state,
+                myDeviceId: notifier.myDeviceId,
+              ),
             ),
           ],
         ),
         body: Column(
           children: [
             if (notifier.isReconnecting) const ReconnectingCard(),
-            _buildRoundHeader(roundNum, totalRounds, minutes, seconds, isExpired),
+            _buildRoundHeader(
+              roundNum,
+              totalRounds,
+              minutes,
+              seconds,
+              isExpired,
+            ),
             const Divider(height: 1),
             Expanded(
               child: notifier.isLeader
@@ -281,15 +289,21 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
     );
   }
 
-  Widget _buildFab(DraftSessionNotifier notifier, DraftState state, DraftRound? currentRound) {
+  Widget _buildFab(
+    DraftSessionNotifier notifier,
+    DraftState state,
+    DraftRound? currentRound,
+  ) {
     if (notifier.isLeader && currentRound != null && currentRound.complete) {
       final isLastRound = state.rounds.length >= state.session.totalRounds;
       return FloatingActionButton.extended(
         onPressed: () => notifier.advanceRound(),
         icon: const Icon(Icons.arrow_forward),
-        label: Text(isLastRound
-            ? 'Finish Draft'
-            : 'Advance to Round ${state.rounds.length + 1}'),
+        label: Text(
+          isLastRound
+              ? 'Finish Draft'
+              : 'Advance to Round ${state.rounds.length + 1}',
+        ),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
       );
@@ -329,19 +343,28 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
     );
   }
 
-  Widget _buildRoundHeader(int roundNum, int totalRounds, String minutes,
-      String seconds, bool isExpired) {
+  Widget _buildRoundHeader(
+    int roundNum,
+    int totalRounds,
+    String minutes,
+    String seconds,
+    bool isExpired,
+  ) {
     return Container(
-      color: isExpired ? Colors.red.shade800 : Theme.of(context).colorScheme.surfaceContainerHighest,
+      color: isExpired
+          ? Colors.red.shade800
+          : Theme.of(context).colorScheme.surfaceContainerHighest,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
-          Text('Round $roundNum / $totalRounds',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: isExpired ? Colors.white : null,
-              )),
+          Text(
+            'Round $roundNum / $totalRounds',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isExpired ? Colors.white : null,
+            ),
+          ),
           const Spacer(),
           Text(
             '$minutes:$seconds',
@@ -354,9 +377,13 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
           ),
           if (isExpired) ...[
             const SizedBox(width: 8),
-            Text('Time\'s up',
-                style: TextStyle(
-                    fontSize: 11, color: Colors.white.withAlpha(200))),
+            Text(
+              'Time\'s up',
+              style: TextStyle(
+                fontSize: 11,
+                color: Colors.white.withAlpha(200),
+              ),
+            ),
           ],
         ],
       ),
@@ -364,15 +391,23 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
   }
 
   Widget _buildLeaderView(
-      DraftState state, DraftSessionNotifier notifier, DraftRound? currentRound) {
+    DraftState state,
+    DraftSessionNotifier notifier,
+    DraftRound? currentRound,
+  ) {
     if (currentRound == null) {
       return const Center(child: Text('No round data'));
     }
 
-    final myMatch = state.getMyMatch(notifier.myDeviceId, currentRound.roundNumber);
+    final myMatch = state.getMyMatch(
+      notifier.myDeviceId,
+      currentRound.roundNumber,
+    );
     final hasMyMatch = myMatch != null && !myMatch.isBye;
     final otherMatches = myMatch != null
-        ? currentRound.matches.where((m) => m.matchId != myMatch.matchId).toList()
+        ? currentRound.matches
+              .where((m) => m.matchId != myMatch.matchId)
+              .toList()
         : currentRound.matches.toList();
 
     return SingleChildScrollView(
@@ -381,7 +416,12 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (hasMyMatch) ...[
-            _buildMyMatchSection(state, notifier, myMatch, currentRound.roundNumber),
+            _buildMyMatchSection(
+              state,
+              notifier,
+              myMatch,
+              currentRound.roundNumber,
+            ),
             const SizedBox(height: 16),
           ],
           ...otherMatches.map((m) => _buildMatchTile(state, m)),
@@ -392,7 +432,9 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
 
   Widget _buildMatchTile(DraftState state, DraftMatch match) {
     final playerA = state.getPlayer(match.playerAId);
-    final playerB = match.playerBId != null ? state.getPlayer(match.playerBId!) : null;
+    final playerB = match.playerBId != null
+        ? state.getPlayer(match.playerBId!)
+        : null;
     final statusColor = _matchStatusColor(match.status);
 
     return Card(
@@ -407,11 +449,18 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
                 children: [
                   const Icon(Icons.person, size: 18),
                   const SizedBox(width: 8),
-                  Text('${playerA?.playerName ?? match.playerAId} — Bye',
-                      style: const TextStyle(fontWeight: FontWeight.w500)),
-                  if (playerA != null && playerA.deviceId == state.leaderDeviceId) ...[
+                  Text(
+                    '${playerA?.playerName ?? match.playerAId} — Bye',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  if (playerA != null &&
+                      playerA.deviceId == state.leaderDeviceId) ...[
                     const SizedBox(width: 4),
-                    const Icon(Icons.workspace_premium, size: 14, color: Colors.deepPurple),
+                    const Icon(
+                      Icons.workspace_premium,
+                      size: 14,
+                      color: Colors.deepPurple,
+                    ),
                   ],
                 ],
               )
@@ -423,20 +472,30 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
                       children: [
                         Flexible(
                           child: Text(
-                              playerA?.playerName ?? match.playerAId,
-                              style: const TextStyle(fontWeight: FontWeight.w500)),
+                            playerA?.playerName ?? match.playerAId,
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
                         ),
-                        if (playerA != null && playerA.deviceId == state.leaderDeviceId) ...[
+                        if (playerA != null &&
+                            playerA.deviceId == state.leaderDeviceId) ...[
                           const SizedBox(width: 4),
-                          const Icon(Icons.workspace_premium, size: 14, color: Colors.deepPurple),
+                          const Icon(
+                            Icons.workspace_premium,
+                            size: 14,
+                            color: Colors.deepPurple,
+                          ),
                         ],
                       ],
                     ),
                   ),
                   if (match.aWins != null)
-                    Text('${match.aWins}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      '${match.aWins}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                 ],
               ),
               const SizedBox(height: 4),
@@ -447,20 +506,30 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
                       children: [
                         Flexible(
                           child: Text(
-                              playerB?.playerName ?? match.playerBId ?? '?',
-                              style: const TextStyle(fontWeight: FontWeight.w500)),
+                            playerB?.playerName ?? match.playerBId ?? '?',
+                            style: const TextStyle(fontWeight: FontWeight.w500),
+                          ),
                         ),
-                        if (playerB != null && playerB.deviceId == state.leaderDeviceId) ...[
+                        if (playerB != null &&
+                            playerB.deviceId == state.leaderDeviceId) ...[
                           const SizedBox(width: 4),
-                          const Icon(Icons.workspace_premium, size: 14, color: Colors.deepPurple),
+                          const Icon(
+                            Icons.workspace_premium,
+                            size: 14,
+                            color: Colors.deepPurple,
+                          ),
                         ],
                       ],
                     ),
                   ),
                   if (match.bWins != null)
-                    Text('${match.bWins}',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16)),
+                    Text(
+                      '${match.bWins}',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -483,7 +552,10 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
   }
 
   Widget _buildFollowerView(
-      DraftState state, DraftSessionNotifier notifier, DraftMatch? myMatch) {
+    DraftState state,
+    DraftSessionNotifier notifier,
+    DraftMatch? myMatch,
+  ) {
     if (myMatch == null) {
       return const Center(child: Text('No match found for you this round'));
     }
@@ -495,11 +567,15 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
           children: [
             const Icon(Icons.celebration, size: 48, color: Colors.amber),
             const SizedBox(height: 16),
-            const Text('You have a bye this round!',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const Text(
+              'You have a bye this round!',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
-            const Text('You automatically get a win.',
-                style: TextStyle(color: Colors.grey)),
+            const Text(
+              'You automatically get a win.',
+              style: TextStyle(color: Colors.grey),
+            ),
           ],
         ),
       );
@@ -510,8 +586,11 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
   }
 
   Widget _buildMyMatchSection(
-      DraftState state, DraftSessionNotifier notifier,
-      DraftMatch myMatch, int roundNumber) {
+    DraftState state,
+    DraftSessionNotifier notifier,
+    DraftMatch myMatch,
+    int roundNumber,
+  ) {
     final opponentId = myMatch.playerAId == notifier.myDeviceId
         ? myMatch.playerBId
         : myMatch.playerAId;
@@ -529,18 +608,24 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
               padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  const Text('Your Opponent',
-                      style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  const Text(
+                    'Your Opponent',
+                    style: TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
                   const SizedBox(height: 4),
                   Text(
                     opponent?.playerName ?? opponentId ?? 'Unknown',
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   if (opponent != null) ...[
                     const SizedBox(height: 4),
                     Text(
-                        'Record: ${opponent.matchWins}-${opponent.matchLosses}-${opponent.matchDraws}',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      'Record: ${opponent.matchWins}-${opponent.matchLosses}-${opponent.matchDraws}',
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                   ],
                 ],
               ),
@@ -570,13 +655,19 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Match Status',
-                      style: Theme.of(context).textTheme.titleSmall),
+                  Text(
+                    'Match Status',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
                   const Divider(),
-                  _infoRow('Your score',
-                      myMatch.aWins != null ? '${myMatch.aWins} wins' : '—'),
-                  _infoRow('Opponent score',
-                      myMatch.bWins != null ? '${myMatch.bWins} wins' : '—'),
+                  _infoRow(
+                    'Your score',
+                    myMatch.aWins != null ? '${myMatch.aWins} wins' : '—',
+                  ),
+                  _infoRow(
+                    'Opponent score',
+                    myMatch.bWins != null ? '${myMatch.bWins} wins' : '—',
+                  ),
                   _infoRow('Status', _matchStatusLabel(myMatch.status)),
                 ],
               ),
@@ -588,7 +679,10 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
   }
 
   Widget _buildConfirmationCard(
-      DraftSessionNotifier notifier, int roundNumber, DraftMatch match) {
+    DraftSessionNotifier notifier,
+    int roundNumber,
+    DraftMatch match,
+  ) {
     final isPlayerA = match.playerAId == notifier.myDeviceId;
     final myWins = (isPlayerA ? match.aWins : match.bWins) ?? 0;
     final oppWins = (isPlayerA ? match.bWins : match.aWins) ?? 0;
@@ -600,12 +694,15 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Opponent submitted results',
-                style: TextStyle(fontWeight: FontWeight.w600)),
+            const Text(
+              'Opponent submitted results',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Text(
-                'You: $myWins wins — Opponent: $oppWins wins',
-                style: const TextStyle(fontSize: 14)),
+              'You: $myWins wins — Opponent: $oppWins wins',
+              style: const TextStyle(fontSize: 14),
+            ),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -619,7 +716,8 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
                             roundNumber: roundNumber,
                             matchId: match.matchId,
                             initialMyWins: myWins,
-                            initialOpponentWins: oppWins),
+                            initialOpponentWins: oppWins,
+                          ),
                     icon: const Icon(Icons.edit, size: 16),
                     label: const Text('Correct'),
                   ),
@@ -658,12 +756,12 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
         children: [
           SizedBox(
             width: 110,
-            child: Text('$label:',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 12)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );

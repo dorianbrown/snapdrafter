@@ -29,7 +29,6 @@ DraftSessionNotifier _createLeader({
   final players = <DraftPlayer>[
     DraftPlayer(
       deviceId: 'leader-device',
-      deviceName: 'Leader',
       playerName: 'Host',
       status: PlayerStatus.accepted,
       joinOrder: 0,
@@ -37,13 +36,14 @@ DraftSessionNotifier _createLeader({
   ];
   for (var i = 0; i < acceptedPlayers - 1 && i < 4; i++) {
     final id = 'player-$i';
-    players.add(DraftPlayer(
-      deviceId: id,
-      deviceName: 'Device $id',
-      playerName: 'Player ${i + 1}',
-      status: PlayerStatus.accepted,
-      joinOrder: i + 1,
-    ));
+    players.add(
+      DraftPlayer(
+        deviceId: id,
+        playerName: 'Player ${i + 1}',
+        status: PlayerStatus.accepted,
+        joinOrder: i + 1,
+      ),
+    );
   }
 
   fakeLeader.connectedDevices.add('dummy');
@@ -139,17 +139,16 @@ void main() {
     });
 
     testWidgets('shows waiting message when no players', (tester) async {
-      final empty = _createLeader(
-        fakeLeader: fakeLeader,
-        acceptedPlayers: 1,
-      );
+      final empty = _createLeader(fakeLeader: fakeLeader, acceptedPlayers: 1);
       empty.state = empty.state!.copyWith(players: []);
 
       await tester.pumpWidget(_wrap(empty));
       expect(find.text('Waiting for players to join...'), findsOneWidget);
     });
 
-    testWidgets('FAB has correct background color when enabled', (tester) async {
+    testWidgets('FAB has correct background color when enabled', (
+      tester,
+    ) async {
       final full = _createLeader(
         fakeLeader: fakeLeader,
         seatCount: 4,

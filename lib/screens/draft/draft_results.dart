@@ -48,8 +48,9 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     final session = state.session;
     final myDeviceId = notifier.myDeviceId;
     final hasSubmitted = notifier.hasSubmittedDecklist(myDeviceId);
-    final submittedPlayers =
-        state.players.where((p) => p.decklistMainboard != null).toList();
+    final submittedPlayers = state.players
+        .where((p) => p.decklistMainboard != null)
+        .toList();
     final unsavedPlayers = submittedPlayers
         .where((p) => !_savedPlayerIds.contains(p.deviceId))
         .toList();
@@ -77,8 +78,11 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        Icon(Icons.emoji_events,
-                            size: 24, color: Colors.amber.shade700),
+                        Icon(
+                          Icons.emoji_events,
+                          size: 24,
+                          color: Colors.amber.shade700,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           standings.isNotEmpty
@@ -96,19 +100,25 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                       padding: const EdgeInsets.all(10),
                       child: Row(
                         children: [
-                          const Icon(Icons.check_circle,
-                              color: Colors.green, size: 20),
+                          const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                            size: 20,
+                          ),
                           const SizedBox(width: 8),
-                          Text('Your decklist has been submitted',
-                              style:
-                                  Theme.of(context).textTheme.bodyMedium),
+                          Text(
+                            'Your decklist has been submitted',
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
                         ],
                       ),
                     ),
                   ),
                 const SizedBox(height: 20),
-                Text('Final Standings',
-                    style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                  'Final Standings',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
                 const SizedBox(height: 10),
                 ...standings.asMap().entries.map((entry) {
                   final rank = entry.key + 1;
@@ -124,7 +134,8 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                           _saveAllDecklists(unsavedPlayers, session.name),
                       icon: const Icon(Icons.save_alt),
                       label: Text(
-                          'Save All Decklists (${unsavedPlayers.length})'),
+                        'Save All Decklists (${unsavedPlayers.length})',
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -137,14 +148,14 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 const SizedBox(height: 16),
               ],
             ),
-        floatingActionButton: hasSubmitted || notifier.isReconnecting
-            ? null
-            : FloatingActionButton.extended(
-                onPressed: _scanDeck,
-                label: const Text('Scan My Deck'),
-                icon: const Icon(Icons.camera_alt),
-              ),
-      );
+      floatingActionButton: hasSubmitted || notifier.isReconnecting
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _scanDeck,
+              label: const Text('Scan My Deck'),
+              icon: const Icon(Icons.camera_alt),
+            ),
+    );
   }
 
   void _scanDeck() async {
@@ -165,14 +176,13 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
             cubecobraId: session.cubeId,
           ),
           onDeckSaved: (deck) async {
-            await _deckRepository.addTagToDeck(
-              deck.id,
-              session.name,
-            );
-            _capturedMainboardIds =
-                deck.cards.map((c) => c.scryfallId).toList();
-            _capturedSideboardIds =
-                deck.sideboard.map((c) => c.scryfallId).toList();
+            await _deckRepository.addTagToDeck(deck.id, session.name);
+            _capturedMainboardIds = deck.cards
+                .map((c) => c.scryfallId)
+                .toList();
+            _capturedSideboardIds = deck.sideboard
+                .map((c) => c.scryfallId)
+                .toList();
             final submitted = await notifier.submitDecklist(
               mainboardScryfallIds: _capturedMainboardIds!,
               sideboardScryfallIds: _capturedSideboardIds ?? [],
@@ -195,11 +205,11 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
   Future<void> _viewDecklist(DraftPlayer player) async {
     if (player.decklistMainboard == null) return;
 
-    final mainboard = await _cardRepository
-        .getCardsByScryfallIds(player.decklistMainboard!);
+    final mainboard = await _cardRepository.getCardsByScryfallIds(
+      player.decklistMainboard!,
+    );
     final sideboard = player.decklistSideboard != null
-        ? await _cardRepository
-            .getCardsByScryfallIds(player.decklistSideboard!)
+        ? await _cardRepository.getCardsByScryfallIds(player.decklistSideboard!)
         : <mtg.Card>[];
 
     if (!mounted) return;
@@ -248,11 +258,13 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
 
     for (final player in players) {
       if (player.decklistMainboard == null) continue;
-      final mainboard = await _cardRepository
-          .getCardsByScryfallIds(player.decklistMainboard!);
+      final mainboard = await _cardRepository.getCardsByScryfallIds(
+        player.decklistMainboard!,
+      );
       final sideboard = player.decklistSideboard != null
-          ? await _cardRepository
-              .getCardsByScryfallIds(player.decklistSideboard!)
+          ? await _cardRepository.getCardsByScryfallIds(
+              player.decklistSideboard!,
+            )
           : <mtg.Card>[];
 
       final upsert = DeckUpsert(
@@ -278,7 +290,10 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
   }
 
   Widget _buildStandingRow(
-      int rank, DraftPlayer player, DraftSessionNotifier notifier) {
+    int rank,
+    DraftPlayer player,
+    DraftSessionNotifier notifier,
+  ) {
     final isMe = player.deviceId == notifier.myDeviceId;
     final hasDecklist = player.decklistMainboard != null;
 
@@ -288,9 +303,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     if (rank == 3) rankColor = Colors.brown.shade300;
 
     return Card(
-      color: isMe
-          ? Theme.of(context).colorScheme.primaryContainer
-          : null,
+      color: isMe ? Theme.of(context).colorScheme.primaryContainer : null,
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: rankColor ?? Colors.grey.shade200,
@@ -311,15 +324,15 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                 player.playerName,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontWeight: rank == 1
-                      ? FontWeight.bold
-                      : FontWeight.normal,
+                  fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
             ),
             if (isMe)
-              const Text(' (you)',
-                  style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text(
+                ' (you)',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
           ],
         ),
         subtitle: Text(

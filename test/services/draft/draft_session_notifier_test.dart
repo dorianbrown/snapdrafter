@@ -93,12 +93,13 @@ class FakeDraftBleFollower extends DraftBleService {
   @override
   Future<DraftState> connectToLeader(String deviceId) async {
     connectedDeviceId = deviceId;
-    return connectResult ?? DraftState.create(
-      name: 'Fake Draft',
-      leaderDeviceId: deviceId,
-      leaderPlayerName: 'Host',
-      seatCount: 4,
-    );
+    return connectResult ??
+        DraftState.create(
+          name: 'Fake Draft',
+          leaderDeviceId: deviceId,
+          leaderPlayerName: 'Host',
+          seatCount: 4,
+        );
   }
 
   @override
@@ -108,12 +109,13 @@ class FakeDraftBleFollower extends DraftBleService {
     if (reconnectAttempts <= reconnectFailCount) {
       throw Exception('Simulated reconnect failure');
     }
-    return reconnectResult ?? DraftState.create(
-      name: 'Fake Draft',
-      leaderDeviceId: deviceId,
-      leaderPlayerName: 'Host',
-      seatCount: 4,
-    );
+    return reconnectResult ??
+        DraftState.create(
+          name: 'Fake Draft',
+          leaderDeviceId: deviceId,
+          leaderPlayerName: 'Host',
+          seatCount: 4,
+        );
   }
 
   @override
@@ -232,10 +234,18 @@ void main() {
         bleLeaderFactory: () => callCount++ == 0 ? firstFake : secondFake,
       );
 
-      await notifier.createAndHost(name: 'First', seatCount: 4, playerName: 'H');
+      await notifier.createAndHost(
+        name: 'First',
+        seatCount: 4,
+        playerName: 'H',
+      );
       expect(firstFake.stopCalled, isFalse);
 
-      await notifier.createAndHost(name: 'Second', seatCount: 4, playerName: 'H');
+      await notifier.createAndHost(
+        name: 'Second',
+        seatCount: 4,
+        playerName: 'H',
+      );
       expect(firstFake.stopCalled, isTrue);
       expect(secondFake.startedState!.session.name, 'Second');
     });
@@ -247,13 +257,14 @@ void main() {
         playerName: 'Host',
       );
       // Add a second accepted player for pairings
-      notifier.state!.players.add(DraftPlayer(
-        deviceId: 'follower-1',
-        playerName: 'Alice',
-        deviceName: 'Phone',
-        joinOrder: 1,
-        status: PlayerStatus.accepted,
-      ));
+      notifier.state!.players.add(
+        DraftPlayer(
+          deviceId: 'follower-1',
+          playerName: 'Alice',
+          joinOrder: 1,
+          status: PlayerStatus.accepted,
+        ),
+      );
       final beforeLen = fakeLeader.pushedStates.length;
 
       await notifier.closeLobby();
@@ -277,16 +288,50 @@ void main() {
       notifier.state = state.copyWith(
         session: state.session.copyWith(phase: DraftPhase.inProgress),
         players: [
-          DraftPlayer(deviceId: 'my-device', playerName: 'H', deviceName: 'd', joinOrder: 0, status: PlayerStatus.accepted),
-          DraftPlayer(deviceId: 'f1', playerName: 'A', deviceName: 'd', joinOrder: 1, status: PlayerStatus.accepted),
-          DraftPlayer(deviceId: 'f2', playerName: 'B', deviceName: 'd', joinOrder: 2, status: PlayerStatus.accepted),
-          DraftPlayer(deviceId: 'f3', playerName: 'C', deviceName: 'd', joinOrder: 3, status: PlayerStatus.accepted),
+          DraftPlayer(
+            deviceId: 'my-device',
+            playerName: 'H',
+            joinOrder: 0,
+            status: PlayerStatus.accepted,
+          ),
+          DraftPlayer(
+            deviceId: 'f1',
+            playerName: 'A',
+            joinOrder: 1,
+            status: PlayerStatus.accepted,
+          ),
+          DraftPlayer(
+            deviceId: 'f2',
+            playerName: 'B',
+            joinOrder: 2,
+            status: PlayerStatus.accepted,
+          ),
+          DraftPlayer(
+            deviceId: 'f3',
+            playerName: 'C',
+            joinOrder: 3,
+            status: PlayerStatus.accepted,
+          ),
         ],
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1'),
-            DraftMatch(matchId: 'm2', roundNumber: 1, playerAId: 'f2', playerBId: 'f3'),
-          ], complete: true),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+              ),
+              DraftMatch(
+                matchId: 'm2',
+                roundNumber: 1,
+                playerAId: 'f2',
+                playerBId: 'f3',
+              ),
+            ],
+            complete: true,
+          ),
         ],
       );
 
@@ -302,8 +347,9 @@ void main() {
     test('advanceRound beyond totalRounds sets phase to complete', () async {
       await notifier.createAndHost(name: 'Test', seatCount: 4, playerName: 'H');
       notifier.state = notifier.state!.copyWith(
-        rounds: List.generate(notifier.state!.session.totalRounds, (i) =>
-          DraftRound(roundNumber: i + 1, matches: [], complete: true),
+        rounds: List.generate(
+          notifier.state!.session.totalRounds,
+          (i) => DraftRound(roundNumber: i + 1, matches: [], complete: true),
         ),
       );
 
@@ -330,38 +376,43 @@ void main() {
       fakeLeader = FakeDraftBleLeader();
       fakeLeader.connectedDevices.add('dummy');
       notifier = _createLeaderNotifier(fakeLeader);
-      await notifier.createAndHost(name: 'Test', seatCount: 4, playerName: 'Host');
+      await notifier.createAndHost(
+        name: 'Test',
+        seatCount: 4,
+        playerName: 'Host',
+      );
     });
 
     test('handleJoinRequest adds accepted player', () {
       final beforeLen = fakeLeader.pushStateCallCount;
 
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice',
-        deviceName: 'Pixel 7',
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        JoinRequest(playerName: 'Alice', deviceName: 'Pixel 7'),
+      );
 
       final newState = notifier.state!;
       expect(newState.players.length, 2);
       final player = newState.players.last;
       expect(player.deviceId, 'Pixel 7');
       expect(player.playerName, 'Alice');
-      expect(player.deviceName, 'Pixel 7');
       expect(player.status, PlayerStatus.accepted);
       expect(player.joinOrder, 1);
       expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
     });
 
     test('handleJoinRequest for already-accepted player is idempotent', () {
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice', deviceName: 'Phone',
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
       expect(notifier.state!.players.length, 2);
 
       final beforeLen = fakeLeader.pushStateCallCount;
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice', deviceName: 'Phone',
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
       expect(notifier.state!.players.length, 2);
       expect(fakeLeader.pushStateCallCount, beforeLen);
     });
@@ -371,20 +422,34 @@ void main() {
       notifier.state = state.copyWith(
         players: [
           state.players.first,
-          DraftPlayer(deviceId: 'f1', playerName: 'A', deviceName: 'd', joinOrder: 1, status: PlayerStatus.accepted),
+          DraftPlayer(
+            deviceId: 'f1',
+            playerName: 'A',
+            joinOrder: 1,
+            status: PlayerStatus.accepted,
+          ),
         ],
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1'),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+              ),
+            ],
+          ),
         ],
         session: state.session.copyWith(phase: DraftPhase.inProgress),
       );
 
       final beforeLen = fakeLeader.pushStateCallCount;
-      fakeLeader.onCommandReceived?.call('my-device', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0,
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'my-device',
+        MatchResult(roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0),
+      );
 
       final match = notifier.state!.rounds[0].matches[0];
       expect(match.status, MatchStatus.reported);
@@ -398,19 +463,36 @@ void main() {
       notifier.state = state.copyWith(
         players: [
           state.players.first,
-          DraftPlayer(deviceId: 'f1', playerName: 'A', deviceName: 'd', joinOrder: 1, status: PlayerStatus.accepted),
+          DraftPlayer(
+            deviceId: 'f1',
+            playerName: 'A',
+            joinOrder: 1,
+            status: PlayerStatus.accepted,
+          ),
         ],
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins: 0, status: MatchStatus.reported),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+                aWins: 2,
+                bWins: 0,
+                status: MatchStatus.reported,
+              ),
+            ],
+          ),
         ],
         session: state.session.copyWith(phase: DraftPhase.inProgress),
       );
 
-      fakeLeader.onCommandReceived?.call('f1', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 0, opponentWins: 2,
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'f1',
+        MatchResult(roundNumber: 1, matchId: 'm1', myWins: 0, opponentWins: 2),
+      );
 
       final match = notifier.state!.rounds[0].matches[0];
       expect(match.status, MatchStatus.confirmed);
@@ -427,19 +509,37 @@ void main() {
       notifier.state = state.copyWith(
         players: [
           state.players.first,
-          DraftPlayer(deviceId: 'f1', playerName: 'A', deviceName: 'd', joinOrder: 1, status: PlayerStatus.accepted),
+          DraftPlayer(
+            deviceId: 'f1',
+            playerName: 'A',
+            joinOrder: 1,
+            status: PlayerStatus.accepted,
+          ),
         ],
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', aWins: 2, bWins: 0, status: MatchStatus.reported, reportedByDeviceId: 'my-device'),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+                aWins: 2,
+                bWins: 0,
+                status: MatchStatus.reported,
+                reportedByDeviceId: 'my-device',
+              ),
+            ],
+          ),
         ],
         session: state.session.copyWith(phase: DraftPhase.inProgress),
       );
 
-      fakeLeader.onCommandReceived?.call('f1', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0,
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'f1',
+        MatchResult(roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0),
+      );
 
       final match = notifier.state!.rounds[0].matches[0];
       expect(match.status, MatchStatus.confirmed);
@@ -453,23 +553,33 @@ void main() {
     test('handleMatchResult reporter not in match → ignored', () {
       notifier.state = notifier.state!.copyWith(
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'other1', playerBId: 'other2'),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'other1',
+                playerBId: 'other2',
+              ),
+            ],
+          ),
         ],
       );
 
       final beforeLen = fakeLeader.pushStateCallCount;
-      fakeLeader.onCommandReceived?.call('my-device', MatchResult(
-        roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0,
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'my-device',
+        MatchResult(roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0),
+      );
       expect(fakeLeader.pushStateCallCount, beforeLen);
     });
 
     test('handleDropRequest marks player dropped', () {
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice', deviceName: 'Phone',
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
       expect(notifier.state!.getPlayer('Phone')!.status, PlayerStatus.accepted);
 
       final beforeLen = fakeLeader.pushStateCallCount;
@@ -480,9 +590,10 @@ void main() {
     });
 
     test('removePlayer delegates to handleDropRequest', () async {
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice', deviceName: 'Phone',
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
       expect(notifier.state!.getPlayer('Phone')!.status, PlayerStatus.accepted);
 
       await notifier.removePlayer('Phone');
@@ -500,12 +611,25 @@ void main() {
       notifier.state = state.copyWith(
         players: [
           state.players.first,
-          DraftPlayer(deviceId: 'f1', playerName: 'A', deviceName: 'd', joinOrder: 1, status: PlayerStatus.accepted),
+          DraftPlayer(
+            deviceId: 'f1',
+            playerName: 'A',
+            joinOrder: 1,
+            status: PlayerStatus.accepted,
+          ),
         ],
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1'),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+              ),
+            ],
+          ),
         ],
         session: state.session.copyWith(phase: DraftPhase.inProgress),
       );
@@ -526,38 +650,52 @@ void main() {
       expect(match.bWins, 1);
     });
 
-    test('handleDecklistSubmission updates player decklist and pushes state', () {
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice', deviceName: 'Phone',
-      ));
-      final beforeLen = fakeLeader.pushStateCallCount;
+    test(
+      'handleDecklistSubmission updates player decklist and pushes state',
+      () {
+        fakeLeader.onCommandReceived?.call(
+          'follower-1',
+          JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+        );
+        final beforeLen = fakeLeader.pushStateCallCount;
 
-      fakeLeader.onCommandReceived?.call('follower-1', SubmitDecklist(
-        mainboardScryfallIds: ['id-a', 'id-b'],
-        sideboardScryfallIds: ['id-side'],
-      ));
+        fakeLeader.onCommandReceived?.call(
+          'follower-1',
+          SubmitDecklist(
+            mainboardScryfallIds: ['id-a', 'id-b'],
+            sideboardScryfallIds: ['id-side'],
+          ),
+        );
 
-      final player = notifier.state!.getPlayer('Phone')!;
-      expect(player.decklistMainboard, ['id-a', 'id-b']);
-      expect(player.decklistSideboard, ['id-side']);
-      expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
-      expect(notifier.hasSubmittedDecklist('Phone'), isTrue);
-    });
+        final player = notifier.state!.getPlayer('Phone')!;
+        expect(player.decklistMainboard, ['id-a', 'id-b']);
+        expect(player.decklistSideboard, ['id-side']);
+        expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
+        expect(notifier.hasSubmittedDecklist('Phone'), isTrue);
+      },
+    );
 
     test('handleDecklistSubmission ignores second submission', () {
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice', deviceName: 'Phone',
-      ));
-      fakeLeader.onCommandReceived?.call('follower-1', SubmitDecklist(
-        mainboardScryfallIds: ['first'],
-        sideboardScryfallIds: [],
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        SubmitDecklist(
+          mainboardScryfallIds: ['first'],
+          sideboardScryfallIds: [],
+        ),
+      );
 
       final beforeLen = fakeLeader.pushStateCallCount;
-      fakeLeader.onCommandReceived?.call('follower-1', SubmitDecklist(
-        mainboardScryfallIds: ['second'],
-        sideboardScryfallIds: [],
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        SubmitDecklist(
+          mainboardScryfallIds: ['second'],
+          sideboardScryfallIds: [],
+        ),
+      );
 
       expect(notifier.state!.getPlayer('Phone')!.decklistMainboard, ['first']);
       expect(fakeLeader.pushStateCallCount, beforeLen);
@@ -565,17 +703,18 @@ void main() {
 
     test('handleDecklistSubmission ignores unknown device', () {
       final beforeLen = fakeLeader.pushStateCallCount;
-      fakeLeader.onCommandReceived?.call('nobody', SubmitDecklist(
-        mainboardScryfallIds: ['x'],
-        sideboardScryfallIds: [],
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'nobody',
+        SubmitDecklist(mainboardScryfallIds: ['x'], sideboardScryfallIds: []),
+      );
       expect(fakeLeader.pushStateCallCount, beforeLen);
     });
 
     test('hasSubmittedDecklist returns false for unsubmitted player', () {
-      fakeLeader.onCommandReceived?.call('follower-1', JoinRequest(
-        playerName: 'Alice', deviceName: 'Phone',
-      ));
+      fakeLeader.onCommandReceived?.call(
+        'follower-1',
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
       expect(notifier.hasSubmittedDecklist('Phone'), isFalse);
     });
 
@@ -589,7 +728,9 @@ void main() {
       expect(ok, isTrue);
       expect(fakeLeader.pushStateCallCount, greaterThan(beforeLen));
       expect(notifier.hasSubmittedDecklist('my-device'), isTrue);
-      expect(notifier.state!.getPlayer('my-device')!.decklistMainboard, ['id-1']);
+      expect(notifier.state!.getPlayer('my-device')!.decklistMainboard, [
+        'id-1',
+      ]);
     });
   });
 
@@ -674,11 +815,17 @@ void main() {
     test('joinDraft stops previous BLE service before connecting', () async {
       final firstFake = FakeDraftBleFollower();
       firstFake.connectResult = DraftState.create(
-        name: 'Test', leaderDeviceId: 'leader-1', leaderPlayerName: 'Host', seatCount: 4,
+        name: 'Test',
+        leaderDeviceId: 'leader-1',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
       );
       final secondFake = FakeDraftBleFollower();
       secondFake.connectResult = DraftState.create(
-        name: 'Test', leaderDeviceId: 'leader-2', leaderPlayerName: 'Host', seatCount: 4,
+        name: 'Test',
+        leaderDeviceId: 'leader-2',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
       );
 
       int callCount = 0;
@@ -734,44 +881,47 @@ void main() {
       expect(notifyCount, 0);
     });
 
-    test('leader-submitted result reaches follower via push only (no polling)', () async {
-      await notifier.joinDraft(
-        leaderDeviceId: 'leader-device',
-        playerName: 'Bob',
-      );
+    test(
+      'leader-submitted result reaches follower via push only (no polling)',
+      () async {
+        await notifier.joinDraft(
+          leaderDeviceId: 'leader-device',
+          playerName: 'Bob',
+        );
 
-      int notifyCount = 0;
-      notifier.addListener(() => notifyCount++);
+        int notifyCount = 0;
+        notifier.addListener(() => notifyCount++);
 
-      // The host submits its result; the follower never polls — the push
-      // alone must surface the reported match.
-      final pushed = notifier.state!.bumpSequence().copyWith(
-        rounds: [
-          DraftRound(
-            roundNumber: 1,
-            matches: [
-              DraftMatch(
-                matchId: 'm1',
-                roundNumber: 1,
-                playerAId: 'my-device',
-                playerBId: 'opponent-device',
-                aWins: 1,
-                bWins: 2,
-                reportedByDeviceId: 'opponent-device',
-                status: MatchStatus.reported,
-              ),
-            ],
-          ),
-        ],
-      );
-      fakeFollower.onStatePush?.call(pushed);
+        // The host submits its result; the follower never polls — the push
+        // alone must surface the reported match.
+        final pushed = notifier.state!.bumpSequence().copyWith(
+          rounds: [
+            DraftRound(
+              roundNumber: 1,
+              matches: [
+                DraftMatch(
+                  matchId: 'm1',
+                  roundNumber: 1,
+                  playerAId: 'my-device',
+                  playerBId: 'opponent-device',
+                  aWins: 1,
+                  bWins: 2,
+                  reportedByDeviceId: 'opponent-device',
+                  status: MatchStatus.reported,
+                ),
+              ],
+            ),
+          ],
+        );
+        fakeFollower.onStatePush?.call(pushed);
 
-      final myMatch = notifier.state!.getMyMatch('my-device', 1);
-      expect(myMatch!.status, MatchStatus.reported);
-      expect(notifier.hasReportedResult(1), isFalse);
-      expect(notifier.canReportResult(1), isFalse);
-      expect(notifyCount, 1);
-    });
+        final myMatch = notifier.state!.getMyMatch('my-device', 1);
+        expect(myMatch!.status, MatchStatus.reported);
+        expect(notifier.hasReportedResult(1), isFalse);
+        expect(notifier.canReportResult(1), isFalse);
+        expect(notifyCount, 1);
+      },
+    );
 
     test('refreshFromLeader applies fresher state from resubscribe', () async {
       await notifier.joinDraft(
@@ -787,8 +937,10 @@ void main() {
       await notifier.refreshFromLeader();
 
       expect(fakeFollower.resubscribeCallCount, callsBefore + 1);
-      expect(notifier.state!.sequenceNumber,
-          fakeFollower.resubscribeResult!.sequenceNumber);
+      expect(
+        notifier.state!.sequenceNumber,
+        fakeFollower.resubscribeResult!.sequenceNumber,
+      );
       expect(notifyCount, 1);
     });
 
@@ -903,11 +1055,14 @@ void main() {
       expect(fakeFollower.sentCommands, isEmpty);
     });
 
-    test('dropFromDraft when not follower calls leaveDraft without sending', () async {
-      await notifier.dropFromDraft();
-      expect(fakeFollower.sentCommands, isEmpty);
-      expect(notifier.role, DraftRole.none);
-    });
+    test(
+      'dropFromDraft when not follower calls leaveDraft without sending',
+      () async {
+        await notifier.dropFromDraft();
+        expect(fakeFollower.sentCommands, isEmpty);
+        expect(notifier.role, DraftRole.none);
+      },
+    );
 
     test('joinDraft handles connectToLeader failure gracefully', () async {
       fakeFollower.connectResult = null;
@@ -940,19 +1095,20 @@ void main() {
         playerName: 'Bob',
       );
 
-      final withDecklist = notifier.state!.copyWith(
-        players: [
-          ...notifier.state!.players,
-          DraftPlayer(
-            deviceId: 'my-device',
-            playerName: 'Bob',
-            deviceName: 'my-device',
-            joinOrder: 1,
-            status: PlayerStatus.accepted,
-            decklistMainboard: ['id-1', 'id-2'],
-          ),
-        ],
-      ).bumpSequence();
+      final withDecklist = notifier.state!
+          .copyWith(
+            players: [
+              ...notifier.state!.players,
+              DraftPlayer(
+                deviceId: 'my-device',
+                playerName: 'Bob',
+                joinOrder: 1,
+                status: PlayerStatus.accepted,
+                decklistMainboard: ['id-1', 'id-2'],
+              ),
+            ],
+          )
+          .bumpSequence();
 
       final okFuture = notifier.submitDecklist(
         mainboardScryfallIds: ['id-1', 'id-2'],
@@ -1025,7 +1181,10 @@ void main() {
 
     test('reconnect succeeds on first attempt', () async {
       fakeFollower.reconnectResult = DraftState.create(
-        name: 'Reconnected', leaderDeviceId: 'leader-device', leaderPlayerName: 'Host', seatCount: 4,
+        name: 'Reconnected',
+        leaderDeviceId: 'leader-device',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
       );
 
       await notifier.joinDraft(
@@ -1039,59 +1198,70 @@ void main() {
       expect(fakeFollower.reconnectAttempts, 1);
     });
 
-    test('reconnect re-sends JoinRequest when player is missing from state',
-        () async {
-      fakeFollower.reconnectResult = DraftState.create(
-        name: 'Reconnected', leaderDeviceId: 'leader-device', leaderPlayerName: 'Host', seatCount: 4,
-      );
+    test(
+      'reconnect re-sends JoinRequest when player is missing from state',
+      () async {
+        fakeFollower.reconnectResult = DraftState.create(
+          name: 'Reconnected',
+          leaderDeviceId: 'leader-device',
+          leaderPlayerName: 'Host',
+          seatCount: 4,
+        );
 
-      await notifier.joinDraft(
-        leaderDeviceId: 'leader-device',
-        playerName: 'Bob',
-      );
+        await notifier.joinDraft(
+          leaderDeviceId: 'leader-device',
+          playerName: 'Bob',
+        );
 
-      fakeFollower.emitConnected(false);
+        fakeFollower.emitConnected(false);
 
-      await Future.delayed(const Duration(milliseconds: 100));
-      expect(fakeFollower.reconnectAttempts, 1);
-      final lastCmd = fakeFollower.lastSentCommand;
-      expect(lastCmd, isA<JoinRequest>());
-      expect((lastCmd as JoinRequest).deviceName, 'my-device');
-      expect(lastCmd.playerName, 'Bob');
-    });
+        await Future.delayed(const Duration(milliseconds: 100));
+        expect(fakeFollower.reconnectAttempts, 1);
+        final lastCmd = fakeFollower.lastSentCommand;
+        expect(lastCmd, isA<JoinRequest>());
+        expect((lastCmd as JoinRequest).deviceName, 'my-device');
+        expect(lastCmd.playerName, 'Bob');
+      },
+    );
 
-    test('reconnect does not re-send JoinRequest when player already in state',
-        () async {
-      final joined = DraftState.create(
-        name: 'Reconnected', leaderDeviceId: 'leader-device', leaderPlayerName: 'Host', seatCount: 4,
-      );
-      final withPlayer = joined.copyWith(
-        players: [
-          ...joined.players,
-          DraftPlayer(
-            deviceId: 'my-device',
-            playerName: 'Bob',
-            deviceName: 'my-device',
-            joinOrder: 1,
-            status: PlayerStatus.accepted,
-          ),
-        ],
-      ).bumpSequence();
-      fakeFollower.reconnectResult = withPlayer;
+    test(
+      'reconnect does not re-send JoinRequest when player already in state',
+      () async {
+        final joined = DraftState.create(
+          name: 'Reconnected',
+          leaderDeviceId: 'leader-device',
+          leaderPlayerName: 'Host',
+          seatCount: 4,
+        );
+        final withPlayer = joined
+            .copyWith(
+              players: [
+                ...joined.players,
+                DraftPlayer(
+                  deviceId: 'my-device',
+                  playerName: 'Bob',
+                  joinOrder: 1,
+                  status: PlayerStatus.accepted,
+                ),
+              ],
+            )
+            .bumpSequence();
+        fakeFollower.reconnectResult = withPlayer;
 
-      await notifier.joinDraft(
-        leaderDeviceId: 'leader-device',
-        playerName: 'Bob',
-      );
-      final commandsBefore = fakeFollower.sentCommands.length;
+        await notifier.joinDraft(
+          leaderDeviceId: 'leader-device',
+          playerName: 'Bob',
+        );
+        final commandsBefore = fakeFollower.sentCommands.length;
 
-      fakeFollower.emitConnected(false);
+        fakeFollower.emitConnected(false);
 
-      await Future.delayed(const Duration(milliseconds: 100));
-      expect(fakeFollower.reconnectAttempts, 1);
-      // No new command should have been sent for the rejoin.
-      expect(fakeFollower.sentCommands.length, commandsBefore);
-    });
+        await Future.delayed(const Duration(milliseconds: 100));
+        expect(fakeFollower.reconnectAttempts, 1);
+        // No new command should have been sent for the rejoin.
+        expect(fakeFollower.sentCommands.length, commandsBefore);
+      },
+    );
 
     test('reconnect gives up after all attempts fail', () async {
       fakeFollower.reconnectFailCount = 5;
@@ -1161,27 +1331,55 @@ void main() {
 
       notifier.state = notifier.state!.copyWith(
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', status: MatchStatus.pending),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+                status: MatchStatus.pending,
+              ),
+            ],
+          ),
         ],
       );
       expect(notifier.hasReportedResult(1), isFalse);
 
       notifier.state = notifier.state!.copyWith(
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', status: MatchStatus.reported, reportedByDeviceId: 'my-device'),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+                status: MatchStatus.reported,
+                reportedByDeviceId: 'my-device',
+              ),
+            ],
+          ),
         ],
       );
       expect(notifier.hasReportedResult(1), isTrue);
 
       notifier.state = notifier.state!.copyWith(
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', status: MatchStatus.confirmed),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+                status: MatchStatus.confirmed,
+              ),
+            ],
+          ),
         ],
       );
       expect(notifier.hasReportedResult(1), isTrue);
@@ -1192,18 +1390,36 @@ void main() {
 
       notifier.state = notifier.state!.copyWith(
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', status: MatchStatus.pending),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+                status: MatchStatus.pending,
+              ),
+            ],
+          ),
         ],
       );
       expect(notifier.canReportResult(1), isTrue);
 
       notifier.state = notifier.state!.copyWith(
         rounds: [
-          DraftRound(roundNumber: 1, matches: [
-            DraftMatch(matchId: 'm1', roundNumber: 1, playerAId: 'my-device', playerBId: 'f1', status: MatchStatus.reported),
-          ]),
+          DraftRound(
+            roundNumber: 1,
+            matches: [
+              DraftMatch(
+                matchId: 'm1',
+                roundNumber: 1,
+                playerAId: 'my-device',
+                playerBId: 'f1',
+                status: MatchStatus.reported,
+              ),
+            ],
+          ),
         ],
       );
       expect(notifier.canReportResult(1), isFalse);
@@ -1211,9 +1427,16 @@ void main() {
       // Bye
       notifier.state = notifier.state!.copyWith(
         rounds: [
-          DraftRound(roundNumber: 2, matches: [
-            DraftMatch(matchId: 'bye', roundNumber: 2, playerAId: 'my-device'),
-          ]),
+          DraftRound(
+            roundNumber: 2,
+            matches: [
+              DraftMatch(
+                matchId: 'bye',
+                roundNumber: 2,
+                playerAId: 'my-device',
+              ),
+            ],
+          ),
         ],
       );
       expect(notifier.canReportResult(2), isFalse);

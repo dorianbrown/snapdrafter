@@ -11,14 +11,12 @@ import '../../services/draft/draft_session_notifier_test.dart';
 DraftState _leaderState() {
   final playerA = DraftPlayer(
     deviceId: 'leader-device',
-    deviceName: 'Leader',
     playerName: 'Host',
     status: PlayerStatus.accepted,
     joinOrder: 0,
   );
   final playerB = DraftPlayer(
     deviceId: 'player-b',
-    deviceName: 'Device B',
     playerName: 'Player B',
     status: PlayerStatus.accepted,
     joinOrder: 1,
@@ -35,10 +33,7 @@ DraftState _leaderState() {
       leaderDeviceId: 'leader-device',
       leaderPlayerName: 'Host',
       seatCount: 4,
-    ).session.copyWith(
-      phase: DraftPhase.inProgress,
-      totalRounds: 3,
-    ),
+    ).session.copyWith(phase: DraftPhase.inProgress, totalRounds: 3),
     players: [playerA, playerB],
     rounds: [
       DraftRound(
@@ -127,7 +122,9 @@ void main() {
       expect(find.byIcon(Icons.leaderboard), findsOneWidget);
     });
 
-    testWidgets('FAB shows Report Match Result when leader can report', (tester) async {
+    testWidgets('FAB shows Report Match Result when leader can report', (
+      tester,
+    ) async {
       await tester.pumpWidget(_wrap(notifier));
       // Leader has a match with Player B and round is not complete,
       // so the FAB priority is: report result before standings.

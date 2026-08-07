@@ -10,7 +10,10 @@ class LiveBleCentral implements BleCentral {
   Stream<BleDevice> get scanStream => UniversalBle.scanStream;
 
   @override
-  Future<void> startScan({ScanFilter? scanFilter, PlatformConfig? platformConfig}) {
+  Future<void> startScan({
+    ScanFilter? scanFilter,
+    PlatformConfig? platformConfig,
+  }) {
     return UniversalBle.startScan(
       scanFilter: scanFilter,
       platformConfig: platformConfig,
@@ -39,8 +42,10 @@ class LiveBleCentral implements BleCentral {
       UniversalBle.connectionStream(deviceId);
 
   @override
-  Stream<Uint8List> characteristicValueStream(String deviceId, String characteristicUuid) =>
-      UniversalBle.characteristicValueStream(deviceId, characteristicUuid);
+  Stream<Uint8List> characteristicValueStream(
+    String deviceId,
+    String characteristicUuid,
+  ) => UniversalBle.characteristicValueStream(deviceId, characteristicUuid);
 
   @override
   Future<void> subscribeNotifications(
@@ -56,29 +61,12 @@ class LiveBleCentral implements BleCentral {
   }
 
   @override
-  Future<void> subscribeIndications(
-    String deviceId,
-    String serviceUuid,
-    String characteristicUuid,
-  ) {
-    return UniversalBle.subscribeIndications(
-      deviceId,
-      serviceUuid,
-      characteristicUuid,
-    );
-  }
-
-  @override
   Future<void> unsubscribe(
     String deviceId,
     String serviceUuid,
     String characteristicUuid,
   ) {
-    return UniversalBle.unsubscribe(
-      deviceId,
-      serviceUuid,
-      characteristicUuid,
-    );
+    return UniversalBle.unsubscribe(deviceId, serviceUuid, characteristicUuid);
   }
 
   @override
@@ -88,25 +76,7 @@ class LiveBleCentral implements BleCentral {
     String characteristicUuid,
     Uint8List value,
   ) {
-    return UniversalBle.write(
-      deviceId,
-      serviceUuid,
-      characteristicUuid,
-      value,
-    );
-  }
-
-  @override
-  Future<Uint8List> readCharacteristic(
-    String deviceId,
-    String serviceUuid,
-    String characteristicUuid,
-  ) {
-    return UniversalBle.read(
-      deviceId,
-      serviceUuid,
-      characteristicUuid,
-    );
+    return UniversalBle.write(deviceId, serviceUuid, characteristicUuid, value);
   }
 }
 
@@ -119,12 +89,8 @@ class LiveBlePeripheral implements BlePeripheral {
 
   @override
   Stream<BlePeripheralCharacteristicSubscriptionChanged>
-      get characteristicSubscriptionStream =>
-          UniversalBlePeripheral.characteristicSubscriptionStream;
-
-  @override
-  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream =>
-      UniversalBlePeripheral.advertisingStateStream;
+  get characteristicSubscriptionStream =>
+      UniversalBlePeripheral.characteristicSubscriptionStream;
 
   @override
   Stream<BlePeripheralMtuChanged> get mtuChangedStream =>
@@ -143,8 +109,12 @@ class LiveBlePeripheral implements BlePeripheral {
   @override
   void setReadRequestHandlers(
     PeripheralReadRequestResult? Function(
-            String deviceId, String characteristicId, int offset, Uint8List? value)?
-        handler,
+      String deviceId,
+      String characteristicId,
+      int offset,
+      Uint8List? value,
+    )?
+    handler,
   ) {
     UniversalBlePeripheral.setReadRequestHandlers(handler);
   }
@@ -152,8 +122,12 @@ class LiveBlePeripheral implements BlePeripheral {
   @override
   void setWriteRequestHandlers(
     PeripheralWriteRequestResult Function(
-            String deviceId, String characteristicId, int offset, Uint8List? value)?
-        handler,
+      String deviceId,
+      String characteristicId,
+      int offset,
+      Uint8List? value,
+    )?
+    handler,
   ) {
     UniversalBlePeripheral.setWriteRequestHandlers(handler);
   }
@@ -179,11 +153,6 @@ class LiveBlePeripheral implements BlePeripheral {
   @override
   Future<void> clearServices() {
     return UniversalBlePeripheral.clearServices();
-  }
-
-  @override
-  Future<List<String>> getServices() {
-    return UniversalBlePeripheral.getServices();
   }
 
   @override

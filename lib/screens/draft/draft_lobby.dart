@@ -20,7 +20,9 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _checkExistingSession());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _checkExistingSession(),
+    );
   }
 
   void _checkExistingSession() {
@@ -33,13 +35,13 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
 
     Widget target;
     if (notifier.isLeader) {
-      if (phase == DraftPhase.lobby || phase == DraftPhase.advertising) {
+      if (phase == DraftPhase.lobby) {
         target = const DraftManagementScreen();
       } else {
         target = const DraftActiveScreen();
       }
     } else if (notifier.isFollower) {
-      if (phase == DraftPhase.lobby || phase == DraftPhase.advertising) {
+      if (phase == DraftPhase.lobby) {
         target = const DraftWaitingScreen();
       } else {
         target = const DraftActiveScreen();
@@ -49,9 +51,9 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
     }
 
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => target),
-      );
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => target));
     }
   }
 
@@ -77,23 +79,34 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 32),
+                        horizontal: 24,
+                        vertical: 32,
+                      ),
                       child: Column(
                         children: [
-                          Icon(Icons.add_circle_outline,
-                              size: 48, color: Theme.of(context).primaryColor),
+                          Icon(
+                            Icons.add_circle_outline,
+                            size: 48,
+                            color: Theme.of(context).primaryColor,
+                          ),
                           const SizedBox(height: 12),
-                          const Text('Create Draft',
-                              style: TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.w600)),
+                          const Text(
+                            'Create Draft',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          Text('Host a new draft session and invite players',
-                              style: TextStyle(
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.color,
-                                  fontSize: 13)),
+                          Text(
+                            'Host a new draft session and invite players',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -113,23 +126,34 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
                     ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 32),
+                        horizontal: 24,
+                        vertical: 32,
+                      ),
                       child: Column(
                         children: [
-                          Icon(Icons.bluetooth_searching,
-                              size: 48, color: Theme.of(context).primaryColor),
+                          Icon(
+                            Icons.bluetooth_searching,
+                            size: 48,
+                            color: Theme.of(context).primaryColor,
+                          ),
                           const SizedBox(height: 12),
-                          const Text('Scan for Draft',
-                              style: TextStyle(
-                                  fontSize: 20, fontWeight: FontWeight.w600)),
+                          const Text(
+                            'Scan for Draft',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                           const SizedBox(height: 4),
-                          Text('Find and join a nearby draft session',
-                              style: TextStyle(
-                                  color: Theme.of(context)
-                                      .textTheme
-                                      .bodySmall
-                                      ?.color,
-                                  fontSize: 13)),
+                          Text(
+                            'Find and join a nearby draft session',
+                            style: TextStyle(
+                              color: Theme.of(
+                                context,
+                              ).textTheme.bodySmall?.color,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),

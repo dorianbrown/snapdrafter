@@ -46,7 +46,7 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
     final state = notifier.state;
     if (state != null) {
       final phase = state.session.phase;
-      if (phase == DraftPhase.inProgress || phase == DraftPhase.seatingsAssigned) {
+      if (phase == DraftPhase.inProgress) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _navigateToActive();
         });
@@ -105,8 +105,7 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
 
     final session = state.session;
 
-    if (session.phase == DraftPhase.inProgress ||
-        session.phase == DraftPhase.seatingsAssigned) {
+    if (session.phase == DraftPhase.inProgress) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _navigateToActive();
       });
@@ -120,8 +119,9 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
           );
           await notifier.leaveDraft();
           if (mounted) {
-            Navigator.of(context)
-                .popUntil((route) => route.isFirst || route.settings.name == 'draft_lobby');
+            Navigator.of(context).popUntil(
+              (route) => route.isFirst || route.settings.name == 'draft_lobby',
+            );
           }
         }
       });
@@ -179,18 +179,31 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
                     children: [
                       Row(
                         children: [
-                          const Icon(Icons.bluetooth_connected, color: Colors.blue),
+                          const Icon(
+                            Icons.bluetooth_connected,
+                            color: Colors.blue,
+                          ),
                           const SizedBox(width: 8),
-                          Text('Connected to ${session.name}',
-                              style: Theme.of(context).textTheme.titleMedium),
+                          Text(
+                            'Connected to ${session.name}',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
                         ],
                       ),
                       const Divider(),
-                      _infoRow('Host', host?.playerName ?? state.leaderDeviceId ?? 'Unknown'),
-                      _infoRow('Seats', '${state.acceptedPlayers.length} / ${session.seatCount}'),
+                      _infoRow(
+                        'Host',
+                        host?.playerName ?? state.leaderDeviceId ?? 'Unknown',
+                      ),
+                      _infoRow(
+                        'Seats',
+                        '${state.acceptedPlayers.length} / ${session.seatCount}',
+                      ),
                       _infoRow('Rounds', '${session.totalRounds}'),
-                      _infoRow('Round Duration',
-                          '${session.roundDurationSeconds ~/ 60} min'),
+                      _infoRow(
+                        'Round Duration',
+                        '${session.roundDurationSeconds ~/ 60} min',
+                      ),
                     ],
                   ),
                 ),
@@ -198,16 +211,20 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
               const SizedBox(height: 16),
               if (notifier.isReconnecting) const ReconnectingCard(),
               const SizedBox(height: 8),
-              Text('Players (${state.players.length})',
-                  style: Theme.of(context).textTheme.titleMedium),
+              Text(
+                'Players (${state.players.length})',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
               const SizedBox(height: 8),
               if (state.players.isEmpty)
                 const Card(
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Center(
-                      child: Text('Waiting for players...',
-                          style: TextStyle(color: Colors.grey)),
+                      child: Text(
+                        'Waiting for players...',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                   ),
                 )
@@ -237,8 +254,11 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
 
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor:
-            isHost ? Colors.deepPurple : (player.status == PlayerStatus.accepted ? Colors.green : Colors.orange),
+        backgroundColor: isHost
+            ? Colors.deepPurple
+            : (player.status == PlayerStatus.accepted
+                  ? Colors.green
+                  : Colors.orange),
         radius: 14,
         child: isHost
             ? const Icon(Icons.workspace_premium, color: Colors.white, size: 16)
@@ -247,7 +267,10 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
                     ? player.playerName[0].toUpperCase()
                     : '?',
                 style: const TextStyle(
-                    color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
       ),
       title: Row(
@@ -256,8 +279,10 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
             child: Text(player.playerName, overflow: TextOverflow.ellipsis),
           ),
           if (isHost)
-            const Text(' (Host)',
-                style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text(
+              ' (Host)',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
         ],
       ),
       trailing: Container(
@@ -265,7 +290,9 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
         decoration: BoxDecoration(
           color: isHost
               ? Colors.deepPurple
-              : (player.status == PlayerStatus.accepted ? Colors.green : Colors.orange),
+              : (player.status == PlayerStatus.accepted
+                    ? Colors.green
+                    : Colors.orange),
           borderRadius: BorderRadius.circular(4),
         ),
         child: Text(
@@ -283,12 +310,12 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
         children: [
           SizedBox(
             width: 110,
-            child: Text('$label:',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 12)),
-          ),
+          Expanded(child: Text(value, style: const TextStyle(fontSize: 12))),
         ],
       ),
     );

@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/draft/draft_ble_follower.dart';
-import '../../services/draft/draft_ble_leader.dart';
+import '../../services/draft/draft_ble_service.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import 'draft_waiting.dart';
 
@@ -55,8 +55,9 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
       (draft) {
         if (mounted) {
           setState(() {
-            final idx =
-                _discoveredDrafts.indexWhere((d) => d.deviceId == draft.deviceId);
+            final idx = _discoveredDrafts.indexWhere(
+              (d) => d.deviceId == draft.deviceId,
+            );
             if (idx >= 0) {
               _discoveredDrafts[idx] = draft;
             } else {
@@ -67,9 +68,9 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
       },
       onError: (error) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Scan error: $error')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Scan error: $error')));
           _stopScan();
         }
       },
@@ -95,26 +96,26 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
 
     try {
       await context.read<DraftSessionNotifier>().joinDraft(
-            leaderDeviceId: draft.deviceId,
-            playerName: _playerName.isEmpty ? 'Player' : _playerName,
-          );
+        leaderDeviceId: draft.deviceId,
+        playerName: _playerName.isEmpty ? 'Player' : _playerName,
+      );
       if (mounted) {
         _stopScan();
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const DraftWaitingScreen()),
-        ).then((_) {
-          if (mounted) {
-            setState(() => _joining = false);
-            _startScan();
-          }
-        });
+        Navigator.of(context)
+            .push(MaterialPageRoute(builder: (_) => const DraftWaitingScreen()))
+            .then((_) {
+              if (mounted) {
+                setState(() => _joining = false);
+                _startScan();
+              }
+            });
       }
     } catch (e) {
       if (mounted) {
         setState(() => _joining = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to join: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to join: $e')));
       }
     }
   }
@@ -150,58 +151,77 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
               ),
             )
           : _isScanning && _discoveredDrafts.isEmpty
-              ? const Center(child: Text('Scanning for drafts...', style: TextStyle(color: Colors.grey)))
-              : !_isScanning && _discoveredDrafts.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('No drafts found', style: TextStyle(color: Colors.grey)),
-                          const SizedBox(height: 8),
-                          ElevatedButton(
-                            onPressed: _startScan,
-                            child: const Text('Scan Again'),
-                          ),
-                        ],
-                      ),
-                    )
-                  : RefreshIndicator(
-                      onRefresh: () async {
-                        _stopScan();
-                        await Future.delayed(const Duration(milliseconds: 300));
-                        _startScan();
-                      },
-                      child: ListView.separated(
-                        padding: const EdgeInsets.all(12),
-                        itemCount: _discoveredDrafts.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final draft = _discoveredDrafts[index];
-                          return ListTile(
-                            title: Text(draft.draftName),
-                            subtitle: Text(
-                              draft.deviceId.length > 24
-                                  ? '${draft.deviceId.substring(0, 24)}...'
-                                  : draft.deviceId,
-                              style: const TextStyle(fontSize: 10, fontFamily: 'monospace'),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.signal_cellular_alt,
-                                    size: 14, color: _rssiColor(draft.rssi)),
-                                const SizedBox(width: 4),
-                                Text('${draft.rssi} dBm',
-                                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                                const SizedBox(width: 12),
-                                const Icon(Icons.chevron_right),
-                              ],
-                            ),
-                            onTap: () => _joinDraft(draft),
-                          );
-                        },
+          ? const Center(
+              child: Text(
+                'Scanning for drafts...',
+                style: TextStyle(color: Colors.grey),
+              ),
+            )
+          : !_isScanning && _discoveredDrafts.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'No drafts found',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: _startScan,
+                    child: const Text('Scan Again'),
+                  ),
+                ],
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: () async {
+                _stopScan();
+                await Future.delayed(const Duration(milliseconds: 300));
+                _startScan();
+              },
+              child: ListView.separated(
+                padding: const EdgeInsets.all(12),
+                itemCount: _discoveredDrafts.length,
+                separatorBuilder: (_, _) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final draft = _discoveredDrafts[index];
+                  return ListTile(
+                    title: Text(draft.draftName),
+                    subtitle: Text(
+                      draft.deviceId.length > 24
+                          ? '${draft.deviceId.substring(0, 24)}...'
+                          : draft.deviceId,
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontFamily: 'monospace',
                       ),
                     ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.signal_cellular_alt,
+                          size: 14,
+                          color: _rssiColor(draft.rssi),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${draft.rssi} dBm',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.grey,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                    onTap: () => _joinDraft(draft),
+                  );
+                },
+              ),
+            ),
     );
   }
 }

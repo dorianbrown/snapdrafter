@@ -57,10 +57,7 @@ class JoinRequest extends DraftCommand {
   final String playerName;
   final String deviceName;
 
-  JoinRequest({
-    required this.playerName,
-    required this.deviceName,
-  });
+  JoinRequest({required this.playerName, required this.deviceName});
 
   @override
   DraftCommandType get type => DraftCommandType.joinRequest;
@@ -127,9 +124,7 @@ class DropRequest extends DraftCommand {
   DraftCommandType get type => DraftCommandType.dropRequest;
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': type.name,
-  };
+  Map<String, dynamic> toJson() => {'type': type.name};
 
   factory DropRequest.fromJson(Map<String, dynamic> json) {
     return DropRequest();
@@ -158,10 +153,8 @@ class SubmitDecklist extends DraftCommand {
 
   factory SubmitDecklist.fromJson(Map<String, dynamic> json) {
     return SubmitDecklist(
-      mainboardScryfallIds:
-          (json['mb'] as List<dynamic>).cast<String>(),
-      sideboardScryfallIds:
-          (json['sb'] as List<dynamic>).cast<String>(),
+      mainboardScryfallIds: (json['mb'] as List<dynamic>).cast<String>(),
+      sideboardScryfallIds: (json['sb'] as List<dynamic>).cast<String>(),
     );
   }
 }

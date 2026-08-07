@@ -8,7 +8,6 @@ import 'package:universal_ble/universal_ble.dart';
 import 'package:snapdrafter/services/draft/ble_chunked.dart';
 import 'package:snapdrafter/services/draft/ble_platform.dart';
 import 'package:snapdrafter/services/draft/draft_ble_follower.dart';
-import 'package:snapdrafter/services/draft/draft_ble_leader.dart';
 import 'package:snapdrafter/services/draft/draft_ble_service.dart';
 import 'package:snapdrafter/services/draft/draft_state.dart';
 import 'package:snapdrafter/services/draft/draft_message.dart';
@@ -49,7 +48,10 @@ class FakeBleCentral implements BleCentral {
   Stream<BleDevice> get scanStream => _scanStreamCtrl.stream;
 
   @override
-  Future<void> startScan({ScanFilter? scanFilter, PlatformConfig? platformConfig}) async {
+  Future<void> startScan({
+    ScanFilter? scanFilter,
+    PlatformConfig? platformConfig,
+  }) async {
     if (startScanThrow != null) throw startScanThrow!;
     startedScan = true;
     lastScanFilter = scanFilter;
@@ -93,7 +95,10 @@ class FakeBleCentral implements BleCentral {
   }
 
   @override
-  Stream<Uint8List> characteristicValueStream(String deviceId, String characteristicUuid) {
+  Stream<Uint8List> characteristicValueStream(
+    String deviceId,
+    String characteristicUuid,
+  ) {
     final key = '$deviceId/$characteristicUuid';
     return _charValueCtrls
         .putIfAbsent(key, () => StreamController<Uint8List>.broadcast())
@@ -102,18 +107,6 @@ class FakeBleCentral implements BleCentral {
 
   @override
   Future<void> subscribeNotifications(
-    String deviceId,
-    String serviceUuid,
-    String characteristicUuid,
-  ) async {
-    if (subscribeThrow != null) throw subscribeThrow!;
-    subDeviceId = deviceId;
-    subServiceUuid = serviceUuid;
-    subCharUuid = characteristicUuid;
-  }
-
-  @override
-  Future<void> subscribeIndications(
     String deviceId,
     String serviceUuid,
     String characteristicUuid,
@@ -156,23 +149,15 @@ class FakeBleCentral implements BleCentral {
     });
   }
 
-  Uint8List? readCharacteristicResult;
-
-  @override
-  Future<Uint8List> readCharacteristic(
-    String deviceId,
-    String serviceUuid,
-    String characteristicUuid,
-  ) async {
-    return readCharacteristicResult ?? Uint8List(0);
-  }
-
   void emitScanDevice(BleDevice device) => _scanStreamCtrl.add(device);
   void emitScanError(Object error) => _scanStreamCtrl.addError(error);
   void emitConnected(String deviceId) =>
       _connectionStreamCtrls[deviceId]?.add(true);
-  void emitCharacteristicValue(String deviceId, String charUuid, Uint8List bytes) =>
-      _charValueCtrls['$deviceId/$charUuid']?.add(bytes);
+  void emitCharacteristicValue(
+    String deviceId,
+    String charUuid,
+    Uint8List bytes,
+  ) => _charValueCtrls['$deviceId/$charUuid']?.add(bytes);
 
   void dispose() {
     _scanStreamCtrl.close();
@@ -209,8 +194,12 @@ void main() {
       final results = <DiscoveredDraft>[];
       final sub = stream.listen(results.add);
 
-      fake.emitScanDevice(BleDevice(deviceId: 'dev-1', name: 'My Draft', rssi: -50));
-      fake.emitScanDevice(BleDevice(deviceId: 'dev-2', name: 'Other', rssi: -70));
+      fake.emitScanDevice(
+        BleDevice(deviceId: 'dev-1', name: 'My Draft', rssi: -50),
+      );
+      fake.emitScanDevice(
+        BleDevice(deviceId: 'dev-2', name: 'Other', rssi: -70),
+      );
 
       await Future.delayed(const Duration(milliseconds: 10));
 
@@ -242,24 +231,12 @@ void main() {
       final results = <DiscoveredDraft>[];
       final sub = stream.listen(results.add);
 
-      fake.emitScanDevice(BleDevice(deviceId: 'dev-3', name: 'Draft', rssi: null));
+      fake.emitScanDevice(
+        BleDevice(deviceId: 'dev-3', name: 'Draft', rssi: null),
+      );
 
       await Future.delayed(const Duration(milliseconds: 10));
       expect(results.single.rssi, 0);
-
-      await sub.cancel();
-    });
-
-    test('playerCount and seatCount are always 0 during scan', () async {
-      final stream = follower.scanForDrafts();
-      final results = <DiscoveredDraft>[];
-      final sub = stream.listen(results.add);
-
-      fake.emitScanDevice(BleDevice(deviceId: 'd', name: 'D', rssi: -40));
-
-      await Future.delayed(const Duration(milliseconds: 10));
-      expect(results.single.playerCount, 0);
-      expect(results.single.seatCount, 0);
 
       await sub.cancel();
     });
@@ -286,35 +263,26 @@ void main() {
       await Future.delayed(const Duration(milliseconds: 10));
       expect(fake.startedScan, isTrue);
       expect(fake.lastScanFilter, isNotNull);
-      expect(fake.lastScanFilter!.withServices,
-          contains(DraftBleService.serviceUuid));
+      expect(
+        fake.lastScanFilter!.withServices,
+        contains(DraftBleService.serviceUuid),
+      );
     });
 
-    test('stopScan cancels subscription and calls stopScan on platform', () async {
-      follower.scanForDrafts();
-      expect(fake.stoppedScan, isFalse);
+    test(
+      'stopScan cancels subscription and calls stopScan on platform',
+      () async {
+        follower.scanForDrafts();
+        expect(fake.stoppedScan, isFalse);
 
-      await follower.stopScan();
-      expect(fake.stoppedScan, isTrue);
-    });
+        await follower.stopScan();
+        expect(fake.stoppedScan, isTrue);
+      },
+    );
 
     test('stopScan without a prior scan does not throw', () async {
       await follower.stopScan();
       // No exception thrown — test passes.
-    });
-
-    test('sessionId is derived from draftName', () async {
-      final stream = follower.scanForDrafts();
-      final results = <DiscoveredDraft>[];
-      final sub = stream.listen(results.add);
-
-      fake.emitScanDevice(BleDevice(deviceId: 'd', name: 'Hello', rssi: -40));
-
-      await Future.delayed(const Duration(milliseconds: 10));
-      expect(results.single.sessionId, isNotEmpty);
-      expect(results.single.sessionId.length, 8);
-
-      await sub.cancel();
     });
   });
 
@@ -330,37 +298,41 @@ void main() {
       follower = _createFollower(fake);
       testState = DraftState.create(
         name: 'Test',
-        leaderDeviceId: 'leader-device', leaderPlayerName: 'Host',
+        leaderDeviceId: 'leader-device',
+        leaderPlayerName: 'Host',
         seatCount: 4,
       );
     });
 
-    test('full pipeline: connect → mtu → discover → subscribe → state', () async {
-      fake.discoverServicesResult = [
-        BleService(DraftBleService.serviceUuid, []),
-      ];
+    test(
+      'full pipeline: connect → mtu → discover → subscribe → state',
+      () async {
+        fake.discoverServicesResult = [
+          BleService(DraftBleService.serviceUuid, []),
+        ];
 
-      final future = follower.connectToLeader('leader-device');
+        final future = follower.connectToLeader('leader-device');
 
-      await Future.delayed(const Duration(milliseconds: 10));
-      expect(fake.connectedDeviceId, 'leader-device');
-      expect(fake.requestedMtu, 512);
+        await Future.delayed(const Duration(milliseconds: 10));
+        expect(fake.connectedDeviceId, 'leader-device');
+        expect(fake.requestedMtu, 512);
 
-      expect(fake.subDeviceId, 'leader-device');
-      expect(fake.subServiceUuid, DraftBleService.serviceUuid);
-      expect(fake.subCharUuid, DraftBleService.stateCharUuid);
+        expect(fake.subDeviceId, 'leader-device');
+        expect(fake.subServiceUuid, DraftBleService.serviceUuid);
+        expect(fake.subCharUuid, DraftBleService.stateCharUuid);
 
-      final stateBytes = DraftBleService.encodeState(testState);
-      fake.emitCharacteristicValue(
-        'leader-device',
-        DraftBleService.stateCharUuid,
-        stateBytes,
-      );
+        final stateBytes = DraftBleService.encodeState(testState);
+        fake.emitCharacteristicValue(
+          'leader-device',
+          DraftBleService.stateCharUuid,
+          stateBytes,
+        );
 
-      final result = await future;
-      expect(result.session.sessionId, testState.session.sessionId);
-      expect(result.session.name, 'Test');
-    });
+        final result = await future;
+        expect(result.session.sessionId, testState.session.sessionId);
+        expect(result.session.name, 'Test');
+      },
+    );
 
     test('sets leaderDeviceId', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
@@ -476,7 +448,8 @@ void main() {
       follower = _createFollower(fake);
       testState = DraftState.create(
         name: 'Test',
-        leaderDeviceId: 'leader-device', leaderPlayerName: 'Host',
+        leaderDeviceId: 'leader-device',
+        leaderPlayerName: 'Host',
         seatCount: 4,
       );
     });
@@ -512,7 +485,12 @@ void main() {
 
     test('writes JSON payload to command characteristic', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+      final testState = DraftState.create(
+        name: 'T',
+        leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -522,24 +500,36 @@ void main() {
       );
       await future;
 
-      await follower.sendCommand(JoinRequest(playerName: 'Alice', deviceName: 'Phone'));
+      await follower.sendCommand(
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
 
       expect(fake.writes.length, 1);
       expect(fake.writes[0]['deviceId'], 'leader');
       expect(fake.writes[0]['serviceUuid'], DraftBleService.serviceUuid);
-      expect(fake.writes[0]['characteristicUuid'], DraftBleService.commandCharUuid);
+      expect(
+        fake.writes[0]['characteristicUuid'],
+        DraftBleService.commandCharUuid,
+      );
     });
 
     test('throws when not connected', () async {
       expect(
-        () async => await follower.sendCommand(JoinRequest(playerName: 'A', deviceName: 'D')),
+        () async => await follower.sendCommand(
+          JoinRequest(playerName: 'A', deviceName: 'D'),
+        ),
         throwsA(isA<Exception>()),
       );
     });
 
     test('DropRequest is serialized and written', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+      final testState = DraftState.create(
+        name: 'T',
+        leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -555,7 +545,12 @@ void main() {
 
     test('MatchResult is serialized and written', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+      final testState = DraftState.create(
+        name: 'T',
+        leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -565,18 +560,20 @@ void main() {
       );
       await future;
 
-      await follower.sendCommand(MatchResult(
-        roundNumber: 1,
-        matchId: 'm1',
-        myWins: 2,
-        opponentWins: 0,
-      ));
+      await follower.sendCommand(
+        MatchResult(roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0),
+      );
       expect(fake.writes.length, 1);
     });
 
     test('small command is written as a single plain JSON write', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+      final testState = DraftState.create(
+        name: 'T',
+        leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -586,59 +583,73 @@ void main() {
       );
       await future;
 
-      await follower.sendCommand(JoinRequest(playerName: 'Alice', deviceName: 'Phone'));
+      await follower.sendCommand(
+        JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
+      );
 
       expect(fake.writes.length, 1);
       final value = fake.writes[0]['value'] as Uint8List;
       expect(BleChunkedStream.isChunked(value), isFalse);
-      expect(utf8.decode(value), jsonEncode(JoinRequest(playerName: 'Alice', deviceName: 'Phone').toJson()));
+      expect(
+        utf8.decode(value),
+        jsonEncode(
+          JoinRequest(playerName: 'Alice', deviceName: 'Phone').toJson(),
+        ),
+      );
     });
 
-    test('oversized decklist is chunked and reassembles to the original JSON',
-        () async {
-      fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+    test(
+      'oversized decklist is chunked and reassembles to the original JSON',
+      () async {
+        fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
+        final testState = DraftState.create(
+          name: 'T',
+          leaderDeviceId: 'l',
+          leaderPlayerName: 'Host',
+          seatCount: 4,
+        );
 
-      final future = follower.connectToLeader('leader');
-      fake.emitCharacteristicValue(
-        'leader',
-        DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
-      );
-      await future;
+        final future = follower.connectToLeader('leader');
+        fake.emitCharacteristicValue(
+          'leader',
+          DraftBleService.stateCharUuid,
+          DraftBleService.encodeState(testState),
+        );
+        await future;
 
-      // 55 scryfall-style UUIDs (~36 chars each) — far larger than the
-      // negotiated MTU (512) can carry in a single write.
-      final ids = List.generate(
-        55,
-        (i) =>
-            '${i.toString().padLeft(12, '0')}-1111-1111-1111-111111111111',
-      );
-      final cmd = SubmitDecklist(
-        mainboardScryfallIds: ids.sublist(0, 40),
-        sideboardScryfallIds: ids.sublist(40),
-      );
+        // 55 scryfall-style UUIDs (~36 chars each) — far larger than the
+        // negotiated MTU (512) can carry in a single write.
+        final ids = List.generate(
+          55,
+          (i) => '${i.toString().padLeft(12, '0')}-1111-1111-1111-111111111111',
+        );
+        final cmd = SubmitDecklist(
+          mainboardScryfallIds: ids.sublist(0, 40),
+          sideboardScryfallIds: ids.sublist(40),
+        );
 
-      await follower.sendCommand(cmd);
+        await follower.sendCommand(cmd);
 
-      expect(fake.writes.length, greaterThan(1));
-      final values =
-          fake.writes.map((w) => w['value'] as Uint8List).toList();
-      expect(values.every(BleChunkedStream.isChunked), isTrue);
+        expect(fake.writes.length, greaterThan(1));
+        final values = fake.writes.map((w) => w['value'] as Uint8List).toList();
+        expect(values.every(BleChunkedStream.isChunked), isTrue);
 
-      // Each chunk must fit within the negotiated ATT write payload.
-      for (final value in values) {
-        expect(value.length, lessThanOrEqualTo(512 - 3));
-      }
+        // Each chunk must fit within the negotiated ATT write payload.
+        for (final value in values) {
+          expect(value.length, lessThanOrEqualTo(512 - 3));
+        }
 
-      final reassembler = BleChunkedStream();
-      for (final value in values) {
-        reassembler.feed(value);
-      }
-      expect(reassembler.hasCompleteMessage, isTrue);
-      final expected = Uint8List.fromList(utf8.encode(jsonEncode(cmd.toJson())));
-      expect(reassembler.data, equals(expected));
-    });
+        final reassembler = BleChunkedStream();
+        for (final value in values) {
+          reassembler.feed(value);
+        }
+        expect(reassembler.hasCompleteMessage, isTrue);
+        final expected = Uint8List.fromList(
+          utf8.encode(jsonEncode(cmd.toJson())),
+        );
+        expect(reassembler.data, equals(expected));
+      },
+    );
   });
 
   // -----------------------------------------------------------------------
@@ -653,7 +664,12 @@ void main() {
 
     test('disconnects from connected device', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+      final testState = DraftState.create(
+        name: 'T',
+        leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -675,7 +691,12 @@ void main() {
 
     test('disconnect failure during stop is swallowed', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'T', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+      final testState = DraftState.create(
+        name: 'T',
+        leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
 
       final future = follower.connectToLeader('leader');
       fake.emitCharacteristicValue(
@@ -704,7 +725,12 @@ void main() {
 
     test('emits connection state from platform stream', () async {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
-      final testState = DraftState.create(name: 'Test', leaderDeviceId: 'l', leaderPlayerName: 'Host', seatCount: 4);
+      final testState = DraftState.create(
+        name: 'Test',
+        leaderDeviceId: 'l',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
 
       final states = <bool>[];
       follower.leaderConnected.listen(states.add);

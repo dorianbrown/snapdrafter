@@ -15,12 +15,11 @@ import 'package:snapdrafter/services/draft/draft_message.dart';
 class FakeBlePeripheral implements BlePeripheral {
   final _connectionStateCtrl =
       StreamController<BlePeripheralConnectionStateChanged>.broadcast();
-  final _charSubCtrl = StreamController<
-      BlePeripheralCharacteristicSubscriptionChanged>.broadcast();
-  final _advStateCtrl =
-      StreamController<BlePeripheralAdvertisingStateChanged>.broadcast();
-  final _mtuChangedCtrl =
-      StreamController<BlePeripheralMtuChanged>.broadcast();
+  final _charSubCtrl =
+      StreamController<
+        BlePeripheralCharacteristicSubscriptionChanged
+      >.broadcast();
+  final _mtuChangedCtrl = StreamController<BlePeripheralMtuChanged>.broadcast();
 
   @override
   Stream<BlePeripheralConnectionStateChanged> get connectionStateStream =>
@@ -28,11 +27,7 @@ class FakeBlePeripheral implements BlePeripheral {
 
   @override
   Stream<BlePeripheralCharacteristicSubscriptionChanged>
-      get characteristicSubscriptionStream => _charSubCtrl.stream;
-
-  @override
-  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream =>
-      _advStateCtrl.stream;
+  get characteristicSubscriptionStream => _charSubCtrl.stream;
 
   @override
   Stream<BlePeripheralMtuChanged> get mtuChangedStream =>
@@ -49,8 +44,7 @@ class FakeBlePeripheral implements BlePeripheral {
   String? lastMaximumNotifyDeviceId;
 
   // Injectable results
-  BlePeripheralCapabilities capabilities =
-      const BlePeripheralCapabilities(
+  BlePeripheralCapabilities capabilities = const BlePeripheralCapabilities(
     supportsPeripheralMode: true,
     supportsManufacturerDataInAdvertisement: false,
     supportsManufacturerDataInScanResponse: false,
@@ -70,12 +64,10 @@ class FakeBlePeripheral implements BlePeripheral {
   Object? getCapabilitiesThrow;
 
   // Handlers captured from setReadRequestHandlers / setWriteRequestHandlers
-  PeripheralReadRequestResult? Function(
-          String, String, int, Uint8List?)?
-      readHandler;
-  PeripheralWriteRequestResult Function(
-          String, String, int, Uint8List?)?
-      writeHandler;
+  PeripheralReadRequestResult? Function(String, String, int, Uint8List?)?
+  readHandler;
+  PeripheralWriteRequestResult Function(String, String, int, Uint8List?)?
+  writeHandler;
 
   @override
   Future<BlePeripheralCapabilities> getCapabilities() async {
@@ -91,9 +83,8 @@ class FakeBlePeripheral implements BlePeripheral {
 
   @override
   void setReadRequestHandlers(
-    PeripheralReadRequestResult? Function(
-            String, String, int, Uint8List?)?
-        handler,
+    PeripheralReadRequestResult? Function(String, String, int, Uint8List?)?
+    handler,
   ) {
     readHandler = handler;
     readHandlersSet = true;
@@ -101,9 +92,8 @@ class FakeBlePeripheral implements BlePeripheral {
 
   @override
   void setWriteRequestHandlers(
-    PeripheralWriteRequestResult Function(
-            String, String, int, Uint8List?)?
-        handler,
+    PeripheralWriteRequestResult Function(String, String, int, Uint8List?)?
+    handler,
   ) {
     writeHandler = handler;
     writeHandlersSet = true;
@@ -127,11 +117,6 @@ class FakeBlePeripheral implements BlePeripheral {
   @override
   Future<void> clearServices() async {
     clearedServices = true;
-  }
-
-  @override
-  Future<List<String>> getServices() async {
-    return ['fake-service-uuid'];
   }
 
   @override
@@ -161,18 +146,24 @@ class FakeBlePeripheral implements BlePeripheral {
 
   // Convenience methods for tests
   void emitConnection(String deviceId, bool connected) {
-    _connectionStateCtrl
-        .add(BlePeripheralConnectionStateChanged(deviceId, connected));
+    _connectionStateCtrl.add(
+      BlePeripheralConnectionStateChanged(deviceId, connected),
+    );
   }
 
-  void emitSubscription(String deviceId, String characteristicId,
-      bool isSubscribed) {
-    _charSubCtrl.add(BlePeripheralCharacteristicSubscriptionChanged(
-      deviceId: deviceId,
-      characteristicId: characteristicId,
-      isSubscribed: isSubscribed,
-      name: characteristicId,
-    ));
+  void emitSubscription(
+    String deviceId,
+    String characteristicId,
+    bool isSubscribed,
+  ) {
+    _charSubCtrl.add(
+      BlePeripheralCharacteristicSubscriptionChanged(
+        deviceId: deviceId,
+        characteristicId: characteristicId,
+        isSubscribed: isSubscribed,
+        name: characteristicId,
+      ),
+    );
   }
 
   void emitMtuChange(String deviceId, int mtu) {
@@ -182,7 +173,6 @@ class FakeBlePeripheral implements BlePeripheral {
   Future<void> disposeStreams() async {
     await _connectionStateCtrl.close();
     await _charSubCtrl.close();
-    await _advStateCtrl.close();
     await _mtuChangedCtrl.close();
   }
 }
@@ -229,7 +219,8 @@ void main() {
         supportsServiceDataInScanResponse: false,
         supportsTargetedCharacteristicUpdate: false,
         supportsAdvertisingTimeout: false,
-      );      expect(
+      );
+      expect(
         () => leader.startAsLeader(_testState()),
         throwsA(isA<Exception>()),
       );
@@ -256,18 +247,6 @@ void main() {
       expect(fakeBle.startedAdvertising, isTrue);
     });
 
-    test('read handler returns meta bytes', () async {
-      await leader.startAsLeader(_testState());
-      final result = fakeBle.readHandler!(
-        'dev1',
-        DraftBleService.metaCharUuid,
-        0,
-        null,
-      );
-      expect(result, isNotNull);
-      expect(result!.value.isNotEmpty, isTrue);
-    });
-
     test('read handler returns state bytes', () async {
       await leader.startAsLeader(_testState());
       final result = fakeBle.readHandler!(
@@ -282,23 +261,7 @@ void main() {
 
     test('read handler returns empty for unknown characteristic', () async {
       await leader.startAsLeader(_testState());
-      final result = fakeBle.readHandler!(
-        'dev1',
-        'unknown-uuid',
-        0,
-        null,
-      );
-      expect(result!.value, isEmpty);
-    });
-
-    test('read handler respects offset for meta', () async {
-      await leader.startAsLeader(_testState());
-      final result = fakeBle.readHandler!(
-        'dev1',
-        DraftBleService.metaCharUuid,
-        1000,
-        null,
-      );
+      final result = fakeBle.readHandler!('dev1', 'unknown-uuid', 0, null);
       expect(result!.value, isEmpty);
     });
   });
@@ -323,65 +286,66 @@ void main() {
       expect(fakeBle.characteristicUpdates.length, count);
     });
 
-    test('pushes to each subscribed device (no connection events, iOS)', () async {
-      fakeBle.maximumNotifyLength = 500;
-      await leader.startAsLeader(_testState());
+    test(
+      'pushes to each subscribed device (no connection events, iOS)',
+      () async {
+        fakeBle.maximumNotifyLength = 500;
+        await leader.startAsLeader(_testState());
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
-      fakeBle.emitSubscription(
-          'dev2', DraftBleService.stateCharUuid, true);
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
+        fakeBle.emitSubscription('dev2', DraftBleService.stateCharUuid, true);
 
-      // Settle the subscribe-time re-pushes.
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      final countBefore = fakeBle.characteristicUpdates.length;
+        // Settle the subscribe-time re-pushes.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final countBefore = fakeBle.characteristicUpdates.length;
 
-      final newState = _testState().bumpSequence();
-      await leader.pushState(newState);
+        final newState = _testState().bumpSequence();
+        await leader.pushState(newState);
 
-      // pushState itself must deliver to every subscribed device even though
-      // no connection events were emitted (iOS peripherals never get them).
-      final newUpdates = fakeBle.characteristicUpdates
-          .skip(countBefore)
-          .toList();
-      final pushedDeviceIds = newUpdates
-          .map((u) => u['deviceId'] as String?)
-          .toSet();
-      expect(pushedDeviceIds, containsAll(['dev1', 'dev2']));
-      for (final update in newUpdates) {
-        expect(update['characteristicId'], DraftBleService.stateCharUuid);
-      }
-    });
+        // pushState itself must deliver to every subscribed device even though
+        // no connection events were emitted (iOS peripherals never get them).
+        final newUpdates = fakeBle.characteristicUpdates
+            .skip(countBefore)
+            .toList();
+        final pushedDeviceIds = newUpdates
+            .map((u) => u['deviceId'] as String?)
+            .toSet();
+        expect(pushedDeviceIds, containsAll(['dev1', 'dev2']));
+        for (final update in newUpdates) {
+          expect(update['characteristicId'], DraftBleService.stateCharUuid);
+        }
+      },
+    );
 
-    test('pushes to subscribed device even when only subscription events arrived', () async {
-      fakeBle.maximumNotifyLength = 500;
-      await leader.startAsLeader(_testState());
+    test(
+      'pushes to subscribed device even when only subscription events arrived',
+      () async {
+        fakeBle.maximumNotifyLength = 500;
+        await leader.startAsLeader(_testState());
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-      final countBefore = fakeBle.characteristicUpdates.length;
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final countBefore = fakeBle.characteristicUpdates.length;
 
-      final newState = _testState().bumpSequence();
-      await leader.pushState(newState);
+        final newState = _testState().bumpSequence();
+        await leader.pushState(newState);
 
-      final newUpdates = fakeBle.characteristicUpdates
-          .skip(countBefore)
-          .toList();
-      expect(newUpdates, isNotEmpty);
-      expect(newUpdates.every((u) => u['deviceId'] == 'dev1'), isTrue);
-    });
+        final newUpdates = fakeBle.characteristicUpdates
+            .skip(countBefore)
+            .toList();
+        expect(newUpdates, isNotEmpty);
+        expect(newUpdates.every((u) => u['deviceId'] == 'dev1'), isTrue);
+      },
+    );
 
     test('skips devices that have unsubscribed', () async {
       fakeBle.maximumNotifyLength = 500;
       await leader.startAsLeader(_testState());
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
+      fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, false);
+      fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, false);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       final countBefore = fakeBle.characteristicUpdates.length;
@@ -391,42 +355,41 @@ void main() {
       expect(fakeBle.characteristicUpdates.length, countBefore);
     });
 
-    test('skips devices that disconnected (connection event + unsubscribe)', () async {
-      fakeBle.maximumNotifyLength = 500;
-      await leader.startAsLeader(_testState());
+    test(
+      'skips devices that disconnected (connection event + unsubscribe)',
+      () async {
+        fakeBle.maximumNotifyLength = 500;
+        await leader.startAsLeader(_testState());
 
-      fakeBle.emitConnection('dev1', true);
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+        fakeBle.emitConnection('dev1', true);
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      // Android's peripheral plugin emits an unsubscribe for every
-      // characteristic when a central disconnects.
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, false);
-      fakeBle.emitConnection('dev1', false);
-      await Future<void>.delayed(const Duration(milliseconds: 50));
+        // Android's peripheral plugin emits an unsubscribe for every
+        // characteristic when a central disconnects.
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, false);
+        fakeBle.emitConnection('dev1', false);
+        await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      final countBefore = fakeBle.characteristicUpdates.length;
-      await leader.pushState(_testState().bumpSequence());
+        final countBefore = fakeBle.characteristicUpdates.length;
+        await leader.pushState(_testState().bumpSequence());
 
-      expect(fakeBle.characteristicUpdates.length, countBefore);
-    });
+        expect(fakeBle.characteristicUpdates.length, countBefore);
+      },
+    );
 
     test('characteristic update contains correct UUID', () async {
       fakeBle.maximumNotifyLength = 500;
       await leader.startAsLeader(_testState());
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
+      fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
       final newState = _testState().bumpSequence();
       await leader.pushState(newState);
 
       for (final update in fakeBle.characteristicUpdates) {
-        expect(
-            update['characteristicId'], DraftBleService.stateCharUuid);
+        expect(update['characteristicId'], DraftBleService.stateCharUuid);
       }
     });
   });
@@ -527,8 +490,10 @@ void main() {
       );
 
       expect(receivedCmd, isA<SubmitDecklist>());
-      expect(
-          (receivedCmd as SubmitDecklist).mainboardScryfallIds, ['abc', 'def']);
+      expect((receivedCmd as SubmitDecklist).mainboardScryfallIds, [
+        'abc',
+        'def',
+      ]);
     });
 
     test('reassembles chunked SubmitDecklist from a follower', () async {
@@ -565,47 +530,57 @@ void main() {
       expect(receivedDeviceId, 'follower-1');
       expect(receivedCmd, isA<SubmitDecklist>());
       final received = receivedCmd as SubmitDecklist;
-      expect(received.mainboardScryfallIds,
-          ['aaaaaaaa-1111-1111-1111-111111111111', 'bbbbbbbb-2222-2222-2222-222222222222', 'cccccccc-3333-3333-3333-333333333333']);
-      expect(received.sideboardScryfallIds,
-          ['dddddddd-4444-4444-4444-444444444444']);
+      expect(received.mainboardScryfallIds, [
+        'aaaaaaaa-1111-1111-1111-111111111111',
+        'bbbbbbbb-2222-2222-2222-222222222222',
+        'cccccccc-3333-3333-3333-333333333333',
+      ]);
+      expect(received.sideboardScryfallIds, [
+        'dddddddd-4444-4444-4444-444444444444',
+      ]);
     });
 
-    test('dispatches plain and chunked commands independently per device',
-        () async {
-      await leader.startAsLeader(_testState());
+    test(
+      'dispatches plain and chunked commands independently per device',
+      () async {
+        await leader.startAsLeader(_testState());
 
-      final received = <String, List<DraftCommand>>{};
-      leader.onCommandReceived = (deviceId, cmd) {
-        received.putIfAbsent(deviceId, () => []).add(cmd);
-      };
+        final received = <String, List<DraftCommand>>{};
+        leader.onCommandReceived = (deviceId, cmd) {
+          received.putIfAbsent(deviceId, () => []).add(cmd);
+        };
 
-      // dev1 sends a small plain JSON command.
-      final join = JoinRequest(playerName: 'Alice', deviceName: 'alice-device');
-      fakeBle.writeHandler!(
-        'dev1',
-        DraftBleService.commandCharUuid,
-        0,
-        Uint8List.fromList(utf8.encode(jsonEncode(join.toJson()))),
-      );
-
-      // dev2 sends the same command chunked.
-      final chunker = BleChunkedStream(maxPayloadPerChunk: 2);
-      for (final chunk in chunker.chunkBytes(
-          Uint8List.fromList(utf8.encode(jsonEncode(join.toJson()))))) {
+        // dev1 sends a small plain JSON command.
+        final join = JoinRequest(
+          playerName: 'Alice',
+          deviceName: 'alice-device',
+        );
         fakeBle.writeHandler!(
-          'dev2',
+          'dev1',
           DraftBleService.commandCharUuid,
           0,
-          chunk,
+          Uint8List.fromList(utf8.encode(jsonEncode(join.toJson()))),
         );
-      }
 
-      expect(received['dev1'], hasLength(1));
-      expect(received['dev1']!.single, isA<JoinRequest>());
-      expect(received['dev2'], hasLength(1));
-      expect(received['dev2']!.single, isA<JoinRequest>());
-    });
+        // dev2 sends the same command chunked.
+        final chunker = BleChunkedStream(maxPayloadPerChunk: 2);
+        for (final chunk in chunker.chunkBytes(
+          Uint8List.fromList(utf8.encode(jsonEncode(join.toJson()))),
+        )) {
+          fakeBle.writeHandler!(
+            'dev2',
+            DraftBleService.commandCharUuid,
+            0,
+            chunk,
+          );
+        }
+
+        expect(received['dev1'], hasLength(1));
+        expect(received['dev1']!.single, isA<JoinRequest>());
+        expect(received['dev2'], hasLength(1));
+        expect(received['dev2']!.single, isA<JoinRequest>());
+      },
+    );
 
     test('ignores writes to non-command characteristic', () async {
       await leader.startAsLeader(_testState());
@@ -615,12 +590,7 @@ void main() {
 
       final bytes = Uint8List.fromList(utf8.encode('{"type":"join"}'));
 
-      fakeBle.writeHandler!(
-        'follower-1',
-        'some-other-uuid',
-        0,
-        bytes,
-      );
+      fakeBle.writeHandler!('follower-1', 'some-other-uuid', 0, bytes);
 
       expect(called, isFalse);
     });
@@ -664,8 +634,9 @@ void main() {
       bool called = false;
       leader.onCommandReceived = (_, __) => called = true;
 
-      final bytes =
-          Uint8List.fromList(utf8.encode('{"type":"unknown_command"}'));
+      final bytes = Uint8List.fromList(
+        utf8.encode('{"type":"unknown_command"}'),
+      );
       fakeBle.writeHandler!(
         'follower-1',
         DraftBleService.commandCharUuid,
@@ -683,23 +654,26 @@ void main() {
   // ---------------------------------------------------------------------------
 
   group('connection tracking', () {
-    test('tracks follower connections via connection events (Android)', () async {
-      await leader.startAsLeader(_testState());
+    test(
+      'tracks follower connections via connection events (Android)',
+      () async {
+        await leader.startAsLeader(_testState());
 
-      final connectedEvents = <String>[];
-      leader.followerConnected?.listen(connectedEvents.add);
+        final connectedEvents = <String>[];
+        leader.followerConnected?.listen(connectedEvents.add);
 
-      fakeBle.emitConnection('dev1', true);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        fakeBle.emitConnection('dev1', true);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      expect(connectedEvents, ['dev1']);
-      expect(leader.connectedDeviceCount, 1);
+        expect(connectedEvents, ['dev1']);
+        expect(leader.connectedDeviceCount, 1);
 
-      fakeBle.emitConnection('dev2', true);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        fakeBle.emitConnection('dev2', true);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      expect(leader.connectedDeviceCount, 2);
-    });
+        expect(leader.connectedDeviceCount, 2);
+      },
+    );
 
     test('tracks follower connections via subscription events (iOS)', () async {
       await leader.startAsLeader(_testState());
@@ -708,129 +682,106 @@ void main() {
       leader.followerConnected?.listen(connectedEvents.add);
 
       // iOS never emits connection events; subscriptions are the only signal.
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
+      fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
       expect(connectedEvents, ['dev1']);
       expect(leader.connectedDeviceCount, 1);
 
-      // Subscribing another characteristic must not double-emit.
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.metaCharUuid, true);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-
-      expect(connectedEvents, ['dev1']);
-      expect(leader.connectedDeviceCount, 1);
-    });
-
-    test('does not double-emit connect when connection and subscription both fire', () async {
-      await leader.startAsLeader(_testState());
-
-      final connectedEvents = <String>[];
-      leader.followerConnected?.listen(connectedEvents.add);
-
-      fakeBle.emitConnection('dev1', true);
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
+      // A repeat subscribe (e.g. resubscribe dance) must not double-emit.
+      fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
       await Future<void>.delayed(const Duration(milliseconds: 10));
 
       expect(connectedEvents, ['dev1']);
       expect(leader.connectedDeviceCount, 1);
     });
 
-    test('keeps device connected while it holds other subscriptions', () async {
-      await leader.startAsLeader(_testState());
+    test(
+      'does not double-emit connect when connection and subscription both fire',
+      () async {
+        await leader.startAsLeader(_testState());
 
-      final disconnectedEvents = <String>[];
-      leader.followerDisconnected?.listen(disconnectedEvents.add);
+        final connectedEvents = <String>[];
+        leader.followerConnected?.listen(connectedEvents.add);
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.metaCharUuid, true);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        fakeBle.emitConnection('dev1', true);
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, false);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(connectedEvents, ['dev1']);
+        expect(leader.connectedDeviceCount, 1);
+      },
+    );
 
-      // Still connected via the meta subscription.
-      expect(disconnectedEvents, isEmpty);
-      expect(leader.connectedDeviceCount, 1);
+    test(
+      'tracks follower disconnections via subscription events (iOS)',
+      () async {
+        await leader.startAsLeader(_testState());
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.metaCharUuid, false);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        final disconnectedEvents = <String>[];
+        leader.followerDisconnected?.listen(disconnectedEvents.add);
 
-      expect(disconnectedEvents, ['dev1']);
-      expect(leader.connectedDeviceCount, 0);
-    });
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    test('tracks follower disconnections via subscription events (iOS)', () async {
-      await leader.startAsLeader(_testState());
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, false);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      final disconnectedEvents = <String>[];
-      leader.followerDisconnected?.listen(disconnectedEvents.add);
+        expect(disconnectedEvents, ['dev1']);
+        expect(leader.connectedDeviceCount, 0);
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        // No subscribed devices after disconnect
+        final countBefore = fakeBle.characteristicUpdates.length;
+        await leader.pushState(_testState().bumpSequence());
+        expect(fakeBle.characteristicUpdates.length, countBefore);
+      },
+    );
 
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, false);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+    test(
+      'does not double-emit disconnect when connection and subscription both fire',
+      () async {
+        await leader.startAsLeader(_testState());
 
-      expect(disconnectedEvents, ['dev1']);
-      expect(leader.connectedDeviceCount, 0);
+        final disconnectedEvents = <String>[];
+        leader.followerDisconnected?.listen(disconnectedEvents.add);
 
-      // No subscribed devices after disconnect
-      final countBefore = fakeBle.characteristicUpdates.length;
-      await leader.pushState(_testState().bumpSequence());
-      expect(fakeBle.characteristicUpdates.length, countBefore);
-    });
+        fakeBle.emitConnection('dev1', true);
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    test('does not double-emit disconnect when connection and subscription both fire', () async {
-      await leader.startAsLeader(_testState());
+        // Android: connection event fires, then the plugin emits unsubscribes.
+        fakeBle.emitConnection('dev1', false);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      final disconnectedEvents = <String>[];
-      leader.followerDisconnected?.listen(disconnectedEvents.add);
+        expect(disconnectedEvents, ['dev1']);
+        expect(leader.connectedDeviceCount, 0);
 
-      fakeBle.emitConnection('dev1', true);
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, true);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        // The unsubscribe event that follows must not emit a second event.
+        fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, false);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      // Android: connection event fires, then the plugin emits unsubscribes.
-      fakeBle.emitConnection('dev1', false);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(disconnectedEvents, ['dev1']);
+      },
+    );
 
-      expect(disconnectedEvents, ['dev1']);
-      expect(leader.connectedDeviceCount, 0);
+    test(
+      'tracks follower disconnections via connection events (Android)',
+      () async {
+        await leader.startAsLeader(_testState());
 
-      // The unsubscribe event that follows must not emit a second event.
-      fakeBle.emitSubscription(
-          'dev1', DraftBleService.stateCharUuid, false);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+        final disconnectedEvents = <String>[];
+        leader.followerDisconnected?.listen(disconnectedEvents.add);
 
-      expect(disconnectedEvents, ['dev1']);
-    });
+        fakeBle.emitConnection('dev1', true);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    test('tracks follower disconnections via connection events (Android)', () async {
-      await leader.startAsLeader(_testState());
+        fakeBle.emitConnection('dev1', false);
+        await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      final disconnectedEvents = <String>[];
-      leader.followerDisconnected?.listen(disconnectedEvents.add);
-
-      fakeBle.emitConnection('dev1', true);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-
-      fakeBle.emitConnection('dev1', false);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-
-      expect(disconnectedEvents, ['dev1']);
-      expect(leader.connectedDeviceCount, 0);
-    });
+        expect(disconnectedEvents, ['dev1']);
+        expect(leader.connectedDeviceCount, 0);
+      },
+    );
   });
 
   // ---------------------------------------------------------------------------
@@ -867,32 +818,20 @@ void main() {
 
   group('unsupported operations', () {
     test('connectToLeader throws UnsupportedError', () {
-      expect(
-        () => leader.connectToLeader('any'),
-        throwsUnsupportedError,
-      );
+      expect(() => leader.connectToLeader('any'), throwsUnsupportedError);
     });
 
     test('reconnectToLeader throws UnsupportedError', () {
-      expect(
-        () => leader.reconnectToLeader('any'),
-        throwsUnsupportedError,
-      );
+      expect(() => leader.reconnectToLeader('any'), throwsUnsupportedError);
     });
 
     test('sendCommand throws UnsupportedError', () {
       final cmd = JoinRequest(playerName: 'X', deviceName: 'y');
-      expect(
-        () => leader.sendCommand(cmd),
-        throwsUnsupportedError,
-      );
+      expect(() => leader.sendCommand(cmd), throwsUnsupportedError);
     });
 
     test('leaderConnected throws UnsupportedError', () {
-      expect(
-        () => leader.leaderConnected,
-        throwsUnsupportedError,
-      );
+      expect(() => leader.leaderConnected, throwsUnsupportedError);
     });
   });
 }

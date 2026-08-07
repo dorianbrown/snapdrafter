@@ -41,8 +41,10 @@ class BleChunkedStream {
 
   List<Uint8List> chunkBytes(Uint8List data) {
     final messageId = _nextMessageId++;
-    final totalChunks =
-        (data.length / _maxPayloadPerChunk).ceil().clamp(1, 65535);
+    final totalChunks = (data.length / _maxPayloadPerChunk).ceil().clamp(
+      1,
+      65535,
+    );
     final chunks = <Uint8List>[];
 
     for (var i = 0; i < totalChunks; i++) {

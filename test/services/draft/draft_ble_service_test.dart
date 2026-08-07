@@ -31,7 +31,10 @@ void main() {
         expect(decoded.session.phase, testState.session.phase);
         expect(decoded.session.setCode, testState.session.setCode);
         expect(decoded.players.length, testState.players.length);
-        expect(decoded.players.first.deviceId, testState.players.first.deviceId);
+        expect(
+          decoded.players.first.deviceId,
+          testState.players.first.deviceId,
+        );
         expect(decoded.rounds.length, testState.rounds.length);
       });
 
@@ -42,7 +45,6 @@ void main() {
             DraftPlayer(
               deviceId: 'follower-1',
               playerName: 'Alice',
-              deviceName: 'Pixel 7',
               joinOrder: 1,
               status: PlayerStatus.accepted,
             ),
@@ -112,19 +114,6 @@ void main() {
       });
     });
 
-    group('encodeMeta', () {
-      test('encodes session metadata as valid JSON', () {
-        final encoded = DraftBleService.encodeMeta(testState.session);
-        final json = utf8.decode(encoded);
-        final map = jsonDecode(json) as Map<String, dynamic>;
-
-        expect(map['n'], 'Test Draft');
-        expect(map['i'], testState.session.sessionId);
-        expect(map['k'], 8);
-        expect(map['h'], 'lobby');
-      });
-    });
-
     group('decodeState error handling', () {
       test('returns null for corrupt bytes', () {
         final corrupt = Uint8List.fromList([0xFF, 0xFE, 0xFD, 0x00, 0x01]);
@@ -152,12 +141,19 @@ void main() {
     });
 
     group('UUID constants', () {
-      test('service, meta, state, command UUIDs are distinct', () {
-        expect(DraftBleService.serviceUuid, isNot(DraftBleService.metaCharUuid));
-        expect(DraftBleService.serviceUuid, isNot(DraftBleService.stateCharUuid));
-        expect(DraftBleService.serviceUuid, isNot(DraftBleService.commandCharUuid));
-        expect(DraftBleService.metaCharUuid, isNot(DraftBleService.stateCharUuid));
-        expect(DraftBleService.stateCharUuid, isNot(DraftBleService.commandCharUuid));
+      test('service, state, command UUIDs are distinct', () {
+        expect(
+          DraftBleService.serviceUuid,
+          isNot(DraftBleService.stateCharUuid),
+        );
+        expect(
+          DraftBleService.serviceUuid,
+          isNot(DraftBleService.commandCharUuid),
+        );
+        expect(
+          DraftBleService.stateCharUuid,
+          isNot(DraftBleService.commandCharUuid),
+        );
       });
     });
   });

@@ -41,11 +41,35 @@ class DraftSessionNotifier extends ChangeNotifier {
        _bleLeaderFactory = bleLeaderFactory,
        _bleFollowerFactory = bleFollowerFactory,
        _reconnectDelaysSeconds =
-            reconnectDelaysSeconds ?? _defaultReconnectDelays();
+           reconnectDelaysSeconds ?? _defaultReconnectDelays();
 
   static List<int> _defaultReconnectDelays() {
     // 2s, 5s, 10s, 20s, then 30s repeated to fill ~10 minutes (607 s total)
-    return const [2, 5, 10, 20, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30];
+    return const [
+      2,
+      5,
+      10,
+      20,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+      30,
+    ];
   }
 
   // -------------------------------------------------------------------------
@@ -60,6 +84,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = value;
     notifyListeners();
   }
+
   DraftRole get role => _role;
   bool get isLeader => _role == DraftRole.leader;
   bool get isFollower => _role == DraftRole.follower;
@@ -123,7 +148,8 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = state;
 
     leader.followerConnected?.listen((_) {
-      if (isLeader && _bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
+      if (isLeader &&
+          _bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
         _bleService!.pauseAdvertising();
       }
     });
@@ -283,7 +309,6 @@ class DraftSessionNotifier extends ChangeNotifier {
     final newPlayer = DraftPlayer(
       deviceId: deviceName,
       playerName: playerName,
-      deviceName: deviceName,
       joinOrder: joinOrder,
       status: PlayerStatus.accepted,
     );
@@ -299,7 +324,9 @@ class DraftSessionNotifier extends ChangeNotifier {
       _bleService!.pauseAdvertising();
     }
 
-    _log('[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}');
+    _log(
+      '[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}',
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -577,7 +604,9 @@ class DraftSessionNotifier extends ChangeNotifier {
             state.getPlayer(_myDeviceId) == null) {
           // The join request was lost in the disconnect race; re-join so
           // this device is not left connected but invisible to the lobby.
-          _log('[NOTIFIER] reconnect: player missing from state, re-sending JoinRequest');
+          _log(
+            '[NOTIFIER] reconnect: player missing from state, re-sending JoinRequest',
+          );
           try {
             await bleService.sendCommand(
               JoinRequest(playerName: _myPlayerName!, deviceName: _myDeviceId),
@@ -737,8 +766,12 @@ class DraftSessionNotifier extends ChangeNotifier {
         : match.playerAId;
     final opponent = opponentId != null ? _state!.getPlayer(opponentId) : null;
 
-    final reporterWins = match.playerAId == reporterId ? match.aWins : match.bWins;
-    final opponentWins = match.playerAId == reporterId ? match.bWins : match.aWins;
+    final reporterWins = match.playerAId == reporterId
+        ? match.aWins
+        : match.bWins;
+    final opponentWins = match.playerAId == reporterId
+        ? match.bWins
+        : match.aWins;
 
     NotificationService.instance.notifyMatchResultSubmitted(
       reporterName: reporter.playerName,

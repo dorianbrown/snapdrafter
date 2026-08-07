@@ -5,7 +5,10 @@ import '../../data/models/card.dart';
 import '../../utils/constants.dart';
 
 const _headerStyle = TextStyle(
-    fontSize: 18, fontWeight: FontWeight.bold, decoration: TextDecoration.underline);
+  fontSize: 18,
+  fontWeight: FontWeight.bold,
+  decoration: TextDecoration.underline,
+);
 
 void showDecklistPreviewSheet(
   BuildContext context, {
@@ -14,8 +17,10 @@ void showDecklistPreviewSheet(
   required List<Card> sideboard,
   VoidCallback? onSave,
 }) {
-  final sortedMain = [...mainboard]..sort((a, b) => a.manaValue.compareTo(b.manaValue));
-  final sortedSide = [...sideboard]..sort((a, b) => a.manaValue.compareTo(b.manaValue));
+  final sortedMain = [...mainboard]
+    ..sort((a, b) => a.manaValue.compareTo(b.manaValue));
+  final sortedSide = [...sideboard]
+    ..sort((a, b) => a.manaValue.compareTo(b.manaValue));
 
   showModalBottomSheet(
     context: context,
@@ -56,8 +61,7 @@ void showDecklistPreviewSheet(
                 ..._buildGroupedCards(sortedMain),
                 if (sortedSide.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Text('Sideboard (${sortedSide.length})',
-                      style: _headerStyle),
+                  Text('Sideboard (${sortedSide.length})', style: _headerStyle),
                   const SizedBox(height: 8),
                   ..._buildCardRows(sortedSide),
                 ],
@@ -110,8 +114,10 @@ List<Widget> _buildGroupedCards(List<Card> cards) {
 }
 
 List<Widget> _buildCardRows(List<Card> cards) {
-  final grouped = cards
-      .groupFoldBy((item) => item, (int? sum, item) => (sum ?? 0) + 1);
+  final grouped = cards.groupFoldBy(
+    (item) => item,
+    (int? sum, item) => (sum ?? 0) + 1,
+  );
 
   return grouped.entries
       .map((entry) => _cardRow(entry.key, entry.value))

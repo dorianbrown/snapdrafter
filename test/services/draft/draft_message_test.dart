@@ -62,7 +62,6 @@ void main() {
           'matchId': 'm1',
           'myWins': 1,
           'opponentWins': 2,
-          
         };
         final cmd = DraftCommand.fromJson(json);
         expect(cmd, isA<MatchResult>());
@@ -127,19 +126,29 @@ void main() {
       });
 
       test('fromString returns correct value for known strings', () {
-        expect(DraftCommandType.fromString('join_request'),
-            DraftCommandType.joinRequest);
-        expect(DraftCommandType.fromString('match_result'),
-            DraftCommandType.matchResult);
-        expect(DraftCommandType.fromString('drop_request'),
-            DraftCommandType.dropRequest);
-        expect(DraftCommandType.fromString('submit_decklist'),
-            DraftCommandType.submitDecklist);
+        expect(
+          DraftCommandType.fromString('join_request'),
+          DraftCommandType.joinRequest,
+        );
+        expect(
+          DraftCommandType.fromString('match_result'),
+          DraftCommandType.matchResult,
+        );
+        expect(
+          DraftCommandType.fromString('drop_request'),
+          DraftCommandType.dropRequest,
+        );
+        expect(
+          DraftCommandType.fromString('submit_decklist'),
+          DraftCommandType.submitDecklist,
+        );
       });
 
       test('fromString falls back to joinRequest for unknown string', () {
-        expect(DraftCommandType.fromString('unknown'),
-            DraftCommandType.joinRequest);
+        expect(
+          DraftCommandType.fromString('unknown'),
+          DraftCommandType.joinRequest,
+        );
         expect(DraftCommandType.fromString(''), DraftCommandType.joinRequest);
       });
     });

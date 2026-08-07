@@ -12,7 +12,10 @@ abstract class BleCentral {
   Stream<BleDevice> get scanStream;
 
   /// Starts a BLE scan for the given filter and platform configuration.
-  Future<void> startScan({ScanFilter? scanFilter, PlatformConfig? platformConfig});
+  Future<void> startScan({
+    ScanFilter? scanFilter,
+    PlatformConfig? platformConfig,
+  });
 
   /// Stops any in-progress BLE scan.
   Future<void> stopScan();
@@ -34,25 +37,32 @@ abstract class BleCentral {
 
   /// Stream of characteristic value updates for [characteristicUuid] on
   /// [deviceId]. Used to receive state push notifications from the leader.
-  Stream<Uint8List> characteristicValueStream(String deviceId, String characteristicUuid);
+  Stream<Uint8List> characteristicValueStream(
+    String deviceId,
+    String characteristicUuid,
+  );
 
   /// Subscribes to notifications for a characteristic on the remote device.
-  Future<void> subscribeNotifications(String deviceId, String serviceUuid, String characteristicUuid);
-
-  /// Subscribes to indications for a characteristic on the remote device.
-  /// Indications require acknowledgment from the central, providing reliable
-  /// delivery — critical for cross-platform BLE where notifications may be
-  /// silently dropped (e.g. iOS peripheral → Android central).
-  Future<void> subscribeIndications(String deviceId, String serviceUuid, String characteristicUuid);
+  Future<void> subscribeNotifications(
+    String deviceId,
+    String serviceUuid,
+    String characteristicUuid,
+  );
 
   /// Unsubscribes from notifications for a characteristic on the remote device.
-  Future<void> unsubscribe(String deviceId, String serviceUuid, String characteristicUuid);
+  Future<void> unsubscribe(
+    String deviceId,
+    String serviceUuid,
+    String characteristicUuid,
+  );
 
   /// Writes a command payload to a characteristic on the remote device.
-  Future<void> write(String deviceId, String serviceUuid, String characteristicUuid, Uint8List value);
-
-  /// Reads a characteristic value from the remote device.
-  Future<Uint8List> readCharacteristic(String deviceId, String serviceUuid, String characteristicUuid);
+  Future<void> write(
+    String deviceId,
+    String serviceUuid,
+    String characteristicUuid,
+    Uint8List value,
+  );
 }
 
 /// Abstract interface for BLE peripheral operations.
@@ -64,9 +74,7 @@ abstract class BlePeripheral {
   Stream<BlePeripheralConnectionStateChanged> get connectionStateStream;
 
   Stream<BlePeripheralCharacteristicSubscriptionChanged>
-      get characteristicSubscriptionStream;
-
-  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream;
+  get characteristicSubscriptionStream;
 
   Stream<BlePeripheralMtuChanged> get mtuChangedStream;
 
@@ -76,14 +84,22 @@ abstract class BlePeripheral {
 
   void setReadRequestHandlers(
     PeripheralReadRequestResult? Function(
-            String deviceId, String characteristicId, int offset, Uint8List? value)?
-        handler,
+      String deviceId,
+      String characteristicId,
+      int offset,
+      Uint8List? value,
+    )?
+    handler,
   );
 
   void setWriteRequestHandlers(
     PeripheralWriteRequestResult Function(
-            String deviceId, String characteristicId, int offset, Uint8List? value)?
-        handler,
+      String deviceId,
+      String characteristicId,
+      int offset,
+      Uint8List? value,
+    )?
+    handler,
   );
 
   Future<void> startAdvertising({
@@ -95,8 +111,6 @@ abstract class BlePeripheral {
   Future<void> stopAdvertising();
 
   Future<void> clearServices();
-
-  Future<List<String>> getServices();
 
   Future<PeripheralReadinessState> getAvailabilityState();
 

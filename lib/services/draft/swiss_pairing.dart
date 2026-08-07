@@ -1,7 +1,11 @@
 import 'draft_state.dart';
 
 class SwissPairing {
-  List<DraftMatch> pairRound(int roundNumber, List<DraftPlayer> players, List<DraftRound> previousRounds) {
+  List<DraftMatch> pairRound(
+    int roundNumber,
+    List<DraftPlayer> players,
+    List<DraftRound> previousRounds,
+  ) {
     if (players.length < 2) {
       return players.isEmpty
           ? []
@@ -11,7 +15,7 @@ class SwissPairing {
                 roundNumber: roundNumber,
                 playerAId: players.first.deviceId,
                 status: MatchStatus.confirmed,
-              )
+              ),
             ];
     }
 
@@ -26,7 +30,10 @@ class SwissPairing {
       DraftPlayer? opponent;
       for (var j = i + 1; j < sorted.length; j++) {
         if (paired.contains(sorted[j].deviceId)) continue;
-        if (previouslyPaired[sorted[i].deviceId]?.contains(sorted[j].deviceId) == true) {
+        if (previouslyPaired[sorted[i].deviceId]?.contains(
+              sorted[j].deviceId,
+            ) ==
+            true) {
           continue;
         }
         opponent = sorted[j];
@@ -36,20 +43,24 @@ class SwissPairing {
       if (opponent != null) {
         paired.add(sorted[i].deviceId);
         paired.add(opponent.deviceId);
-        matches.add(DraftMatch(
-          matchId: _generateMatchId(roundNumber, matches.length),
-          roundNumber: roundNumber,
-          playerAId: sorted[i].deviceId,
-          playerBId: opponent.deviceId,
-        ));
+        matches.add(
+          DraftMatch(
+            matchId: _generateMatchId(roundNumber, matches.length),
+            roundNumber: roundNumber,
+            playerAId: sorted[i].deviceId,
+            playerBId: opponent.deviceId,
+          ),
+        );
       } else if (!paired.contains(sorted[i].deviceId)) {
         paired.add(sorted[i].deviceId);
-        matches.add(DraftMatch(
-          matchId: _generateMatchId(roundNumber, matches.length),
-          roundNumber: roundNumber,
-          playerAId: sorted[i].deviceId,
-          status: MatchStatus.confirmed,
-        ));
+        matches.add(
+          DraftMatch(
+            matchId: _generateMatchId(roundNumber, matches.length),
+            roundNumber: roundNumber,
+            playerAId: sorted[i].deviceId,
+            status: MatchStatus.confirmed,
+          ),
+        );
       }
     }
 
@@ -68,7 +79,10 @@ class SwissPairing {
     return pairs;
   }
 
-  List<DraftPlayer> _sortByStandings(List<DraftPlayer> players, List<DraftRound> previousRounds) {
+  List<DraftPlayer> _sortByStandings(
+    List<DraftPlayer> players,
+    List<DraftRound> previousRounds,
+  ) {
     final opponents = <String, List<String>>{};
     final gameWinRecords = <String, List<int>>{};
 
@@ -78,10 +92,14 @@ class SwissPairing {
         opponents.putIfAbsent(match.playerAId, () => []).add(match.playerBId!);
         opponents.putIfAbsent(match.playerBId!, () => []).add(match.playerAId);
         if (match.aWins != null) {
-          gameWinRecords.putIfAbsent(match.playerAId, () => []).add(match.aWins!);
+          gameWinRecords
+              .putIfAbsent(match.playerAId, () => [])
+              .add(match.aWins!);
         }
         if (match.bWins != null) {
-          gameWinRecords.putIfAbsent(match.playerBId!, () => []).add(match.bWins!);
+          gameWinRecords
+              .putIfAbsent(match.playerBId!, () => [])
+              .add(match.bWins!);
         }
       }
     }
@@ -108,17 +126,18 @@ class SwissPairing {
       return maxGames > 0 ? sum / maxGames : 0.0;
     }
 
-    final sorted = [...players]..sort((a, b) {
-      final pointsCompare = b.matchPoints.compareTo(a.matchPoints);
-      if (pointsCompare != 0) return pointsCompare;
-      final omwpA = opponentMatchWinPercent(a.deviceId);
-      final omwpB = opponentMatchWinPercent(b.deviceId);
-      final omwpCompare = omwpB.compareTo(omwpA);
-      if (omwpCompare != 0) return omwpCompare;
-      final gwpA = gameWinPercent(a.deviceId);
-      final gwpB = gameWinPercent(b.deviceId);
-      return gwpB.compareTo(gwpA);
-    });
+    final sorted = [...players]
+      ..sort((a, b) {
+        final pointsCompare = b.matchPoints.compareTo(a.matchPoints);
+        if (pointsCompare != 0) return pointsCompare;
+        final omwpA = opponentMatchWinPercent(a.deviceId);
+        final omwpB = opponentMatchWinPercent(b.deviceId);
+        final omwpCompare = omwpB.compareTo(omwpA);
+        if (omwpCompare != 0) return omwpCompare;
+        final gwpA = gameWinPercent(a.deviceId);
+        final gwpB = gameWinPercent(b.deviceId);
+        return gwpB.compareTo(gwpA);
+      });
 
     return sorted;
   }

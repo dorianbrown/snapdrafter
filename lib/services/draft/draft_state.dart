@@ -12,21 +12,15 @@ import 'dart:math';
 // ---------------------------------------------------------------------------
 
 enum DraftPhase {
-  advertising,
   lobby,
-  seatingsAssigned,
   inProgress,
   complete,
   cancelled;
 
   String get name {
     switch (this) {
-      case DraftPhase.advertising:
-        return 'advertising';
       case DraftPhase.lobby:
         return 'lobby';
-      case DraftPhase.seatingsAssigned:
-        return 'seatings_assigned';
       case DraftPhase.inProgress:
         return 'in_progress';
       case DraftPhase.complete:
@@ -99,7 +93,6 @@ enum MatchStatus {
 class DraftPlayer {
   final String deviceId;
   final String playerName;
-  final String deviceName;
   final int? seatNumber;
   final int joinOrder;
   final PlayerStatus status;
@@ -112,7 +105,6 @@ class DraftPlayer {
   const DraftPlayer({
     required this.deviceId,
     required this.playerName,
-    required this.deviceName,
     this.seatNumber,
     required this.joinOrder,
     this.status = PlayerStatus.pending,
@@ -137,7 +129,6 @@ class DraftPlayer {
   DraftPlayer copyWith({
     String? deviceId,
     String? playerName,
-    String? deviceName,
     int? seatNumber,
     int? joinOrder,
     PlayerStatus? status,
@@ -153,7 +144,6 @@ class DraftPlayer {
     return DraftPlayer(
       deviceId: deviceId ?? this.deviceId,
       playerName: playerName ?? this.playerName,
-      deviceName: deviceName ?? this.deviceName,
       seatNumber: clearSeat ? null : (seatNumber ?? this.seatNumber),
       joinOrder: joinOrder ?? this.joinOrder,
       status: status ?? this.status,
@@ -186,17 +176,14 @@ class DraftPlayer {
     return DraftPlayer(
       deviceId: json['d'] as String,
       playerName: json['n'] as String,
-      deviceName: json['deviceName'] as String? ?? '',
       seatNumber: json['t'] as int?,
       joinOrder: json['j'] as int,
       status: PlayerStatus.fromString(json['s'] as String),
       matchWins: json['mw'] as int? ?? 0,
       matchLosses: json['ml'] as int? ?? 0,
       matchDraws: json['md'] as int? ?? 0,
-      decklistMainboard:
-          (json['dm'] as List<dynamic>?)?.cast<String>(),
-      decklistSideboard:
-          (json['ds'] as List<dynamic>?)?.cast<String>(),
+      decklistMainboard: (json['dm'] as List<dynamic>?)?.cast<String>(),
+      decklistSideboard: (json['ds'] as List<dynamic>?)?.cast<String>(),
     );
   }
 }
@@ -315,8 +302,9 @@ class DraftRound {
       roundNumber: roundNumber ?? this.roundNumber,
       matches: matches ?? this.matches,
       complete: complete ?? this.complete,
-      roundStartTime:
-          clearRoundStartTime ? null : (roundStartTime ?? this.roundStartTime),
+      roundStartTime: clearRoundStartTime
+          ? null
+          : (roundStartTime ?? this.roundStartTime),
     );
   }
 
@@ -423,7 +411,10 @@ class DraftSession {
       phase: DraftPhase.fromString(json['h'] as String),
       totalRounds: json['t'] as int,
       roundDurationSeconds: json['d'] as int? ?? 300,
-      createdAt: DateTime.fromMillisecondsSinceEpoch(json['a'] as int, isUtc: true),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(
+        json['a'] as int,
+        isUtc: true,
+      ),
     );
   }
 }
@@ -450,7 +441,8 @@ class DraftState {
   /// The device that joined first (lowest [joinOrder]) acts as the leader.
   String? get leaderDeviceId {
     if (players.isEmpty) return null;
-    final sorted = [...players]..sort((a, b) => a.joinOrder.compareTo(b.joinOrder));
+    final sorted = [...players]
+      ..sort((a, b) => a.joinOrder.compareTo(b.joinOrder));
     return sorted.first.deviceId;
   }
 
@@ -473,9 +465,12 @@ class DraftState {
   /// Looks up this device's match in a given round.
   DraftMatch? getMyMatch(String deviceId, int roundNumber) {
     try {
-      return rounds.firstWhere((r) => r.roundNumber == roundNumber).matches
-          .firstWhere((m) =>
-              m.playerAId == deviceId || m.playerBId == deviceId);
+      return rounds
+          .firstWhere((r) => r.roundNumber == roundNumber)
+          .matches
+          .firstWhere(
+            (m) => m.playerAId == deviceId || m.playerBId == deviceId,
+          );
     } catch (_) {
       return null;
     }
@@ -513,15 +508,16 @@ class DraftState {
   List<DraftPlayer> get standings {
     final active = acceptedPlayers;
 
-    final sorted = [...active]..sort((a, b) {
-      final pointsCompare = b.matchPoints.compareTo(a.matchPoints);
-      if (pointsCompare != 0) return pointsCompare;
-      final omwpA = opponentMatchWinPercent(a.deviceId);
-      final omwpB = opponentMatchWinPercent(b.deviceId);
-      final omwpCompare = omwpB.compareTo(omwpA);
-      if (omwpCompare != 0) return omwpCompare;
-      return b.gameWinPercentage.compareTo(a.gameWinPercentage);
-    });
+    final sorted = [...active]
+      ..sort((a, b) {
+        final pointsCompare = b.matchPoints.compareTo(a.matchPoints);
+        if (pointsCompare != 0) return pointsCompare;
+        final omwpA = opponentMatchWinPercent(a.deviceId);
+        final omwpB = opponentMatchWinPercent(b.deviceId);
+        final omwpCompare = omwpB.compareTo(omwpA);
+        if (omwpCompare != 0) return omwpCompare;
+        return b.gameWinPercentage.compareTo(a.gameWinPercentage);
+      });
 
     return sorted;
   }
@@ -557,9 +553,11 @@ class DraftState {
       players: (json['p'] as List<dynamic>)
           .map((p) => DraftPlayer.fromJson(p as Map<String, dynamic>))
           .toList(),
-      rounds: (json['r'] as List<dynamic>?)
-          ?.map((r) => DraftRound.fromJson(r as Map<String, dynamic>))
-          .toList() ?? [],
+      rounds:
+          (json['r'] as List<dynamic>?)
+              ?.map((r) => DraftRound.fromJson(r as Map<String, dynamic>))
+              .toList() ??
+          [],
     );
   }
 
@@ -595,7 +593,6 @@ class DraftState {
         DraftPlayer(
           deviceId: leaderDeviceId,
           playerName: leaderPlayerName,
-          deviceName: '',
           joinOrder: 0,
           seatNumber: 1,
           status: PlayerStatus.accepted,
@@ -625,10 +622,8 @@ final _random = Random();
 /// Generates a UUID-like session ID string (e.g. "a1b2c3d4-...-").
 String _generateId() {
   final chars = 'abcdef0123456789';
-  String hex(int len) => List.generate(
-        len,
-        (_) => chars[_random.nextInt(chars.length)],
-      ).join();
+  String hex(int len) =>
+      List.generate(len, (_) => chars[_random.nextInt(chars.length)]).join();
 
   return '${hex(8)}-${hex(4)}-${hex(4)}-${hex(4)}-${hex(12)}';
 }

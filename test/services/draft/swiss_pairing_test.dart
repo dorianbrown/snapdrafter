@@ -2,10 +2,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:snapdrafter/services/draft/draft_state.dart';
 import 'package:snapdrafter/services/draft/swiss_pairing.dart';
 
-DraftPlayer _player(String id, {int wins = 0, int losses = 0, int draws = 0, int joinOrder = 0}) {
+DraftPlayer _player(
+  String id, {
+  int wins = 0,
+  int losses = 0,
+  int draws = 0,
+  int joinOrder = 0,
+}) {
   return DraftPlayer(
     deviceId: id,
-    deviceName: 'Device $id',
     playerName: 'Player $id',
     status: PlayerStatus.accepted,
     joinOrder: joinOrder,
@@ -20,15 +25,17 @@ List<DraftRound> _round(List<List<int>> matchResults) {
   for (var i = 0; i < matchResults.length; i++) {
     final result = matchResults[i];
     final isBye = result.length == 1;
-    matches.add(DraftMatch(
-      matchId: 'r1_m$i',
-      roundNumber: 1,
-      playerAId: 'p${result[0]}',
-      playerBId: isBye ? null : 'p${result[1]}',
-      aWins: isBye ? null : result[2],
-      bWins: isBye ? null : result[3],
-      status: MatchStatus.confirmed,
-    ));
+    matches.add(
+      DraftMatch(
+        matchId: 'r1_m$i',
+        roundNumber: 1,
+        playerAId: 'p${result[0]}',
+        playerBId: isBye ? null : 'p${result[1]}',
+        aWins: isBye ? null : result[2],
+        bWins: isBye ? null : result[3],
+        status: MatchStatus.confirmed,
+      ),
+    );
   }
   return [
     DraftRound(
@@ -69,10 +76,7 @@ void main() {
 
     group('simple pairings', () {
       test('two players produce one match', () {
-        final matches = pairer.pairRound(1, [
-          _player('p1'),
-          _player('p2'),
-        ], []);
+        final matches = pairer.pairRound(1, [_player('p1'), _player('p2')], []);
         expect(matches.length, 1);
         expect(matches[0].playerAId, 'p1');
         expect(matches[0].playerBId, 'p2');
@@ -104,8 +108,11 @@ void main() {
       });
 
       test('five players produce two matches and one bye', () {
-        final matches = pairer.pairRound(1, List.generate(
-            5, (i) => _player('p${i + 1}')), []);
+        final matches = pairer.pairRound(
+          1,
+          List.generate(5, (i) => _player('p${i + 1}')),
+          [],
+        );
         expect(matches.length, 3);
         final byes = matches.where((m) => m.isBye).length;
         expect(byes, 1);
@@ -126,27 +133,29 @@ void main() {
       });
 
       test('round number is embedded in match ID', () {
-        final matches = pairer.pairRound(7, [
-          _player('p1'),
-          _player('p2'),
-        ], []);
+        final matches = pairer.pairRound(7, [_player('p1'), _player('p2')], []);
         expect(matches[0].matchId, startsWith('r7_'));
       });
     });
 
     group('all players paired', () {
       test('no player appears in more than one match', () {
-        final players = List.generate(
-            8, (i) => _player('p${i + 1}'));
+        final players = List.generate(8, (i) => _player('p${i + 1}'));
         final matches = pairer.pairRound(1, players, []);
         final seen = <String>{};
         for (final m in matches) {
-          expect(seen.contains(m.playerAId), isFalse,
-              reason: '${m.playerAId} paired twice');
+          expect(
+            seen.contains(m.playerAId),
+            isFalse,
+            reason: '${m.playerAId} paired twice',
+          );
           seen.add(m.playerAId);
           if (m.playerBId != null) {
-            expect(seen.contains(m.playerBId!), isFalse,
-                reason: '${m.playerBId} paired twice');
+            expect(
+              seen.contains(m.playerBId!),
+              isFalse,
+              reason: '${m.playerBId} paired twice',
+            );
             seen.add(m.playerBId!);
           }
         }
@@ -156,12 +165,12 @@ void main() {
     group('standings-based pairing', () {
       test('players with higher match points are paired first', () {
         final players = [
-          _player('p1', wins: 3),  // 9 points
-          _player('p2', wins: 3),  // 9 points
-          _player('p3', wins: 2),  // 6 points
-          _player('p4', wins: 2),  // 6 points
-          _player('p5', wins: 1),  // 3 points
-          _player('p6', wins: 1),  // 3 points
+          _player('p1', wins: 3), // 9 points
+          _player('p2', wins: 3), // 9 points
+          _player('p3', wins: 2), // 6 points
+          _player('p4', wins: 2), // 6 points
+          _player('p5', wins: 1), // 3 points
+          _player('p6', wins: 1), // 3 points
         ];
         final matches = pairer.pairRound(2, players, []);
         final nonByes = matches.where((m) => !m.isBye).toList();
@@ -174,10 +183,12 @@ void main() {
         final midPointPlayers = {'p3', 'p4'};
         final lowPointPlayers = {'p5', 'p6'};
 
-        final pairedHigh = group0.containsAll(highPointPlayers) ||
+        final pairedHigh =
+            group0.containsAll(highPointPlayers) ||
             group1.containsAll(highPointPlayers) ||
             group2.containsAll(highPointPlayers);
-        final pairedLow = group0.containsAll(lowPointPlayers) ||
+        final pairedLow =
+            group0.containsAll(lowPointPlayers) ||
             group1.containsAll(lowPointPlayers) ||
             group2.containsAll(lowPointPlayers);
 
@@ -213,8 +224,11 @@ void main() {
         for (final m in round2Matches.where((m) => !m.isBye)) {
           for (final pair in r1Pairs) {
             final current = {m.playerAId, m.playerBId!};
-            expect(current, isNot(equals(pair)),
-                reason: 'Rematch detected in round 2');
+            expect(
+              current,
+              isNot(equals(pair)),
+              reason: 'Rematch detected in round 2',
+            );
           }
         }
       });
@@ -249,8 +263,11 @@ void main() {
         for (final m in round2Matches.where((m) => !m.isBye)) {
           for (final pair in r1Pairs) {
             final current = {m.playerAId, m.playerBId!};
-            expect(current, isNot(equals(pair)),
-                reason: 'Rematch detected in round 2');
+            expect(
+              current,
+              isNot(equals(pair)),
+              reason: 'Rematch detected in round 2',
+            );
           }
         }
       });
@@ -275,9 +292,9 @@ void main() {
 
     test('draws count toward match points (3 pts win, 1 pt draw)', () {
       final players = [
-        _player('p1', wins: 2),                   // 6 pts
-        _player('p2', wins: 1, draws: 4),         // 7 pts
-        _player('p3', wins: 2, draws: 1),         // 7 pts
+        _player('p1', wins: 2), // 6 pts
+        _player('p2', wins: 1, draws: 4), // 7 pts
+        _player('p3', wins: 2, draws: 1), // 7 pts
       ];
       final matches = SwissPairing().pairRound(2, players, []);
       final nonByes = matches.where((m) => !m.isBye).toList();

@@ -23,7 +23,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
     final notifier = context.read<DraftSessionNotifier>();
     if (notifier.state != null) {
       final phase = notifier.state!.session.phase;
-      if (phase == DraftPhase.inProgress || phase == DraftPhase.seatingsAssigned) {
+      if (phase == DraftPhase.inProgress) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _navigateToActive();
         });
@@ -55,7 +55,10 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Cancel Draft', style: TextStyle(color: Colors.red)),
+            child: const Text(
+              'Cancel Draft',
+              style: TextStyle(color: Colors.red),
+            ),
           ),
         ],
       ),
@@ -95,13 +98,13 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
     final accepted = state.acceptedPlayers.length;
     final isFull = accepted >= session.seatCount;
 
-    if (session.phase == DraftPhase.inProgress ||
-        session.phase == DraftPhase.seatingsAssigned) {
+    if (session.phase == DraftPhase.inProgress) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _navigateToActive();
       });
     }
-    if (session.phase == DraftPhase.complete || session.phase == DraftPhase.cancelled) {
+    if (session.phase == DraftPhase.complete ||
+        session.phase == DraftPhase.cancelled) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) Navigator.of(context).pop();
       });
@@ -140,14 +143,23 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Draft Configuration',
-                          style: Theme.of(context).textTheme.titleMedium),
+                      Text(
+                        'Draft Configuration',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                       const Divider(),
                       _infoRow('Name', session.name),
                       _infoRow('Seats', '$accepted / ${session.seatCount}'),
                       _infoRow('Rounds', '${session.totalRounds}'),
-                      _infoRow('Round Duration', '${session.roundDurationSeconds ~/ 60} min'),
-                      _infoRow('Session ID', session.sessionId, monospace: true),
+                      _infoRow(
+                        'Round Duration',
+                        '${session.roundDurationSeconds ~/ 60} min',
+                      ),
+                      _infoRow(
+                        'Session ID',
+                        session.sessionId,
+                        monospace: true,
+                      ),
                     ],
                   ),
                 ),
@@ -155,8 +167,10 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('Players (${state.players.length})',
-                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                    'Players (${state.players.length})',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
                 ],
               ),
               const SizedBox(height: 8),
@@ -165,8 +179,10 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
                   child: Padding(
                     padding: EdgeInsets.all(24),
                     child: Center(
-                      child: Text('Waiting for players to join...',
-                          style: TextStyle(color: Colors.grey)),
+                      child: Text(
+                        'Waiting for players to join...',
+                        style: TextStyle(color: Colors.grey),
+                      ),
                     ),
                   ),
                 )
@@ -198,24 +214,32 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
               : _statusColor(player.status),
           radius: 14,
           child: isLeader
-              ? const Icon(Icons.workspace_premium, color: Colors.white, size: 16)
+              ? const Icon(
+                  Icons.workspace_premium,
+                  color: Colors.white,
+                  size: 16,
+                )
               : Text(
                   player.playerName.isNotEmpty
                       ? player.playerName[0].toUpperCase()
                       : '?',
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
         ),
         title: Row(
           children: [
             Flexible(
-              child: Text(
-                player.playerName,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(player.playerName, overflow: TextOverflow.ellipsis),
             ),
-            if (isLeader) const Text(' (Host)', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            if (isLeader)
+              const Text(
+                ' (Host)',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
           ],
         ),
         subtitle: Text(
@@ -230,7 +254,9 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: isLeader ? Colors.deepPurple : _statusColor(player.status),
+                color: isLeader
+                    ? Colors.deepPurple
+                    : _statusColor(player.status),
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
@@ -241,7 +267,11 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
             const SizedBox(width: 8),
             if (!isLeader && player.status != PlayerStatus.dropped)
               IconButton(
-                icon: const Icon(Icons.remove_circle_outline, size: 20, color: Colors.red),
+                icon: const Icon(
+                  Icons.remove_circle_outline,
+                  size: 20,
+                  color: Colors.red,
+                ),
                 tooltip: 'Kick player',
                 onPressed: () => notifier.removePlayer(player.deviceId),
               ),
@@ -258,8 +288,10 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
         children: [
           SizedBox(
             width: 120,
-            child: Text('$label:',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
           ),
           Expanded(
             child: Text(

@@ -4,6 +4,19 @@ import 'dart:typed_data';
 import 'draft_state.dart';
 import 'draft_message.dart';
 
+/// Lightweight info returned from a BLE scan when a draft is discovered.
+class DiscoveredDraft {
+  final String deviceId;
+  final String draftName;
+  final int rssi;
+
+  const DiscoveredDraft({
+    required this.deviceId,
+    required this.draftName,
+    required this.rssi,
+  });
+}
+
 /// Abstract base for the BLE draft service.
 ///
 /// Defines the GATT service UUID, characteristic UUIDs, and JSON
@@ -14,20 +27,12 @@ import 'draft_message.dart';
 /// [UnsupportedError] for the opposite role's methods.
 abstract class DraftBleService {
   static const serviceUuid = '4a2e1d0a-0000-4000-8000-00805f9b34fb';
-  static const metaCharUuid = '4a2e1d0a-0001-4000-8000-00805f9b34fb';
   static const stateCharUuid = '4a2e1d0a-0002-4000-8000-00805f9b34fb';
   static const commandCharUuid = '4a2e1d0a-0003-4000-8000-00805f9b34fb';
 
   // -------------------------------------------------------------------------
   // Serialization
   // -------------------------------------------------------------------------
-
-  /// Encodes session metadata (name, set code, player count, etc.) for the
-  /// meta characteristic. Read by scanning followers before connecting.
-  static Uint8List encodeMeta(DraftSession session) {
-    final json = jsonEncode(session.toJson());
-    return Uint8List.fromList(utf8.encode(json));
-  }
 
   /// Encodes the full [DraftState] for the state characteristic.
   /// May be chunked before transmission if it exceeds the negotiated MTU.

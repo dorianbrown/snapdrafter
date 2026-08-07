@@ -154,15 +154,16 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
                       value: null,
                       child: Text('None'),
                     ),
-                    ..._cubes.map((cube) => DropdownMenuItem<String>(
-                      value: cube.cubecobraId,
-                      child: Text(cube.name),
-                    )),
+                    ..._cubes.map(
+                      (cube) => DropdownMenuItem<String>(
+                        value: cube.cubecobraId,
+                        child: Text(cube.name),
+                      ),
+                    ),
                   ],
                   onChanged: (v) => _selectedCubecobraId = v,
                 ),
-              if (_cubes.isNotEmpty)
-                const SizedBox(height: 16),
+              if (_cubes.isNotEmpty) const SizedBox(height: 16),
               TextFormField(
                 controller: _roundMinCtrl,
                 decoration: const InputDecoration(

@@ -16,12 +16,12 @@ class NotificationService {
 
   static const _channelId = 'draft_events';
   static const _channelName = 'Draft Events';
-  static const _channelDescription =
-      'Notifications for draft session events';
+  static const _channelDescription = 'Notifications for draft session events';
 
   Future<void> init() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     const darwinSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -38,15 +38,18 @@ class NotificationService {
 
     await _plugin
         .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
+          AndroidFlutterLocalNotificationsPlugin
+        >()
         ?.requestNotificationsPermission();
 
     await _createChannel();
   }
 
   Future<void> _createChannel() async {
-    final androidPlugin = _plugin.resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>();
+    final androidPlugin = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
     if (androidPlugin == null) return;
 
     await androidPlugin.createNotificationChannel(
@@ -94,12 +97,7 @@ class NotificationService {
   }
 
   Future<void> _show(int id, String title, String body) async {
-    await _plugin.show(
-      id,
-      title,
-      body,
-      _details(),
-    );
+    await _plugin.show(id, title, body, _details());
   }
 
   // --------------------------------------------------------------------------
@@ -128,7 +126,8 @@ class NotificationService {
 
   void notifyRoundTimeElapsed({required int roundNumber}) {
     final title = 'Time\'s Up!';
-    final body = 'Round $roundNumber time has elapsed. '
+    final body =
+        'Round $roundNumber time has elapsed. '
         'Please submit your match results.';
 
     if (!_inBackground) return;
@@ -148,10 +147,12 @@ class NotificationService {
     final title = 'Round $roundNumber Started';
     final String body;
     if (opponentName != null) {
-      body = 'Round $roundNumber of $totalRounds. '
+      body =
+          'Round $roundNumber of $totalRounds. '
           'You are paired vs $opponentName.';
     } else {
-      body = 'Round $roundNumber of $totalRounds. '
+      body =
+          'Round $roundNumber of $totalRounds. '
           'You have a bye this round.';
     }
 
