@@ -87,24 +87,6 @@ void main() {
     });
   });
 
-  group('PrintingSelector.isExcludedFromFirstPrinting', () {
-    test('true for all basic lands', () {
-      for (final name in ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest']) {
-        expect(
-          PrintingSelector.isExcludedFromFirstPrinting({'name': name}),
-          true,
-          reason: '$name should be excluded',
-        );
-      }
-    });
-
-    test('false for other cards', () {
-      expect(PrintingSelector.isExcludedFromFirstPrinting({'name': 'Grizzly Bears'}), false);
-      expect(PrintingSelector.isExcludedFromFirstPrinting({'name': 'Arcane Signet'}), false);
-      expect(PrintingSelector.isExcludedFromFirstPrinting({'name': 'Fire // Ice'}), false);
-    });
-  });
-
   group('PrintingSelector.isArenaOnly', () {
     test('true when games is exactly arena', () {
       expect(PrintingSelector.isArenaOnly({'games': ['arena']}), true);

@@ -168,7 +168,6 @@ class _DownloadScreenState extends State<DownloadScreen> {
           PrintingSelector.compareRawToRecord(val, best) < 0) {
         acc["best"] = PrintingSelector.entryRecord(val);
       }
-      if (PrintingSelector.isExcludedFromFirstPrinting(val)) return;
       final first = acc["first"] as Map<String, dynamic>?;
       if (first == null ||
           PrintingSelector.compareFirstPrintingRawToRecord(val, first) < 0) {
@@ -277,6 +276,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
           colors: oracle["colors"] as String?,
           imageUri: best["image_uri"] as String,
           firstPrintingImageUri: first?["image_uri"] as String?,
+          imageSetCode: best["set"] as String?,
+          firstPrintingSetCode: first?["set"] as String?,
           manaCost: oracle["mana_cost"] as String?,
           manaValue: oracle["mana_value"] as int,
           producedMana: oracle["produced_mana"] as String?,
@@ -291,6 +292,8 @@ class _DownloadScreenState extends State<DownloadScreen> {
         name: acc["name"] as String,
         imageUri: best["image_uri"] as String,
         firstPrintingImageUri: first["image_uri"] as String?,
+        imageSetCode: best["set"] as String?,
+        firstPrintingSetCode: first["set"] as String?,
       ));
     }
 

@@ -58,7 +58,9 @@ class TokenRepository {
         C.name as card_name,  
         T.name as token_name,  
         T.image_uri as token_image,
-        T.first_printing_image_uri as token_first_printing_image
+        T.first_printing_image_uri as token_first_printing_image,
+        T.image_set_code as token_image_set_code,
+        T.first_printing_set_code as token_first_printing_set_code
       FROM decklists D
         INNER JOIN cards C on D.oracle_id = C.oracle_id
         INNER JOIN cards_to_tokens CT on C.oracle_id = CT.card_oracle_id
@@ -74,12 +76,24 @@ class TokenRepository {
               res["token_image"] as String?,
               res["token_first_printing_image"] as String?) ??
           res["token_image"] as String,
+      "token_corner_radius": CardArtPreferences.cornerRadiusFor(
+              res["token_image_set_code"] as String?,
+              res["token_first_printing_set_code"] as String?),
     }];
 
-    final groupedTokens = resultsList.groupFoldBy((obj) => obj["token_image"]!, (Map? obj1, Map obj2) {
+    final groupedTokens = resultsList.groupFoldBy<String, Map<String, dynamic>>(
+        (obj) => obj["token_image"] as String, (Map? obj1, Map obj2) {
       return obj1 == null
-          ? {"name": obj2["token_name"], "cards": [obj2["card_name"]]}
-          : {"name": obj1["token_name"], "cards": obj1["cards"] + [obj2["card_name"]]};
+          ? {
+              "name": obj2["token_name"],
+              "cards": [obj2["card_name"]],
+              "corner_radius": obj2["token_corner_radius"]
+            }
+          : {
+              "name": obj1["token_name"],
+              "cards": obj1["cards"] + [obj2["card_name"]],
+              "corner_radius": obj1["corner_radius"]
+            };
     });
 
     return groupedTokens;

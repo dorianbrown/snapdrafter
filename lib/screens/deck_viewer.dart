@@ -16,6 +16,7 @@ import 'package:snapdrafter/data/repositories/card_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
+import '/widgets/card_image.dart';
 import '/widgets/deck_text_editor.dart';
 import '/widgets/deck_edit_dialog.dart';
 import '/widgets/display_token.dart';
@@ -31,7 +32,6 @@ import '/data/models/cube.dart';
 import '/utils/constants.dart';
 import '/utils/deck_change_notifier.dart';
 import '/utils/basic_land_calculator.dart';
-import '/utils/card_art.dart';
 
 const _headerStyle = TextStyle(
   fontSize: 20,
@@ -439,6 +439,7 @@ class DeckViewerState extends State<DeckViewer> {
               itemBuilder: (context, index) => DisplayToken(
                 imageUri: groupedTokens.keys.toList()[index],
                 cards: groupedTokens.values.toList()[index]["cards"],
+                cornerRadius: groupedTokens.values.toList()[index]["corner_radius"],
               ),
             ),
           ),
@@ -935,7 +936,7 @@ class DeckViewerState extends State<DeckViewer> {
                   shrinkWrap: true,
                   crossAxisSpacing: 4,
                   mainAxisSpacing: 4,
-                  children: hand.map((card) => createVisualCard(card)).toList(),
+                  children: hand.map((card) => CardImage(card: card)).toList(),
                 ),
               ),
               actionsAlignment: MainAxisAlignment.end,
@@ -1291,16 +1292,6 @@ class DeckViewerState extends State<DeckViewer> {
     return deckView;
   }
 
-  Widget createVisualCard(Card card) {
-    return FittedBox(
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(25),
-        child: Image.network(CardArtPreferences.resolveCardImageUri(
-            card.imageUri, card.firstPrintingImageUri)!),
-      ),
-    );
-  }
-
   Widget createVisualCardPopup(Card card, int count) {
     return Container(
       padding: EdgeInsets.all(2),
@@ -1321,7 +1312,7 @@ class DeckViewerState extends State<DeckViewer> {
         ),
         child: Stack(
           children: [
-            createVisualCard(card),
+            CardImage(card: card),
             if (count > 1)
               Container(
                 alignment: Alignment.bottomLeft,
@@ -1442,13 +1433,7 @@ class _CardPopupState extends State<CardPopup> {
       children: [
         SizedBox(
           width: MediaQuery.of(context).size.width * 0.7,
-          child: FittedBox(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(25),
-              child: Image.network(CardArtPreferences.resolveCardImageUri(
-                  widget.card.imageUri, widget.card.firstPrintingImageUri)!),
-            ),
-          ),
+          child: CardImage(card: widget.card),
         ),
         FutureBuilder(
           future: cardDataFuture,

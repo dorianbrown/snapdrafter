@@ -228,7 +228,7 @@ void _drawSmallDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   int col = 0;
   for (int i = 0; i < cards.length; i++) {
     final cardImage = cardImageMap[cards[i]]!;
-    _drawCard(canvas, cardImage, col, 0, yOffset: row * (10 + cardHeight));
+    _drawCard(canvas, cardImage, cards[i], col, 0, yOffset: row * (10 + cardHeight));
     col++;
     if (col == smallNCol && i < cards.length - 1) {
       col = 0;
@@ -329,7 +329,7 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   for (final bucket in creatures.values) {
     int k = 0;
     for (final card in bucket) {
-      _drawCard(canvas, cardImageMap[card]!, row, k, colOffset: leftColTrim, centerOffset: centerOffset);
+      _drawCard(canvas, cardImageMap[card]!, card, row, k, colOffset: leftColTrim, centerOffset: centerOffset);
       k++;
     }
     row++;
@@ -340,7 +340,7 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   for (final bucket in noncreatures.values) {
     int k = 0;
     for (final card in bucket) {
-      _drawCard(canvas, cardImageMap[card]!, row, k,
+      _drawCard(canvas, cardImageMap[card]!, card, row, k,
         yOffset: cardHeight + maxStackCreatures * cardStackOffset,
         colOffset: leftColTrim, centerOffset: centerOffset);
       k++;
@@ -368,7 +368,7 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
       final xBase = nonBasicLands.length == 1
           ? nonBasicRight - cardWidth
           : (nonBasicRight - cardWidth - (nonBasicLands.length - 1 - j) * nonBasicSpacing).round();
-      _drawCard(canvas, cardImageMap[nonBasicLands[j]]!, 0, 0,
+      _drawCard(canvas, cardImageMap[nonBasicLands[j]]!, nonBasicLands[j], 0, 0,
         yOffset: landsOffsetY,
         xOffset: xBase,
         colOffset: leftColTrim,
@@ -393,7 +393,7 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
     }
 
     final xOffset = basicLeftEdge + (cardWidth ~/ 2) * j;
-    _drawCard(canvas, cardImageMap[card]!, 0, 0,
+    _drawCard(canvas, cardImageMap[card]!, card, 0, 0,
       yOffset: landsOffsetY,
       xOffset: xOffset,
       colOffset: leftColTrim,
@@ -423,17 +423,20 @@ void _drawLargeDeckCards(Canvas canvas, Deck deck, Map<Card, Image> cardImageMap
   }
 }
 
-void _drawCard(Canvas canvas, Image card, int row, int k, {int yOffset = 0, int xOffset = 0, int colOffset = 0, int centerOffset = 0}) {
+void _drawCard(Canvas canvas, Image cardImage, Card card, int row, int k, {int yOffset = 0, int xOffset = 0, int colOffset = 0, int centerOffset = 0}) {
   final dstX = (pageMargin + (cardWidth + cardMargin) * (row - colOffset) + xOffset + centerOffset).toDouble();
   final dstY = (pageHeaderMargin + 50 + cardStackOffset * k + yOffset).toDouble();
   final dstRect = Rect.fromLTWH(dstX, dstY, cardWidth.toDouble(), cardHeight.toDouble());
-  final rrect = RRect.fromRectAndRadius(dstRect, Radius.circular(cardHeight / 27));
+  final cornerRadius = cardHeight / 27 *
+      (CardArtPreferences.cornerRadius(card) /
+          CardArtPreferences.standardCornerRadius);
+  final rrect = RRect.fromRectAndRadius(dstRect, Radius.circular(cornerRadius));
 
   canvas.save();
   canvas.clipRRect(rrect);
   canvas.drawImageRect(
-    card,
-    Rect.fromLTWH(0, 0, card.width.toDouble(), card.height.toDouble()),
+    cardImage,
+    Rect.fromLTWH(0, 0, cardImage.width.toDouble(), cardImage.height.toDouble()),
     dstRect,
     Paint(),
   );

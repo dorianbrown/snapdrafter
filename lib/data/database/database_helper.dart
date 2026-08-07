@@ -12,7 +12,7 @@ class DatabaseHelper {
 
   static Database? _database;
   static const String _databaseName = "draftTracker.db";
-  static const int _databaseVersion = 9; // Latest db version after all upgrades
+  static const int _databaseVersion = 10; // Latest db version after all upgrades
 
   Future<Database> get database async {
     if (_database != null) return _database!;
@@ -45,6 +45,8 @@ class DatabaseHelper {
         type TEXT NOT NULL,
         image_uri TEXT,
         first_printing_image_uri TEXT,
+        image_set_code TEXT,
+        first_printing_set_code TEXT,
         colors TEXT,
         mana_cost TEXT,
         mana_value INTEGER NOT NULL,
@@ -95,7 +97,9 @@ class DatabaseHelper {
         oracle_id STRING PRIMARY KEY,
         name STRING NOT NULL,
         image_uri STRING NOT NULL,
-        first_printing_image_uri STRING
+        first_printing_image_uri STRING,
+        image_set_code STRING,
+        first_printing_set_code STRING
       )
     """);
     // Card Collections
@@ -370,6 +374,38 @@ class DatabaseHelper {
       await db.execute('ALTER TABLE cubelists_new RENAME TO cubelists');
 
       debugPrint("sqflite: Upgraded to V9");
+    }
+
+    if (oldVersion < 10) {
+      // Store the Scryfall set code of each stored printing, so the corner
+      // radius can be adjusted for cards printed with the Alpha/Beta frame.
+      var cardColumns = await db.rawQuery('PRAGMA table_info(cards)');
+      if (!cardColumns.any((col) => col['name'] == 'image_set_code')) {
+        await db.execute("""
+          ALTER TABLE cards
+          ADD image_set_code TEXT
+        """);
+      }
+      if (!cardColumns.any((col) => col['name'] == 'first_printing_set_code')) {
+        await db.execute("""
+          ALTER TABLE cards
+          ADD first_printing_set_code TEXT
+        """);
+      }
+      var tokenColumns = await db.rawQuery('PRAGMA table_info(tokens)');
+      if (!tokenColumns.any((col) => col['name'] == 'image_set_code')) {
+        await db.execute("""
+          ALTER TABLE tokens
+          ADD image_set_code STRING
+        """);
+      }
+      if (!tokenColumns.any((col) => col['name'] == 'first_printing_set_code')) {
+        await db.execute("""
+          ALTER TABLE tokens
+          ADD first_printing_set_code STRING
+        """);
+      }
+      debugPrint("sqflite: Upgraded to V10");
     }
 
     // Add further migration steps for future versions here

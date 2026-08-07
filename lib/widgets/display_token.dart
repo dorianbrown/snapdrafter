@@ -1,10 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '/utils/card_art.dart';
+
 class DisplayToken extends StatelessWidget {
-  const DisplayToken({super.key, required this.imageUri, required this.cards});
+  const DisplayToken({
+    super.key,
+    required this.imageUri,
+    required this.cards,
+    this.cornerRadius = CardArtPreferences.standardCornerRadius,
+  });
   // Input variables for class
   final String imageUri;
   final List cards;
+  final double cornerRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +25,7 @@ class DisplayToken extends StatelessWidget {
           children: [
             FittedBox(
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(25),
+                  borderRadius: BorderRadius.circular(cornerRadius),
                   child: Image.network(imageUri),
                 )
             ),

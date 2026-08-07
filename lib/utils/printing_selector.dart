@@ -88,21 +88,6 @@ class PrintingSelector {
     return false;
   }
 
-  /// Basic lands, which are always shown with the best printing instead of
-  /// the first (original) printing.
-  static const List<String> _excludedFromFirstPrinting = [
-    'Plains',
-    'Island',
-    'Swamp',
-    'Mountain',
-    'Forest',
-  ];
-
-  /// Returns true when the card should always use the best printing and is
-  /// excluded from the first-printing selection.
-  static bool isExcludedFromFirstPrinting(Map<dynamic, dynamic> val) =>
-      _excludedFromFirstPrinting.contains(val['name']);
-
   /// Returns true for Arena-only printings, i.e. entries whose games are
   /// digital (Arena) with no paper availability.
   static bool isArenaOnly(Map<dynamic, dynamic> val) {
@@ -119,6 +104,7 @@ class PrintingSelector {
     'scryfall_id': val['id'],
     'image_uri': extractImageUri(val),
     'released_at': val['released_at'],
+    'set': val['set'],
     'special': isSpecialPrinting(val),
     'english': val['lang'] == 'en',
     'mainline': _mainlineSetTypes.contains(val['set_type']),

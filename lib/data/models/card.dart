@@ -9,6 +9,8 @@ class Card {
   final String type;  // First hit from list Creature, Artifact, etc
   final String? imageUri;  // URL to image
   final String? firstPrintingImageUri;  // URL to the first (original) printing image
+  final String? imageSetCode;  // Set code of the stored image printing
+  final String? firstPrintingSetCode;  // Set code of the first printing
   final String? colors;  // ('R','WUBRG')
   final String? manaCost;
   final int manaValue;
@@ -23,6 +25,8 @@ class Card {
     required this.type,
     required this.imageUri,
     this.firstPrintingImageUri,
+    this.imageSetCode,
+    this.firstPrintingSetCode,
     this.colors,
     this.manaCost,
     required this.manaValue,
@@ -49,6 +53,8 @@ class Card {
       "type": type,
       "image_uri": imageUri,
       "first_printing_image_uri": firstPrintingImageUri,
+      "image_set_code": imageSetCode,
+      "first_printing_set_code": firstPrintingSetCode,
       "colors": colors,
       "mana_cost": manaCost,
       "mana_value": manaValue,
@@ -97,6 +103,8 @@ class Card {
         type: map["type"],
         imageUri: map["image_uri"],
         firstPrintingImageUri: map["first_printing_image_uri"],
+        imageSetCode: map["image_set_code"],
+        firstPrintingSetCode: map["first_printing_set_code"],
         colors: map["colors"],
         manaCost: map["mana_cost"],
         manaValue: map["mana_value"],
