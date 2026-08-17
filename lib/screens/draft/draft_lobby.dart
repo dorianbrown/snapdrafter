@@ -67,6 +67,41 @@ class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Builder(builder: (context) {
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.amber.shade900.withValues(alpha: 0.35)
+                        : Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark ? Colors.amber.shade700 : Colors.amber.shade300,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: isDark
+                            ? Colors.amber.shade300
+                            : Colors.amber.shade800,
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Experimental feature — this draft functionality is '
+                          'still a work in progress. Expect bugs and connection '
+                          'issues.',
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 child: Card(

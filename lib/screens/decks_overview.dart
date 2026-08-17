@@ -44,7 +44,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
   final _expandableFabKey = GlobalKey<ExpandableFabState>();
   Filter? currentFilter;
   bool _hasSeenOverviewTutorial = false;
-  bool _debugEnabled = false;
   List<String> allTags = [];
   List<Deck> _decks = [];
   List<Set> _sets = [];
@@ -104,7 +103,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
   Future<void> _loadFirstDeckStatus() async {
     final prefs = await SharedPreferences.getInstance();
     _hasSeenOverviewTutorial = prefs.getBool("overview_tutorial_seen") ?? false;
-    _debugEnabled = prefs.getBool("debug_enabled") ?? false;
   }
 
   Future<void> _markFirstDeckSeen() async {
@@ -256,13 +254,12 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                     });
                   }
                 }),
-            if (_debugEnabled)
-              IconButton(
-                  tooltip: "Debug Draft BLE",
-                  icon: Icon(Icons.diversity_3),
-                  onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                          builder: (context) => DraftLobbyScreen()))),
+            IconButton(
+                tooltip: "Draft BLE",
+                icon: Icon(Icons.diversity_3),
+                onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                        builder: (context) => DraftLobbyScreen()))),
             Spacer(),
             IconButton(
                 tooltip: "Settings Menu",

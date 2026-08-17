@@ -20,6 +20,7 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
   final List<DiscoveredDraft> _discoveredDrafts = [];
   bool _isScanning = false;
   DraftBleFollower? _scanFollower;
+  Timer? _scanTimer;
   String _playerName = '';
   bool _joining = false;
 
@@ -41,6 +42,7 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
 
   @override
   void dispose() {
+    _scanTimer?.cancel();
     _scanSub?.cancel();
     _scanFollower?.stopScan();
     super.dispose();
@@ -50,6 +52,9 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
     _scanFollower = DraftBleFollower();
     _discoveredDrafts.clear();
     setState(() => _isScanning = true);
+
+    _scanTimer?.cancel();
+    _scanTimer = Timer(const Duration(seconds: 5), () => _timeoutScan());
 
     _scanSub = _scanFollower!.scanForDrafts().listen(
       (draft) {
@@ -77,7 +82,18 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
     );
   }
 
+  void _timeoutScan() {
+    _scanSub?.cancel();
+    _scanSub = null;
+    _scanFollower?.stopScan();
+    _scanFollower = null;
+    if (mounted) {
+      setState(() => _isScanning = false);
+    }
+  }
+
   void _stopScan() {
+    _scanTimer?.cancel();
     _scanSub?.cancel();
     _scanSub = null;
     _scanFollower?.stopScan();
@@ -131,13 +147,6 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Available Drafts'),
-        actions: [
-          IconButton(
-            icon: Icon(_isScanning ? Icons.stop : Icons.refresh),
-            tooltip: _isScanning ? 'Stop scanning' : 'Start scanning',
-            onPressed: _isScanning ? _stopScan : _startScan,
-          ),
-        ],
       ),
       body: _joining
           ? const Center(
@@ -152,9 +161,16 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
             )
           : _isScanning && _discoveredDrafts.isEmpty
           ? const Center(
-              child: Text(
-                'Scanning for drafts...',
-                style: TextStyle(color: Colors.grey),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text(
+                    'Scanning for drafts...',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
               ),
             )
           : !_isScanning && _discoveredDrafts.isEmpty
@@ -174,53 +190,60 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
                 ],
               ),
             )
-          : RefreshIndicator(
-              onRefresh: () async {
-                _stopScan();
-                await Future.delayed(const Duration(milliseconds: 300));
-                _startScan();
-              },
-              child: ListView.separated(
-                padding: const EdgeInsets.all(12),
-                itemCount: _discoveredDrafts.length,
-                separatorBuilder: (_, _) => const Divider(height: 1),
-                itemBuilder: (context, index) {
-                  final draft = _discoveredDrafts[index];
-                  return ListTile(
-                    title: Text(draft.draftName),
-                    subtitle: Text(
-                      draft.deviceId.length > 24
-                          ? '${draft.deviceId.substring(0, 24)}...'
-                          : draft.deviceId,
-                      style: const TextStyle(
-                        fontSize: 10,
-                        fontFamily: 'monospace',
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.signal_cellular_alt,
-                          size: 14,
-                          color: _rssiColor(draft.rssi),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${draft.rssi} dBm',
+          : Column(
+              children: [
+                Expanded(
+                  child: ListView.separated(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _discoveredDrafts.length,
+                    separatorBuilder: (_, _) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final draft = _discoveredDrafts[index];
+                      return ListTile(
+                        title: Text(draft.draftName),
+                        subtitle: Text(
+                          draft.deviceId.length > 24
+                              ? '${draft.deviceId.substring(0, 24)}...'
+                              : draft.deviceId,
                           style: const TextStyle(
                             fontSize: 10,
-                            color: Colors.grey,
+                            fontFamily: 'monospace',
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.chevron_right),
-                      ],
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.signal_cellular_alt,
+                              size: 14,
+                              color: _rssiColor(draft.rssi),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${draft.rssi} dBm',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Icon(Icons.chevron_right),
+                          ],
+                        ),
+                        onTap: () => _joinDraft(draft),
+                      );
+                    },
+                  ),
+                ),
+                if (!_isScanning)
+                  Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: ElevatedButton(
+                      onPressed: _startScan,
+                      child: const Text('Scan Again'),
                     ),
-                    onTap: () => _joinDraft(draft),
-                  );
-                },
-              ),
+                  ),
+              ],
             ),
     );
   }
