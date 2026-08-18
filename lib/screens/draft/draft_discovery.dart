@@ -243,6 +243,9 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
                       child: const Text('Scan Again'),
                     ),
                   ),
+                SizedBox(
+                  height: 50
+                )
               ],
             ),
     );
