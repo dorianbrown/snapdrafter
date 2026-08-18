@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart' hide Card;
@@ -242,20 +244,21 @@ class _SettingsState extends State<Settings> with RouteAware {
                 );
               },
             ),
-            ListTile(
-              title: Text("Donations"),
-              leading: Icon(
-                  Icons.monetization_on,
-                  color: (ThemeMode.system == ThemeMode.light) ? Colors.green : Colors.lightGreen
+            if (!Platform.isIOS)
+              ListTile(
+                title: Text("Donations"),
+                leading: Icon(
+                    Icons.monetization_on,
+                    color: (ThemeMode.system == ThemeMode.light) ? Colors.green : Colors.lightGreen
+                ),
+                subtitle: Text("Donate and support the development of this app", style: subtitleColor),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => DonationScreen()),
+                  );
+                },
               ),
-              subtitle: Text("Donate and support the development of this app", style: subtitleColor),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DonationScreen()),
-                );
-              },
-            ),
             ListTile(
               title: Text("Feedback"),
               leading: Icon(
