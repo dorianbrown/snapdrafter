@@ -17,8 +17,8 @@ class DonationIAP extends ChangeNotifier {
   DonationIAP._();
 
   static const List<String> productIds = [
-    'com.dorianbrown.snapdrafter.donate_5',
-    'com.dorianbrown.snapdrafter.donate_10',
+    'donate_5',
+    'donate_10',
   ];
 
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
