@@ -799,7 +799,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
               Text("My aim is to keep SnapDrafter free, ad-free, and available"
                   " to as many cube-lovers as possible. Donations make that "
                   "possible."),
-              Text("You can find links in 'Settings > Donations'.")
+              Text("You can find ways to support in 'Settings > Donations'.")
             ],
           ),
           actions: [

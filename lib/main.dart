@@ -15,6 +15,7 @@ import '/screens/image_processing_screen.dart';
 import '/screens/settings/download_screen.dart';
 import '/services/draft/draft_session_notifier.dart';
 import '/services/draft/notification_service.dart';
+import '/services/donation_iap.dart';
 import '/utils/release_date_helper.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
@@ -58,6 +59,8 @@ Future<void> main() async {
   await prefs.setString('device_id', deviceId);
 
   await NotificationService.instance.init();
+
+  await DonationIAP.instance.init();
 
   runApp(
     MultiProvider(

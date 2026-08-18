@@ -65,6 +65,7 @@ dependencies:
   collection: any
   meta: ^1.18.0
   url_launcher: any
+  in_app_purchase: ^3.3.0
   universal_ble: ^2.1.0
   flutter_local_notifications: ^18.0.1
   fl_chart: ^1.2.0
