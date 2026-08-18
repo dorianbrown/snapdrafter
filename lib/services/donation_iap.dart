@@ -16,10 +16,9 @@ class DonationIAP extends ChangeNotifier {
   static final DonationIAP instance = DonationIAP._();
   DonationIAP._();
 
-  // TODO: Replace with the product IDs registered in App Store Connect
   static const List<String> productIds = [
-    'com.dorianbrown.snapdrafter.tip499',
-    'com.dorianbrown.snapdrafter.tip999',
+    'com.dorianbrown.snapdrafter.donate_5',
+    'com.dorianbrown.snapdrafter.donate_10',
   ];
 
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
