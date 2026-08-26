@@ -26,7 +26,7 @@ class ChangelogDialog extends StatelessWidget {
     );
 
     return AlertDialog(
-      title: const Text("SnapDrafter Changelog"),
+      title: const Text("What's New"),
       contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
       content: ConstrainedBox(
         constraints: BoxConstraints(
