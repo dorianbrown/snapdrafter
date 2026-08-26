@@ -28,7 +28,6 @@ class Settings extends StatefulWidget {
 }
 
 class _SettingsState extends State<Settings> with RouteAware {
-
   static const String _commitSha = String.fromEnvironment('COMMIT_SHA');
   late PackageInfo _packageInfo;
   ThemeMode currentThemeMode = ThemeMode.light;
@@ -82,7 +81,7 @@ class _SettingsState extends State<Settings> with RouteAware {
         "light" => ThemeMode.light,
         "dark" => ThemeMode.dark,
         "auto" => ThemeMode.system,
-        _ => ThemeMode.dark
+        _ => ThemeMode.dark,
       };
       _debugEnabled = prefs.getBool("debug_enabled") ?? false;
     });
@@ -90,12 +89,14 @@ class _SettingsState extends State<Settings> with RouteAware {
 
   @override
   Widget build(BuildContext context) {
-
     final TextStyle subtitleColor = TextStyle(
-        color: Theme.of(context).hintColor
+      color: Theme.of(context).hintColor,
     );
 
-    ThemeNotifier themeNotifier = Provider.of<ThemeNotifier>(context, listen: false);
+    ThemeNotifier themeNotifier = Provider.of<ThemeNotifier>(
+      context,
+      listen: false,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -118,7 +119,10 @@ class _SettingsState extends State<Settings> with RouteAware {
             ListTile(
               title: Text("Scryfall"),
               leading: Icon(Icons.download),
-              subtitle: Text("Manage your local scryfall database", style: subtitleColor),
+              subtitle: Text(
+                "Manage your local scryfall database",
+                style: subtitleColor,
+              ),
               onTap: () {
                 Navigator.push(
                   context,
@@ -129,12 +133,14 @@ class _SettingsState extends State<Settings> with RouteAware {
             SwitchListTile(
               title: Text("Prefer original printings"),
               subtitle: Text(
-                  _nonUbArtworkAvailable
-                      ? "Show the first printing of each card and token when available"
-                      : "A refresh of the scryfall database is needed to enable this",
-                  style: subtitleColor),
+                _nonUbArtworkAvailable
+                    ? "Show the first printing of each card and token when available"
+                    : "A refresh of the scryfall database is needed to enable this",
+                style: subtitleColor,
+              ),
               secondary: Icon(Icons.image_outlined),
-              value: _nonUbArtworkAvailable &&
+              value:
+                  _nonUbArtworkAvailable &&
                   CardArtPreferences.preferOriginalArt.value,
               onChanged: _nonUbArtworkAvailable
                   ? (val) {
@@ -150,7 +156,7 @@ class _SettingsState extends State<Settings> with RouteAware {
               subtitle: Text(switch (currentThemeMode) {
                 ThemeMode.light => "Light",
                 ThemeMode.dark => "Dark",
-                ThemeMode.system => "Auto"
+                ThemeMode.system => "Auto",
               }, style: subtitleColor),
               onTap: () {
                 showDialog(
@@ -163,48 +169,48 @@ class _SettingsState extends State<Settings> with RouteAware {
                           shrinkWrap: true,
                           children: [
                             RadioListTile(
-                                title: Text("Light"),
-                                value: ThemeMode.light,
-                                groupValue: currentThemeMode,
-                                onChanged: (val) {
-                                  themeNotifier.setTheme(val!);
-                                  prefs.setString("theme", "light");
-                                  setState(() {
-                                    currentThemeMode = val;
-                                  });
-                                }
+                              title: Text("Light"),
+                              value: ThemeMode.light,
+                              groupValue: currentThemeMode,
+                              onChanged: (val) {
+                                themeNotifier.setTheme(val!);
+                                prefs.setString("theme", "light");
+                                setState(() {
+                                  currentThemeMode = val;
+                                });
+                              },
                             ),
                             RadioListTile(
-                                title: Text("Dark"),
-                                value: ThemeMode.dark,
-                                groupValue: currentThemeMode,
-                                onChanged: (val) {
-                                  themeNotifier.setTheme(val!);
-                                  prefs.setString("theme", "dark");
-                                  setState(() {
-                                    currentThemeMode = val;
-                                  });
-                                }
+                              title: Text("Dark"),
+                              value: ThemeMode.dark,
+                              groupValue: currentThemeMode,
+                              onChanged: (val) {
+                                themeNotifier.setTheme(val!);
+                                prefs.setString("theme", "dark");
+                                setState(() {
+                                  currentThemeMode = val;
+                                });
+                              },
                             ),
                             RadioListTile(
-                                title: Text("Auto"),
-                                value: ThemeMode.system,
-                                groupValue: currentThemeMode,
-                                onChanged: (val) {
-                                  prefs.setString("theme", "auto");
-                                  themeNotifier.setTheme(val!);
-                                  setState(() {
-                                    currentThemeMode = val;
-                                  });
-                                }
-                            )
+                              title: Text("Auto"),
+                              value: ThemeMode.system,
+                              groupValue: currentThemeMode,
+                              onChanged: (val) {
+                                prefs.setString("theme", "auto");
+                                themeNotifier.setTheme(val!);
+                                setState(() {
+                                  currentThemeMode = val;
+                                });
+                              },
+                            ),
                           ],
                         ),
                       ),
                       actions: [
                         TextButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            child: Text("Close")
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text("Close"),
                         ),
                       ],
                     );
@@ -215,7 +221,10 @@ class _SettingsState extends State<Settings> with RouteAware {
             ListTile(
               title: Text("Backup / Restore"),
               leading: Icon(Icons.sd_card),
-              subtitle: Text("Save decks to local storage", style: subtitleColor),
+              subtitle: Text(
+                "Save decks to local storage",
+                style: subtitleColor,
+              ),
               onTap: () {
                 Navigator.push(
                   context,
@@ -226,7 +235,10 @@ class _SettingsState extends State<Settings> with RouteAware {
             ListTile(
               title: Text("User Name"),
               leading: Icon(Icons.person),
-              subtitle: Text("Details for sharing decklists", style: subtitleColor),
+              subtitle: Text(
+                "Details for sharing decklists",
+                style: subtitleColor,
+              ),
               onTap: () {
                 Navigator.push(
                   context,
@@ -237,7 +249,10 @@ class _SettingsState extends State<Settings> with RouteAware {
             ListTile(
               title: Text("Help"),
               leading: Icon(Icons.question_mark),
-              subtitle: Text("Useful information about using this app", style: subtitleColor),
+              subtitle: Text(
+                "Useful information about using this app",
+                style: subtitleColor,
+              ),
               onTap: () {
                 Navigator.push(
                   context,
@@ -249,10 +264,15 @@ class _SettingsState extends State<Settings> with RouteAware {
               ListTile(
                 title: Text("Donations"),
                 leading: Icon(
-                    Icons.monetization_on,
-                    color: (ThemeMode.system == ThemeMode.light) ? Colors.green : Colors.lightGreen
+                  Icons.monetization_on,
+                  color: (ThemeMode.system == ThemeMode.light)
+                      ? Colors.green
+                      : Colors.lightGreen,
                 ),
-                subtitle: Text("Donate and support the development of this app", style: subtitleColor),
+                subtitle: Text(
+                  "Donate and support the development of this app",
+                  style: subtitleColor,
+                ),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -262,19 +282,23 @@ class _SettingsState extends State<Settings> with RouteAware {
               ),
             ListTile(
               title: Text("Feedback"),
-              leading: Icon(
-                  Icons.discord
+              leading: Icon(Icons.discord),
+              subtitle: Text(
+                "Join the discussion in our Discord server",
+                style: subtitleColor,
               ),
-              subtitle: Text("Join the discussion in our Discord server", style: subtitleColor),
               onTap: () {
                 String url = "https://discord.gg/8xeUfEHxxY";
                 launchUrl(Uri.parse(url));
-              }
+              },
             ),
             ListTile(
               title: Text("What's New"),
-              leading: Icon(Icons.new_releases_outlined),
-              subtitle: Text("See what changed in recent updates", style: subtitleColor),
+              leading: Icon(Icons.sailing),
+              subtitle: Text(
+                "See what changed in recent updates",
+                style: subtitleColor,
+              ),
               onTap: () {
                 Navigator.push(
                   context,
@@ -285,27 +309,33 @@ class _SettingsState extends State<Settings> with RouteAware {
             RawGestureDetector(
               gestures: {
                 LongPressGestureRecognizer:
-                    GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-                  () => LongPressGestureRecognizer(duration: Duration(seconds: 2)),
-                  (recognizer) {
-                    recognizer.onLongPress = () async {
-                      HapticFeedback.mediumImpact();
-                      _debugEnabled = !_debugEnabled;
-                      await prefs.setBool("debug_enabled", _debugEnabled);
-                      setState(() {});
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(_debugEnabled
-                                ? "Debug mode enabled"
-                                : "Debug mode disabled"),
-                            duration: Duration(seconds: 1),
-                          ),
-                        );
-                      }
-                    };
-                  },
-                ),
+                    GestureRecognizerFactoryWithHandlers<
+                      LongPressGestureRecognizer
+                    >(
+                      () => LongPressGestureRecognizer(
+                        duration: Duration(seconds: 2),
+                      ),
+                      (recognizer) {
+                        recognizer.onLongPress = () async {
+                          HapticFeedback.mediumImpact();
+                          _debugEnabled = !_debugEnabled;
+                          await prefs.setBool("debug_enabled", _debugEnabled);
+                          setState(() {});
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  _debugEnabled
+                                      ? "Debug mode enabled"
+                                      : "Debug mode disabled",
+                                ),
+                                duration: Duration(seconds: 1),
+                              ),
+                            );
+                          }
+                        };
+                      },
+                    ),
               },
               child: ListTile(
                 title: Text("About"),
@@ -319,22 +349,24 @@ class _SettingsState extends State<Settings> with RouteAware {
                       : subtitleColor,
                 ),
                 onTap: () {
-                  final commitSha = _commitSha.isNotEmpty && _commitSha.length >= 7
+                  final commitSha =
+                      _commitSha.isNotEmpty && _commitSha.length >= 7
                       ? _commitSha.substring(0, 7)
                       : '';
                   showAboutDialog(
                     context: context,
                     applicationIcon: Icon(Icons.info),
                     applicationName: "SnapDrafter",
-                    applicationVersion: "${_packageInfo.version} (${_packageInfo.buildNumber})${commitSha.isNotEmpty ? ' · $commitSha' : ''}",
+                    applicationVersion:
+                        "${_packageInfo.version} (${_packageInfo.buildNumber})${commitSha.isNotEmpty ? ' · $commitSha' : ''}",
                     applicationLegalese: "© Copyright Dorian Brown 2025",
                   );
                 },
               ),
             ),
           ],
-        )
-      )
+        ),
+      ),
     );
   }
 }

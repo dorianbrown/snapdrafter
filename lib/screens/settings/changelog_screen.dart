@@ -9,7 +9,7 @@ class ChangelogScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("What's New")),
+      appBar: AppBar(title: const Text("SnapDrafter Changelog")),
       body: FutureBuilder<List<ChangelogEntry>>(
         future: ChangelogHelper.loadChangelog(),
         builder: (context, snapshot) {
@@ -26,9 +26,9 @@ class ChangelogScreen extends StatelessWidget {
           }
 
           final theme = Theme.of(context);
-          final markdownStyle = MarkdownStyleSheet.fromTheme(theme).copyWith(
-            p: theme.textTheme.bodyMedium,
-          );
+          final markdownStyle = MarkdownStyleSheet.fromTheme(
+            theme,
+          ).copyWith(p: theme.textTheme.bodyMedium);
 
           return ListView(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),

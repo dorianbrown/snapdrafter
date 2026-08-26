@@ -5,12 +5,10 @@ import '/utils/changelog_helper.dart';
 
 class ChangelogDialog extends StatelessWidget {
   final List<ChangelogEntry> entries;
-  final bool isInitialInstall;
 
   const ChangelogDialog({
     super.key,
     required this.entries,
-    this.isInitialInstall = false,
   });
 
   @override
@@ -19,6 +17,7 @@ class ChangelogDialog extends StatelessWidget {
     final markdownStyle = MarkdownStyleSheet.fromTheme(theme).copyWith(
       h1: theme.textTheme.titleLarge
           ?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
+      h1Padding: const EdgeInsets.all(3),
       h2: theme.textTheme.titleLarge
           ?.copyWith(fontWeight: FontWeight.bold, color: theme.colorScheme.primary),
       h3: theme.textTheme.titleMedium
@@ -27,7 +26,7 @@ class ChangelogDialog extends StatelessWidget {
     );
 
     return AlertDialog(
-      title: Text(isInitialInstall ? 'Welcome to SnapDrafter!' : "What's New"),
+      title: const Text("SnapDrafter Changelog"),
       contentPadding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
       content: ConstrainedBox(
         constraints: BoxConstraints(

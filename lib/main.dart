@@ -154,8 +154,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
         await showDialog(
           context: navigatorKey.currentContext!,
           builder: (context) => ChangelogDialog(
-            entries: newEntries,
-            isInitialInstall: lastSeen == null,
+            entries: [newEntries.first],
           ),
         );
       }
