@@ -107,6 +107,7 @@ flutter:
     - assets/fonts/
     - assets/app_icons/dice/
     - assets/decklist_sharing/
+    - assets/changelog/
 
   fonts:
     - family: Roboto

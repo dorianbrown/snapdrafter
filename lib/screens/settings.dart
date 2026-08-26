@@ -14,6 +14,7 @@ import 'settings/backup.dart';
 import 'settings/user.dart';
 import 'settings/help.dart';
 import 'settings/donations.dart';
+import 'settings/changelog_screen.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/card_art.dart';
 import '/utils/route_observer.dart';
@@ -269,6 +270,17 @@ class _SettingsState extends State<Settings> with RouteAware {
                 String url = "https://discord.gg/8xeUfEHxxY";
                 launchUrl(Uri.parse(url));
               }
+            ),
+            ListTile(
+              title: Text("What's New"),
+              leading: Icon(Icons.new_releases_outlined),
+              subtitle: Text("See what changed in recent updates", style: subtitleColor),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => ChangelogScreen()),
+                );
+              },
             ),
             RawGestureDetector(
               gestures: {

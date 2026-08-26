@@ -20,10 +20,13 @@ import '/utils/theme_notifier.dart';
 import '/utils/themes.dart';
 import '/utils/card_art.dart';
 import '/utils/route_observer.dart';
+import '/utils/changelog_helper.dart';
 import '/widgets/update_prompt_dialog.dart';
+import '/widgets/changelog_dialog.dart';
 
 import 'dart:math';
 
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:universal_ble/universal_ble.dart';
 
 Future<void> main() async {
@@ -94,6 +97,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     // Run the release date check after the app is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _waitForWelcomeDismissed();
+      await _showChangelogIfNeeded();
       await _checkForNewReleases();
     });
 
@@ -136,6 +140,30 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     while (!(prefs.getBool("welcome_popup_seen") ?? false)) {
       await Future.delayed(Duration(milliseconds: 500));
       await prefs.reload();
+    }
+  }
+
+  Future<void> _showChangelogIfNeeded() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final entries = await ChangelogHelper.loadChangelog();
+      final lastSeen = await ChangelogHelper.getLastSeenVersion();
+      final newEntries = ChangelogHelper.entriesAfter(entries, lastSeen);
+
+      if (newEntries.isNotEmpty && mounted) {
+        await showDialog(
+          context: navigatorKey.currentContext!,
+          builder: (context) => ChangelogDialog(
+            entries: newEntries,
+            isInitialInstall: lastSeen == null,
+          ),
+        );
+      }
+
+      await ChangelogHelper.saveLastSeenVersion(packageInfo.version);
+    } catch (e) {
+      // Don't block app if there's an error
+      debugPrint('Error showing changelog: $e');
     }
   }
 
