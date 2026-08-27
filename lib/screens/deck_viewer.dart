@@ -17,6 +17,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '/utils/deck_image_generator.dart';
 import '/widgets/card_image.dart';
+import '/widgets/cubecobra_submit_dialog.dart';
 import '/widgets/deck_text_editor.dart';
 import '/widgets/deck_edit_dialog.dart';
 import '/widgets/display_token.dart';
@@ -352,19 +353,32 @@ class DeckViewerState extends State<DeckViewer> {
                     : null,
               ),
               Spacer(),
-              // TODO: Broken currently
-              // IconButton(
-              //   tooltip: "Share to CubeCobra",
-              //   icon: SvgPicture.asset(
-              //     "assets/app_icons/monochrome_cubecobra.svg",
-              //     height: 28,
-              //     colorFilter: ColorFilter.mode(
-              //         // Theme.of(context).iconTheme.color!,
-              //         Theme.of(context).unselectedWidgetColor,
-              //         BlendMode.srcIn),
-              //   ),
-              //   onPressed: () => shareWithCubeCobra(deck),
-              // ),
+              IconButton(
+                tooltip: deck.cubecobraId != null
+                    ? "Submit to CubeCobra"
+                    : "Only cube-linked decks can be submitted to CubeCobra",
+                icon: SvgPicture.asset(
+                  "assets/app_icons/monochrome_cubecobra.svg",
+                  height: 28,
+                  colorFilter: ColorFilter.mode(
+                    deck.cubecobraId != null
+                        ? Theme.of(context).unselectedWidgetColor
+                        : Theme.of(context).disabledColor,
+                    BlendMode.srcIn,
+                  ),
+                ),
+                onPressed: deck.cubecobraId != null
+                    ? () => showCubeCobraSubmitDialog(
+                          context,
+                          deck: deck,
+                          cubeName: _cubes
+                              .where((c) =>
+                                  c.cubecobraId == deck.cubecobraId)
+                              .firstOrNull
+                              ?.name,
+                        )
+                    : null,
+              ),
               IconButton(
                 tooltip: "Edit Decklist",
                 icon: Icon(Icons.format_list_numbered),
