@@ -28,8 +28,8 @@ void main() {
 
     test('returns the newest matching record', () {
       final records = [
-        _record('old', 'SnapDrafter decks', 100),
-        _record('new', 'SnapDrafter decks', 300),
+        _record('old', 'SnapDrafter Decks', 100),
+        _record('new', 'SnapDrafter Decks', 300),
         _record('other', 'Draft Night', 999),
       ];
       expect(findNewestBundleRecord(records)?.id, 'new');
@@ -37,7 +37,7 @@ void main() {
 
     test('respects a custom bundle name', () {
       final records = [
-        _record('a', 'SnapDrafter decks', 100),
+        _record('a', 'SnapDrafter Decks', 100),
         _record('b', 'My bundle', 200),
       ];
       expect(findNewestBundleRecord(records, bundleName: 'My bundle')?.id, 'b');
@@ -46,7 +46,7 @@ void main() {
     test('skips records with empty names', () {
       final records = [
         _record('a', '', 100),
-        _record('b', 'SnapDrafter decks', 200),
+        _record('b', 'SnapDrafter Decks', 200),
       ];
       expect(findNewestBundleRecord(records)?.id, 'b');
     });

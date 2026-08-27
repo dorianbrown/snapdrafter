@@ -464,7 +464,7 @@ class _CubeCobraSubmitDialogState extends State<_CubeCobraSubmitDialog> {
             style: Theme.of(context).textTheme.bodySmall),
         const SizedBox(height: 12),
         Text(
-          'This deck will be added to your "SnapDrafter decks" record for '
+          'This deck will be added to your "SnapDrafter Decks" record for '
           '${widget.cubeName ?? 'this cube'}. A new record is created '
           'automatically when the current one is full (16 decks).',
           style: Theme.of(context).textTheme.bodySmall,

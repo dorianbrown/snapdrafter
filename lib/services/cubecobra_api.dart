@@ -322,7 +322,7 @@ Future<List<CubeRecordSummary>> fetchCubeAnalysisData(
 
 CubeRecordSummary? findNewestBundleRecord(
   List<CubeRecordSummary> records, {
-  String bundleName = 'SnapDrafter decks',
+  String bundleName = 'SnapDrafter Decks',
 }) {
   CubeRecordSummary? newest;
   for (final record in records) {
@@ -355,7 +355,7 @@ Future<CubeSubmitResult> submitDeckToCube({
   int draws = 0,
   required void Function(String step) onProgress,
 }) async {
-  const bundleName = 'SnapDrafter decks';
+  const bundleName = 'SnapDrafter Decks';
   const maxPlayers = 16;
 
   Future<String> createBundleRecord() async {
