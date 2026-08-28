@@ -354,32 +354,6 @@ class DeckViewerState extends State<DeckViewer> {
               ),
               Spacer(),
               IconButton(
-                tooltip: deck.cubecobraId != null
-                    ? "Submit to CubeCobra"
-                    : "Only cube-linked decks can be submitted to CubeCobra",
-                icon: SvgPicture.asset(
-                  "assets/app_icons/monochrome_cubecobra.svg",
-                  height: 28,
-                  colorFilter: ColorFilter.mode(
-                    deck.cubecobraId != null
-                        ? Theme.of(context).unselectedWidgetColor
-                        : Theme.of(context).disabledColor,
-                    BlendMode.srcIn,
-                  ),
-                ),
-                onPressed: deck.cubecobraId != null
-                    ? () => showCubeCobraSubmitDialog(
-                          context,
-                          deck: deck,
-                          cubeName: _cubes
-                              .where((c) =>
-                                  c.cubecobraId == deck.cubecobraId)
-                              .firstOrNull
-                              ?.name,
-                        )
-                    : null,
-              ),
-              IconButton(
                 tooltip: "Edit Decklist",
                 icon: Icon(Icons.format_list_numbered),
                 onPressed: () => showDeckEditor(deck),
@@ -392,14 +366,58 @@ class DeckViewerState extends State<DeckViewer> {
                         createInteractiveImageViewer(_loadedImagePath!, context)
                     : null,
               ),
-              IconButton(
+              PopupMenuButton<int>(
                 tooltip: "Share",
                 icon: Icon(Icons.share),
-                onPressed: () async {
-                  context.loaderOverlay.show();
-                  await shareDeck(deck);
-                  context.loaderOverlay.hide();
+                onSelected: (value) async {
+                  switch (value) {
+                    case 0:
+                      showCubeCobraSubmitDialog(
+                        context,
+                        deck: deck,
+                        cubeName: _cubes
+                            .where((c) => c.cubecobraId == deck.cubecobraId)
+                            .firstOrNull
+                            ?.name,
+                      );
+                    case 1:
+                      context.loaderOverlay.show();
+                      await shareDeck(deck);
+                      context.loaderOverlay.hide();
+                  }
                 },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 0,
+                    enabled: deck.cubecobraId != null,
+                    child: Row(
+                      children: [
+                        SvgPicture.asset(
+                          "assets/app_icons/monochrome_cubecobra.svg",
+                          height: 20,
+                          colorFilter: ColorFilter.mode(
+                            deck.cubecobraId != null
+                                ? Theme.of(context).unselectedWidgetColor
+                                : Theme.of(context).disabledColor,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Text("Submit to CubeCobra"),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 1,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.share),
+                        SizedBox(width: 12),
+                        Text("Share as image"),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
