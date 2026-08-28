@@ -34,6 +34,8 @@ class _SettingsState extends State<Settings> with RouteAware {
   late SharedPreferences prefs;
   bool _debugEnabled = false;
   bool _nonUbArtworkAvailable = false;
+  bool _prefsLoaded = false;
+  String _username = "";
 
   @override
   void initState() {
@@ -84,7 +86,21 @@ class _SettingsState extends State<Settings> with RouteAware {
         _ => ThemeMode.dark,
       };
       _debugEnabled = prefs.getBool("debug_enabled") ?? false;
+      _prefsLoaded = true;
     });
+    _loadUsername();
+  }
+
+  void _loadUsername() {
+    if (!_prefsLoaded) {
+      return;
+    }
+    final username = prefs.getString("username") ?? "";
+    if (username != _username && mounted) {
+      setState(() {
+        _username = username;
+      });
+    }
   }
 
   @override
@@ -109,14 +125,17 @@ class _SettingsState extends State<Settings> with RouteAware {
               title: Text("User Name"),
               leading: Icon(Icons.person),
               subtitle: Text(
-                "Details for sharing decklists",
+                _username.isNotEmpty
+                    ? _username
+                    : "Details for sharing decklists",
                 style: subtitleColor,
               ),
-              onTap: () {
-                showDialog(
+              onTap: () async {
+                await showDialog(
                   context: context,
                   builder: (context) => const UserSettings(),
                 );
+                _loadUsername();
               },
             ),
             ListTile(
