@@ -21,47 +21,50 @@ class _UserSettingsState extends State<UserSettings> {
     initPreferences();
   }
 
-  initPreferences() async {
+  Future<void> initPreferences() async {
     prefs = await SharedPreferences.getInstance();
     usernameController.text = prefs.getString("username") ?? "";
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('User Settings')),
-      body: Form(
+    return AlertDialog(
+      title: const Text('User Settings'),
+      content: Form(
         key: _formKey,
-        child: Container(
-          padding: EdgeInsets.all(50),
-          child: Column(
-              children: [
-                TextFormField(
-                  controller: usernameController,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Please enter some text';
-                    }
-                    return null;
-                  },
-                  decoration: InputDecoration(
-                      hintText: "Username",
-                  ),
-                )
-              ]
-          ),
-        )
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-          onPressed: () => {
-            if (_formKey.currentState!.validate()) {
-              prefs.setString("username", usernameController.text),
-              Navigator.pop(context)
+        child: TextFormField(
+          controller: usernameController,
+          autofocus: true,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return 'Please enter some text';
             }
+            return null;
           },
-          label: Text("Save"),
-          icon: Icon(Icons.save),
-      )
+          decoration: const InputDecoration(
+            labelText: "Username",
+            border: OutlineInputBorder(),
+          ),
+          onFieldSubmitted: (_) => _save(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel"),
+        ),
+        FilledButton(
+          onPressed: _save,
+          child: const Text("Save"),
+        ),
+      ],
     );
+  }
+
+  void _save() {
+    if (_formKey.currentState!.validate()) {
+      prefs.setString("username", usernameController.text.trim());
+      Navigator.pop(context);
+    }
   }
 }

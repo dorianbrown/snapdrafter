@@ -1,15 +1,32 @@
 import 'dart:math';
 
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/widgets.dart' show EdgeInsets;
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ChangelogEntry {
-  const ChangelogEntry({required this.version, required this.body});
+  const ChangelogEntry({
+    required this.version,
+    required this.body,
+    this.date,
+  });
 
   final String version;
   final String body;
+  final String? date;
 
-  String get markdown => '## $version\n$body';
+  String get markdown {
+    final dateLine = date == null ? '' : '`$date`\n\n';
+    return '$dateLine## $version\n$body';
+  }
+}
+
+class ChangelogHrPaddingBuilder extends MarkdownPaddingBuilder {
+  ChangelogHrPaddingBuilder();
+
+  @override
+  EdgeInsets getPadding() => const EdgeInsets.symmetric(vertical: 20);
 }
 
 class ChangelogHelper {
@@ -24,6 +41,7 @@ class ChangelogHelper {
   static List<ChangelogEntry> parseChangelog(String raw) {
     final entries = <ChangelogEntry>[];
     final headerPattern = RegExp(r'^##\s+(.+?)\s*$');
+    final datePattern = RegExp(r'^`(\d{4}-\d{2}-\d{2})`$');
     ChangelogEntry? current;
     final bodyBuffer = StringBuffer();
 
@@ -33,6 +51,7 @@ class ChangelogHelper {
         entries.add(ChangelogEntry(
           version: entry.version,
           body: bodyBuffer.toString().trim(),
+          date: entry.date,
         ));
       }
       bodyBuffer.clear();
@@ -41,12 +60,30 @@ class ChangelogHelper {
     for (final line in raw.split('\n')) {
       final match = headerPattern.firstMatch(line);
       if (match != null) {
+        final lines = bodyBuffer.toString().split('\n');
+        var i = lines.length - 1;
+        while (i >= 0 && lines[i].trim().isEmpty) {
+          i--;
+        }
+        String? date;
+        if (i >= 0) {
+          final dateMatch = datePattern.firstMatch(lines[i].trim());
+          if (dateMatch != null) {
+            date = dateMatch.group(1);
+          }
+        }
+        final previousBody =
+            (date != null ? lines.sublist(0, i) : lines).join('\n');
+        bodyBuffer.clear();
+        bodyBuffer.write(previousBody);
         flush();
         current = ChangelogEntry(
           version: match.group(1)!.trim(),
-          body: bodyBuffer.toString(),
+          body: '',
+          date: date,
         );
-      } else if (current != null) {
+        bodyBuffer.clear();
+      } else {
         bodyBuffer.writeln(line);
       }
     }

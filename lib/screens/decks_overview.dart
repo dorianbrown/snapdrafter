@@ -63,7 +63,7 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
     _loadInitialData();
     _loadFirstDeckStatus();
     _loadTags();
-    WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
+    // WidgetsBinding.instance.addPostFrameCallback((_) => launchWelcomeDialog());
     WidgetsBinding.instance
         .addPostFrameCallback((_) => launchBackendMigrationNotice());
   }

@@ -8,11 +8,13 @@ void main() {
   test('real changelog asset parses into expected sections', () async {
     final entries = await ChangelogHelper.loadChangelog();
 
-    expect(entries.length, 17);
-    expect(entries.first.version, '1.2.2');
+    expect(entries.first.version, '1.2.3');
     expect(entries.last.version, '0.6.0');
+    expect(entries.first.date, '2026-08-28');
+    expect(entries.last.date, '2025-08-22');
+    expect(entries.first.body, isNot(contains('2026')));
 
-    final first = entries.first.body;
+    final first = entries.firstWhere((e) => e.version == '1.2.2').body;
     expect(first, contains('#### Features'));
     expect(first, contains('#### Bugfixes'));
     expect(first, contains('#### Other'));

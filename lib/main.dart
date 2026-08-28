@@ -96,7 +96,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     
     // Run the release date check after the app is initialized
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _waitForWelcomeDismissed();
+      // await _waitForWelcomeDismissed();
       await _showChangelogIfNeeded();
       await _checkForNewReleases();
     });
@@ -135,6 +135,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
     }
   }
   
+  // ignore: unused_element
   Future<void> _waitForWelcomeDismissed() async {
     final prefs = await SharedPreferences.getInstance();
     while (!(prefs.getBool("welcome_popup_seen") ?? false)) {
@@ -154,7 +155,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
         await showDialog(
           context: navigatorKey.currentContext!,
           builder: (context) => ChangelogDialog(
-            entries: [newEntries.first],
+            entries: newEntries,
           ),
         );
       }

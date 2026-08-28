@@ -1,5 +1,18 @@
 # SnapDrafter Changelog
 
+`2026-08-28`
+
+## 1.2.3
+
+#### Features
+- Added a "Submit deck to CubeCobra" button to the deck viewer (behind the share icon)
+- Added a changelog to the settings menu
+- On first launch and after updates, there's a pop-up with recent changes
+
+---
+
+`2026-08-18`
+
 ## 1.2.2
 
 #### Features
@@ -20,6 +33,8 @@
 
 ---
 
+`2026-07-25`
+
 ## 1.2.1
 
 #### Features
@@ -38,6 +53,8 @@
 
 ---
 
+`2026-07-24`
+
 ## 1.2.0
 
 #### Features
@@ -53,6 +70,8 @@
 
 ---
 
+`2026-03-08`
+
 ## 1.1.9
 
 #### Bugfixes
@@ -60,12 +79,16 @@
 
 ---
 
+`2026-03-02`
+
 ## 1.1.8
 
 #### Features
 - Users should get a pop-up reminding them that a new set is available before prerelease weekend
 
 ---
+
+`2026-02-16`
 
 ## 1.1.7
 
@@ -75,6 +98,8 @@
 - We now get a list of set release dates from Scryfall, and get a notification when there's a new one available for download
 
 ---
+
+`2026-02-09`
 
 ## 1.1.6
 
@@ -87,12 +112,16 @@
 
 ---
 
+`2026-02-08`
+
 ## 1.1.2
 
 #### Bugfixes
 - Small bugfixes
 
 ---
+
+`2026-02-08`
 
 ## 1.1.1
 
@@ -101,12 +130,16 @@
 
 ---
 
+`2026-02-08`
+
 ## 1.1.0
 
 #### Features
 - You can now add a sideboard to your draft deck. Uploads to Cubecobra should also include this sideboard, and deck imports/exports should work with the standard text formats for decklists with sideboards
 
 ---
+
+`2025-09-04`
 
 ## 1.0.3
 
@@ -115,6 +148,8 @@
 
 ---
 
+`2025-09-04`
+
 ## 1.0.2
 
 #### Features
@@ -122,12 +157,16 @@
 
 ---
 
+`2025-09-02`
+
 ## 1.0.1
 
 #### Bugfixes
 - Small bugfix version bump
 
 ---
+
+`2025-09-02`
 
 ## 1.0.0
 
@@ -139,12 +178,16 @@
 
 ---
 
+`2025-08-31`
+
 ## 0.6.2
 
 #### Features
 - Deck photos can now be shared from other apps using the OS share system (iOS & Android)
 
 ---
+
+`2025-08-27`
 
 ## 0.6.1
 
@@ -155,6 +198,8 @@
 - Updated the image processing screen to freeze less during loading
 
 ---
+
+`2025-08-22`
 
 ## 0.6.0
 

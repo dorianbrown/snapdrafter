@@ -12,7 +12,7 @@ import 'settings/download_screen.dart';
 import 'settings/cube.dart';
 import 'settings/backup.dart';
 import 'settings/user.dart';
-import 'settings/help.dart';
+// import 'settings/help.dart'; // TODO: restore when Help screen is re-enabled
 import 'settings/donations.dart';
 import 'settings/changelog_screen.dart';
 import '/utils/theme_notifier.dart';
@@ -105,6 +105,20 @@ class _SettingsState extends State<Settings> with RouteAware {
         child: ListView(
           children: [
             SizedBox(height: 20),
+            ListTile(
+              title: Text("User Name"),
+              leading: Icon(Icons.person),
+              subtitle: Text(
+                "Details for sharing decklists",
+                style: subtitleColor,
+              ),
+              onTap: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => const UserSettings(),
+                );
+              },
+            ),
             ListTile(
               title: Text("Cubes"),
               leading: Icon(Icons.view_in_ar),
@@ -232,34 +246,20 @@ class _SettingsState extends State<Settings> with RouteAware {
                 );
               },
             ),
-            ListTile(
-              title: Text("User Name"),
-              leading: Icon(Icons.person),
-              subtitle: Text(
-                "Details for sharing decklists",
-                style: subtitleColor,
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => UserSettings()),
-                );
-              },
-            ),
-            ListTile(
-              title: Text("Help"),
-              leading: Icon(Icons.question_mark),
-              subtitle: Text(
-                "Useful information about using this app",
-                style: subtitleColor,
-              ),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => HelpScreen()),
-                );
-              },
-            ),
+            // ListTile(
+            //   title: Text("Help"),
+            //   leading: Icon(Icons.question_mark),
+            //   subtitle: Text(
+            //     "Useful information about using this app",
+            //     style: subtitleColor,
+            //   ),
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(builder: (context) => HelpScreen()),
+            //     );
+            //   },
+            // ),
             if (!Platform.isIOS)
               ListTile(
                 title: Text("Donations"),

@@ -34,6 +34,13 @@ class ChangelogScreen extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
             children: [
               for (final entry in entries) ...[
+                if (entry.date != null)
+                  Text(
+                    entry.date!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 Text(
                   entry.version,
                   style: theme.textTheme.titleLarge?.copyWith(
@@ -41,7 +48,11 @@ class ChangelogScreen extends StatelessWidget {
                     color: theme.colorScheme.primary,
                   ),
                 ),
-                MarkdownBody(data: entry.body, styleSheet: markdownStyle),
+                MarkdownBody(
+                  data: entry.body,
+                  styleSheet: markdownStyle,
+                  paddingBuilders: {'hr': ChangelogHrPaddingBuilder()},
+                ),
                 const SizedBox(height: 20),
               ],
             ],

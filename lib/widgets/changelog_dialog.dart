@@ -36,6 +36,7 @@ class ChangelogDialog extends StatelessWidget {
           child: MarkdownBody(
             data: entries.map((e) => e.markdown).join('\n\n'),
             styleSheet: markdownStyle,
+            paddingBuilders: {'hr': ChangelogHrPaddingBuilder()},
           ),
         ),
       ),

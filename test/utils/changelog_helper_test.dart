@@ -40,6 +40,42 @@ void main() {
       final entries = ChangelogHelper.parseChangelog(sampleChangelog);
       expect(entries[0].markdown, startsWith('## 1.2.2\n'));
     });
+
+    test('parses a date above the version header into the entry', () {
+      const changelog = '''
+# SnapDrafter Changelog
+
+`2026-08-28`
+
+## 1.2.3
+
+#### Features
+- Added a changelog
+
+---
+
+`2026-08-18`
+
+## 1.2.2
+
+#### Bugfixes
+- Fixed things
+''';
+      final entries = ChangelogHelper.parseChangelog(changelog);
+      expect(entries.length, 2);
+      expect(entries[0].version, '1.2.3');
+      expect(entries[0].date, '2026-08-28');
+      expect(entries[0].body, isNot(contains('2026-08-28')));
+      expect(entries[0].body, contains('Added a changelog'));
+      expect(entries[1].version, '1.2.2');
+      expect(entries[1].date, '2026-08-18');
+    });
+
+    test('entries without a date have a null date', () {
+      final entries = ChangelogHelper.parseChangelog(sampleChangelog);
+      expect(entries[0].date, isNull);
+      expect(entries[0].markdown, startsWith('## 1.2.2\n'));
+    });
   });
 
   group('compareVersions', () {
