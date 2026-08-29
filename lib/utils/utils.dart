@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fuzzywuzzy/fuzzywuzzy.dart';
 import 'package:fuzzywuzzy/model/extracted_result.dart';
 import 'package:fuzzywuzzy/ratios/simple_ratio.dart';
@@ -5,6 +7,13 @@ import 'package:http/http.dart' as http;
 
 import 'package:snapdrafter/data/models/card.dart';
 import 'package:snapdrafter/data/repositories/card_repository.dart';
+
+class CubecobraCubeData {
+  final String name;
+  final List<Card> cards;
+
+  const CubecobraCubeData({required this.name, required this.cards});
+}
 
 enum CaptureSource { camera, gallery, share }
 
@@ -74,20 +83,29 @@ ExtractedResult<String> runFuzzyMatch(MatchParams params) {
   return match;
 }
 
-Future<List<Card>> fetchCubecobraList(String cubecobraId) async {
+Future<CubecobraCubeData> fetchCubecobraCube(String cubecobraId) async {
   CardRepository cardRepository = CardRepository();
 
   final response = await http.get(
-    Uri.parse("https://cubecobra.com/cube/api/cubelist/$cubecobraId"),
+    Uri.parse("https://cubecobra.com/cube/api/cubeJSON/$cubecobraId"),
     headers: {'User-Agent': 'SnapDrafter/1.0', 'Accept': '*/*'}
   );
   if (response.statusCode == 200) {
-    List<String> cubeList = response.body
-        .split('\n')
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
+    final cube = jsonDecode(response.body) as Map<String, dynamic>;
+    final cardsData = cube['cards'] as Map<String, dynamic>? ?? {};
+    final mainboard = cardsData['mainboard'] as List<dynamic>? ?? [];
+    final cubeList = [
+      for (final card in mainboard)
+        if (card is Map<String, dynamic> &&
+            card['details'] is Map<String, dynamic> &&
+            (card['details'] as Map<String, dynamic>)['name'] is String)
+          (card['details'] as Map<String, dynamic>)['name'] as String,
+    ];
     final cards = await cardRepository.getCardsByNames(cubeList);
-    return cards;
+    return CubecobraCubeData(
+      name: cube['name'] as String? ?? cubecobraId,
+      cards: cards,
+    );
   } else {
     throw Exception('Failed to load cube list');
   }

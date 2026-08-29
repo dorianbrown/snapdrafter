@@ -510,7 +510,9 @@ class _CubeSettingsState extends State<CubeSettings> {
                                 });
 
                                 try {
-                                  cubeCards = await fetchCubecobraList(id);
+                                  final data = await fetchCubecobraCube(id);
+                                  cubeCards = data.cards;
+                                  nameCtrl.text = data.name;
                                 } catch (e) {
                                   error = '$e';
                                 }
