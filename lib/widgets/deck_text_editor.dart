@@ -8,6 +8,7 @@ import '/data/models/card.dart';
 import '/data/models/deck_upsert.dart';
 import '/data/repositories/deck_repository.dart';
 import '/data/repositories/card_repository.dart';
+import '/utils/card_name_search.dart';
 import '/utils/deck_text_parser.dart';
 import '/utils/dropdown_position.dart';
 
@@ -243,18 +244,7 @@ class _DeckTextEditorState extends State<DeckTextEditor>
     final query = info.nameFragment.toLowerCase();
     if (_lowerCardNames.contains(query)) return const [];
 
-    final prefixMatches = <String>[];
-    final substringMatches = <String>[];
-    for (final name in _cardNames) {
-      if (prefixMatches.length >= 8 && substringMatches.length >= 8) break;
-      final lower = name.toLowerCase();
-      if (lower.startsWith(query)) {
-        prefixMatches.add(name);
-      } else if (substringMatches.length < 8 && lower.contains(query)) {
-        substringMatches.add(name);
-      }
-    }
-    return [...prefixMatches, ...substringMatches].take(8).toList();
+    return searchCardNames(_cardNames, query, maxResults: 8);
   }
 
   void _commitCardName(String selectedName) {

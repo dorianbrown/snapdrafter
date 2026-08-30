@@ -9,6 +9,7 @@ import '../utils/utils.dart';
 import 'deck_viewer.dart';
 import 'image_processing_screen.dart';
 import '/models/detection.dart';
+import '/utils/card_name_search.dart';
 import '/utils/deck_change_notifier.dart';
 import '/data/models/card.dart';
 import '/data/models/deck.dart';
@@ -66,7 +67,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   late img.Image originalImage;
   late List<Detection> detections;
   late Uint8List imagePng;
-  List<Map<String, String>> _cardNames = [];
+  List<String> _cardNames = const [];
   final ScrollController _scrollController = ScrollController();
   final DeckChangeNotifier _changeNotifier = DeckChangeNotifier();
 
@@ -77,7 +78,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
     originalImage = widget.originalImage;
     detections = List.from(widget.detections);
     detections.sort((a,b) => a.ocrDistance! - b.ocrDistance!);
-    cardRepository.getAllCardNames().then((value) => setState(() {_cardNames = value;}));
+    cardRepository.getAllDistinctCardNames().then((value) => setState(() {_cardNames = value;}));
 
     final rgbaBytes = image.getBytes(order: img.ChannelOrder.rgba);
     compute(_encodePngFromRgba, {
@@ -95,26 +96,7 @@ class _detectionPreviewState extends State<DetectionPreviewScreen> {
   }
 
   List<String> _searchCardNames(String query) {
-    final lower = query.toLowerCase();
-    final seen = <String>{};
-    final result = <String>[];
-    for (final entry in _cardNames) {
-      final name = entry['name']!;
-      final title = entry['title']!;
-      if (name.contains(' // ')) {
-        for (final face in name.split(' // ')) {
-          if (face.toLowerCase().contains(lower)) {
-            if (seen.add(title)) result.add(title);
-            break;
-          }
-        }
-      } else {
-        if (name.toLowerCase().contains(lower)) {
-          if (seen.add(name)) result.add(name);
-        }
-      }
-    }
-    return result;
+    return searchCardNames(_cardNames, query);
   }
 
   void _onAddSideboard() async {
