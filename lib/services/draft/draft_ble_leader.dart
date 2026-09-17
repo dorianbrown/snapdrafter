@@ -8,19 +8,34 @@ import 'ble_chunked.dart';
 import 'ble_platform.dart';
 import 'ble_platform_live.dart';
 import 'draft_ble_service.dart';
+import 'draft_link.dart';
+import 'draft_protocol.dart';
 import 'draft_state.dart';
 import 'draft_message.dart';
 
 /// BLE peripheral implementation for the draft host.
 ///
 /// Advertises a GATT service with two characteristics:
-///   - **State** (read/notify): full [DraftState] JSON, chunked if > MTU
-///   - **Command** (write): incoming [DraftCommand] from followers
+///   - **State** (read/notify): binary [DraftProtocol] frames carrying full
+///     state snapshots (decklist-free) and periodic ticks.
+///   - **Command** (write): incoming [DraftCommand] from followers, including
+///     `stateAck` and `resyncRequest` for reliable delivery.
 ///
-/// Connected followers receive push notifications of state changes via the
-/// state characteristic.
+/// Each subscribed follower gets a [DraftLinkSession] that keeps one snapshot
+/// in flight, coalesces newer snapshots, and retransmits on ACK timeout. A
+/// periodic tick lets followers detect missed snapshots and request a resync.
 class DraftBleLeader extends DraftBleService {
   final BlePeripheral _ble;
+
+  /// True when this server runs on a relay node rather than the draft host.
+  final bool isRelay;
+
+  /// Maximum simultaneous direct links this node will accept.
+  final int maxDirectLinks;
+
+  /// When true, `DecklistRequest` commands are forwarded to
+  /// [onCommandReceived] instead of being answered locally (relay mode).
+  final bool forwardDecklistRequests;
 
   final _connectedDevices = <String>{};
   final _subscribedStateDeviceIds = <String>{};
@@ -30,18 +45,29 @@ class DraftBleLeader extends DraftBleService {
   _charSubStreamSub;
   StreamSubscription<BlePeripheralMtuChanged>? _mtuChangedSub;
   StreamSubscription<BlePeripheralConnectionStateChanged>? _connStateSub;
+  Timer? _tickTimer;
+  Timer? _adRefreshTimer;
 
   Uint8List? _currentStateBytes;
 
   bool _advertisingPaused = false;
   String? _savedLocalName;
 
-  DraftBleLeader({BlePeripheral? ble}) : _ble = ble ?? LiveBlePeripheral();
+  DraftBleLeader({
+    BlePeripheral? ble,
+    this.isRelay = false,
+    this.maxDirectLinks = 4,
+    this.forwardDecklistRequests = false,
+  }) : _ble = ble ?? LiveBlePeripheral();
   DraftState? _currentState;
 
   final _stateChunkers = <String, BleChunkedStream>{};
   final _commandChunkers = <String, BleChunkedStream>{};
+  final _sessions = <String, DraftLinkSession>{};
   final _mtuKnownDevices = <String>{};
+
+  /// How often a tick frame is broadcast so followers can detect staleness.
+  static const tickInterval = Duration(seconds: 2);
 
   @override
   Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
@@ -53,6 +79,9 @@ class DraftBleLeader extends DraftBleService {
   int get connectedDeviceCount => _connectedDevices.length;
 
   bool get isAdvertising => !_advertisingPaused;
+
+  /// Sequence currently advertised to followers.
+  int get currentSeq => _currentState?.sequenceNumber ?? 0;
 
   /// Callback invoked when a follower writes a [DraftCommand] to the
   /// command characteristic.
@@ -82,6 +111,9 @@ class DraftBleLeader extends DraftBleService {
   @override
   Stream<bool> get leaderConnected =>
       throw UnsupportedError('Leader has no connection stream');
+
+  @override
+  Future<DraftState?> resubscribeAndReadState() async => null;
 
   // -------------------------------------------------------------------------
   // Start advertising
@@ -117,7 +149,6 @@ class DraftBleLeader extends DraftBleService {
               properties: [
                 CharacteristicProperty.read,
                 CharacteristicProperty.notify,
-                CharacteristicProperty.indicate,
               ],
               permissions: [PeripheralAttributePermission.readable],
             ),
@@ -169,6 +200,7 @@ class DraftBleLeader extends DraftBleService {
         _subscribedStateDeviceIds.remove(event.deviceId);
         _commandChunkers.remove(event.deviceId);
         _stateChunkers.remove(event.deviceId);
+        _sessions.remove(event.deviceId)?.dispose();
         _mtuKnownDevices.remove(event.deviceId);
         _log(
           '[BLE_ADV] follower DISCONNECTED: ${event.deviceId} (total=${_connectedDevices.length})',
@@ -176,21 +208,8 @@ class DraftBleLeader extends DraftBleService {
       }
     });
 
-    // iOS workaround: When a follower subscribes (or re-subscribes via
-    // resubscribeAndReadState on the follower side), we must re-encode the
-    // current state fresh. Relying on pre-cached _currentStateBytes can
-    // return stale data because:
-    //   - iOS peripheral GATT read requests return cached values
-    // Re-encoding guarantees every subscriber always sees the latest state.
-    //
-    // Subscription events are also the only connection signal available on
-    // iOS: CoreBluetooth gives the peripheral no central connect/disconnect
-    // callbacks, so connectionStateStream never emits there. Tracking
-    // subscriptions keeps _connectedDevices, connectedDeviceCount, and the
-    // followerConnected/followerDisconnected streams accurate on both
-    // platforms (on Android the connection events already fire, so
-    // subscription events only re-confirm existing entries and never
-    // double-emit).
+    // Subscription events drive state pushes and are also the only connection
+    // signal available on iOS peripherals.
     _charSubStreamSub = _ble.characteristicSubscriptionStream.listen((
       event,
     ) async {
@@ -200,29 +219,27 @@ class DraftBleLeader extends DraftBleService {
         } else {
           _subscribedStateDeviceIds.remove(event.deviceId);
         }
+        _scheduleAdvertisementRefresh();
         _log(
           '[BLE_ADV] state char ${event.isSubscribed ? "SUBSCRIBED" : "UNSUBSCRIBED"}: ${event.deviceId} (total=${_subscribedStateDeviceIds.length})',
         );
       }
       _updateConnectionTracking(event.deviceId, event.isSubscribed);
-      if (!event.isSubscribed) return;
-      if (event.characteristicId == DraftBleService.stateCharUuid &&
-          _currentState != null) {
-        _currentStateBytes = DraftBleService.encodeState(_currentState!);
-      }
       if (event.characteristicId != DraftBleService.stateCharUuid) return;
-      final bytes = _currentStateBytes;
-      if (bytes == null) {
-        _log(
-          '[BLE_ADV] no bytes available for ${event.characteristicId} (stateLen=${_currentStateBytes?.length})',
-        );
+
+      if (!event.isSubscribed) {
+        _sessions.remove(event.deviceId)?.dispose();
         return;
       }
+
       await _queryMtuForDevice(event.deviceId);
-      await _pushCharacteristicValue(
-        characteristicId: event.characteristicId,
-        bytes: bytes,
-        deviceId: event.deviceId,
+      final session = _sessionFor(event.deviceId);
+      final state = _currentState;
+      if (state == null) return;
+      _currentStateBytes = DraftBleService.encodeState(state);
+      session.sendSnapshot(
+        state.sequenceNumber,
+        DraftFrame.encodeSnapshot(state.sequenceNumber, _currentStateBytes!),
       );
     });
 
@@ -236,6 +253,8 @@ class DraftBleLeader extends DraftBleService {
     // Encode initial state and start advertising.
     _currentStateBytes = DraftBleService.encodeState(state);
 
+    _tickTimer = Timer.periodic(tickInterval, (_) => _broadcastTick());
+
     final localName = state.session.name;
     _log(
       '[BLE_ADV] starting advertising: service=${DraftBleService.serviceUuid} localName="$localName"',
@@ -244,6 +263,7 @@ class DraftBleLeader extends DraftBleService {
     await _ble.startAdvertising(
       services: [DraftBleService.serviceUuid],
       localName: localName,
+      manufacturerData: _advertisementData(),
       platformConfig: PeripheralPlatformConfig(
         android: PeripheralAndroidOptions(addServicesInScanResponse: true),
       ),
@@ -306,6 +326,7 @@ class DraftBleLeader extends DraftBleService {
       await _ble.startAdvertising(
         services: [DraftBleService.serviceUuid],
         localName: _savedLocalName,
+        manufacturerData: _advertisementData(),
         platformConfig: PeripheralPlatformConfig(
           android: PeripheralAndroidOptions(addServicesInScanResponse: true),
         ),
@@ -316,24 +337,75 @@ class DraftBleLeader extends DraftBleService {
     }
   }
 
+  /// Builds the advertisement payload describing this node's role, depth and
+  /// remaining direct-link capacity so scanners can pick the best parent.
+  ManufacturerData? _advertisementData() {
+    final state = _currentState;
+    if (state == null) return null;
+    final capacity = (maxDirectLinks - _subscribedStateDeviceIds.length).clamp(
+      0,
+      255,
+    );
+    return DraftProtocol.buildManufacturerData(
+      role: isRelay
+          ? DraftAdvertisement.roleRelay
+          : DraftAdvertisement.roleLeader,
+      depth: isRelay ? 1 : 0,
+      capacity: capacity,
+      draftId: state.session.sessionId.hashCode & 0xFFFFFFFF,
+    );
+  }
+
+  /// Re-advertises with an updated capacity after links change.
+  void _scheduleAdvertisementRefresh() {
+    if (_advertisingPaused || _currentState == null || _savedLocalName == null) {
+      return;
+    }
+    _adRefreshTimer?.cancel();
+    _adRefreshTimer = Timer(const Duration(milliseconds: 300), () async {
+      if (_advertisingPaused || _currentState == null) return;
+      try {
+        await _ble.stopAdvertising();
+        await _ble.startAdvertising(
+          services: [DraftBleService.serviceUuid],
+          localName: _savedLocalName,
+          manufacturerData: _advertisementData(),
+          platformConfig: PeripheralPlatformConfig(
+            android: PeripheralAndroidOptions(addServicesInScanResponse: true),
+          ),
+        );
+      } catch (e) {
+        _log('[BLE_ADV] advertisement refresh failed: $e');
+      }
+    });
+  }
+
   // -------------------------------------------------------------------------
   // State broadcast
   // -------------------------------------------------------------------------
 
-  /// Pushes bytes to a characteristic for either all connected devices or a
-  /// specific device. Automatically chunks the payload if it exceeds the
-  /// negotiated MTU.
+  DraftLinkSession _sessionFor(String deviceId) {
+    return _sessions.putIfAbsent(deviceId, () {
+      return DraftLinkSession(
+        deviceId: deviceId,
+        chunker: _stateChunkers.putIfAbsent(
+          deviceId,
+          () => BleChunkedStream(),
+        ),
+        send: (chunk) => _ble.updateCharacteristicValue(
+          characteristicId: DraftBleService.stateCharUuid,
+          value: chunk,
+          deviceId: deviceId,
+        ),
+        onDead: () => _log('[BLE_ADV] link dead: $deviceId'),
+      );
+    });
+  }
+
+  /// Encodes and pushes the updated [DraftState] to all subscribed followers.
   ///
-  /// Pushes to all subscribed followers concurrently so one follower's chunk
-  /// pacing or a slow link cannot delay the others.
-  ///
-  /// Targets are derived from subscription events only (not connection
-  /// events): iOS peripherals never receive central connect/disconnect
-  /// callbacks from CoreBluetooth, so `_connectedDevices` would always be
-  /// empty on iOS hosts and every push would be skipped. Subscription events
-  /// are reliable on both platforms — Android also emits an unsubscribe for
-  /// every characteristic when a central disconnects — and a push to a
-  /// stale/removed central fails harmlessly.
+  /// Decklist contents are omitted; snapshots are enqueued per link and
+  /// coalesced so a burst of state changes cannot flood the radio.
   @override
   Future<void> pushState(DraftState state) async {
     _currentState = state;
@@ -342,87 +414,32 @@ class DraftBleLeader extends DraftBleService {
     _log(
       '[BLE_ADV] pushState: seq=${state.sequenceNumber}, players=${state.players.length}, subscribedDevices=${targets.length}',
     );
-    _log('[BLE_ADV] current rounds: ${state.rounds}');
     if (targets.isEmpty) {
       _log('[BLE_ADV] pushState SKIPPED — no subscribed devices!');
       return;
     }
 
-    await Future.wait(
-      targets.map(
-        (deviceId) => _pushCharacteristicValue(
-          characteristicId: DraftBleService.stateCharUuid,
-          bytes: _currentStateBytes!,
-          deviceId: deviceId,
-        ),
-      ),
+    final frame = DraftFrame.encodeSnapshot(
+      state.sequenceNumber,
+      _currentStateBytes!,
     );
+    for (final deviceId in targets) {
+      _sessionFor(deviceId).sendSnapshot(state.sequenceNumber, frame);
+    }
   }
 
-  /// Pushes bytes to a characteristic for either all connected devices or a
-  /// specific device. Automatically chunks the payload if it exceeds the
-  /// negotiated MTU.
-  Future<void> _pushCharacteristicValue({
-    required String characteristicId,
-    required Uint8List bytes,
-    String? deviceId,
-  }) async {
-    // Per-device chunkers avoid MTU races between devices.
-    final chunker = _stateChunkers.putIfAbsent(
-      deviceId!,
-      () => BleChunkedStream(),
-    );
-
-    // Small enough to send in one write.
-    if (bytes.length <= chunker.maxRawPayload) {
-      try {
-        await _ble.updateCharacteristicValue(
-          characteristicId: characteristicId,
-          value: bytes,
-          deviceId: deviceId,
-        );
-      } catch (e) {
-        _log('[BLE_ADV] FAILED to push value: $e');
-      }
-      return;
-    }
-
-    // Chunked transmission.
-    final chunks = chunker.chunkBytes(bytes);
-    for (var i = 0; i < chunks.length; i++) {
-      if (i > 0) {
-        await Future<void>.delayed(const Duration(milliseconds: 15));
-      }
-      try {
-        await _ble.updateCharacteristicValue(
-          characteristicId: characteristicId,
-          value: chunks[i],
-          deviceId: deviceId,
-        );
-      } catch (e) {
-        _log('[BLE_ADV] FAILED to push chunk $i/${chunks.length}: $e');
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-        try {
-          await _ble.updateCharacteristicValue(
-            characteristicId: characteristicId,
-            value: chunks[i],
-            deviceId: deviceId,
-          );
-        } catch (e2) {
-          _log('[BLE_ADV] RETRY FAILED for chunk $i: $e2');
-        }
-      }
+  void _broadcastTick() {
+    final state = _currentState;
+    if (state == null) return;
+    final tick = DraftFrame.encodeTick(state.sequenceNumber);
+    for (final deviceId in _subscribedStateDeviceIds) {
+      final session = _sessions[deviceId];
+      if (session == null) continue;
+      session.sendTick(tick);
     }
   }
 
   /// Tracks device connection state from characteristic subscription events.
-  ///
-  /// iOS never emits central connect/disconnect events to the peripheral, so
-  /// subscriptions are the only reliable connection signal there. A device is
-  /// considered connected while it holds an active characteristic
-  /// subscription. On Android the connection stream already handles
-  /// connect/disconnect; these events only re-confirm existing entries and
-  /// never duplicate the follower streams.
   void _updateConnectionTracking(String deviceId, bool isSubscribed) {
     if (isSubscribed) {
       if (_connectedDevices.add(deviceId)) {
@@ -446,10 +463,10 @@ class DraftBleLeader extends DraftBleService {
   /// effective MTU for chunk calculations.
   Future<void> _queryMtuForDevice(String deviceId) async {
     if (_mtuKnownDevices.contains(deviceId)) return;
-    _mtuKnownDevices.add(deviceId);
     try {
       final notifyLen = await _ble.getMaximumNotifyLength(deviceId);
       if (notifyLen != null && notifyLen > 0) {
+        _mtuKnownDevices.add(deviceId);
         final mtu = notifyLen + 3;
         _stateChunkers
             .putIfAbsent(deviceId, () => BleChunkedStream())
@@ -487,19 +504,80 @@ class DraftBleLeader extends DraftBleService {
   }
 
   /// Decodes a JSON payload written by a follower on the command
-  /// characteristic and dispatches it via [onCommandReceived].
+  /// characteristic and dispatches it.
   void _dispatchCommand(String deviceId, Uint8List value) {
     try {
       final json = utf8.decode(value);
       final map = jsonDecode(json) as Map<String, dynamic>;
       final cmd = DraftCommand.fromJson(map);
       _log(
-        '[BLE_ADV] command received from $deviceId: type=${cmd.runtimeType}, ${json.length} chars',
+        '[BLE_ADV] command received from $deviceId: type=${cmd.runtimeType}',
       );
-      onCommandReceived?.call(deviceId, cmd);
+      switch (cmd) {
+        case StateAck(:final seq):
+          _sessions[deviceId]?.onAck(seq);
+        case ResyncRequest():
+          _resendTo(deviceId);
+        case DecklistRequest():
+          if (forwardDecklistRequests) {
+            onCommandReceived?.call(deviceId, cmd);
+          } else {
+            _sendDecklists(deviceId);
+          }
+        default:
+          onCommandReceived?.call(deviceId, cmd);
+      }
     } catch (e) {
       _log('[BLE_ADV] Failed to parse command from $deviceId: $e');
     }
+  }
+
+  void _resendTo(String deviceId) {
+    final state = _currentState;
+    if (state == null) return;
+    final session = _sessions[deviceId];
+    if (session == null) return;
+    _log('[BLE_ADV] resync requested by $deviceId (seq=${state.sequenceNumber})');
+    session.sendSnapshot(
+      state.sequenceNumber,
+      DraftFrame.encodeSnapshot(
+        state.sequenceNumber,
+        _currentStateBytes ?? DraftBleService.encodeState(state),
+      ),
+    );
+  }
+
+  /// Sends an already-encoded reliable frame to a specific subscriber.
+  /// Used by relays to forward bulk decklist frames to the child that asked.
+  void sendReliableFrame(String deviceId, int seq, Uint8List frame) {
+    _sessions[deviceId]?.sendMessage(seq, frame);
+  }
+
+  /// Sends the full decklists for every player that has submitted one. Decklist
+  /// contents are excluded from live snapshots, so followers fetch them on
+  /// demand at the results stage.
+  void _sendDecklists(String requesterDeviceId) {
+    final state = _currentState;
+    if (state == null) return;
+    final session = _sessions[requesterDeviceId];
+    if (session == null) return;
+
+    final decks = <String, dynamic>{};
+    for (final player in state.players) {
+      if (player.decklistMainboard == null) continue;
+      decks[player.deviceId] = {
+        'mb': player.decklistMainboard,
+        'sb': player.decklistSideboard ?? const <String>[],
+      };
+    }
+
+    _log(
+      '[BLE_ADV] sending decklists to $requesterDeviceId (${decks.length} decks)',
+    );
+    session.sendMessage(
+      state.sequenceNumber,
+      DraftFrame.encodeDecklistData(state.sequenceNumber, 'all', {'d': decks}),
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -508,12 +586,20 @@ class DraftBleLeader extends DraftBleService {
 
   @override
   Future<void> stop() async {
+    _tickTimer?.cancel();
+    _tickTimer = null;
+    _adRefreshTimer?.cancel();
+    _adRefreshTimer = null;
     await _charSubStreamSub?.cancel();
     _charSubStreamSub = null;
     await _mtuChangedSub?.cancel();
     _mtuChangedSub = null;
     await _connStateSub?.cancel();
     _connStateSub = null;
+    for (final session in _sessions.values) {
+      session.dispose();
+    }
+    _sessions.clear();
     for (final c in _stateChunkers.values) {
       c.reset();
     }
@@ -546,6 +632,7 @@ class DraftBleLeader extends DraftBleService {
     _followerDisconnectedCtrl = null;
     _connectedDevices.clear();
     _currentState = null;
+    _currentStateBytes = null;
     _savedLocalName = null;
     _advertisingPaused = false;
   }

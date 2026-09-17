@@ -9,6 +9,7 @@ import 'package:snapdrafter/services/draft/ble_chunked.dart';
 import 'package:snapdrafter/services/draft/ble_platform.dart';
 import 'package:snapdrafter/services/draft/draft_ble_follower.dart';
 import 'package:snapdrafter/services/draft/draft_ble_service.dart';
+import 'package:snapdrafter/services/draft/draft_protocol.dart';
 import 'package:snapdrafter/services/draft/draft_state.dart';
 import 'package:snapdrafter/services/draft/draft_message.dart';
 
@@ -175,6 +176,12 @@ const _fakeServiceUuid = '4a2e1d0a-0000-4000-8000-00805f9b34fb';
 DraftBleFollower _createFollower(FakeBleCentral fake) =>
     DraftBleFollower(ble: fake);
 
+/// Wraps a state into a protocol v2 snapshot frame, as the leader would send.
+Uint8List _snapshot(DraftState state) => DraftFrame.encodeSnapshot(
+  state.sequenceNumber,
+  DraftBleService.encodeState(state),
+);
+
 void main() {
   late FakeBleCentral fake;
   late DraftBleFollower follower;
@@ -321,7 +328,7 @@ void main() {
         expect(fake.subServiceUuid, DraftBleService.serviceUuid);
         expect(fake.subCharUuid, DraftBleService.stateCharUuid);
 
-        final stateBytes = DraftBleService.encodeState(testState);
+        final stateBytes = _snapshot(testState);
         fake.emitCharacteristicValue(
           'leader-device',
           DraftBleService.stateCharUuid,
@@ -338,7 +345,7 @@ void main() {
       fake.discoverServicesResult = [BleService(_fakeServiceUuid, [])];
 
       final future = follower.connectToLeader('my-leader');
-      final stateBytes = DraftBleService.encodeState(testState);
+      final stateBytes = _snapshot(testState);
       fake.emitCharacteristicValue(
         'my-leader',
         DraftBleService.stateCharUuid,
@@ -398,7 +405,7 @@ void main() {
         Uint8List.fromList([0xFF, 0x00, 0xAA]),
       );
 
-      final stateBytes = DraftBleService.encodeState(testState);
+      final stateBytes = _snapshot(testState);
       fake.emitCharacteristicValue(
         'leader-device',
         DraftBleService.stateCharUuid,
@@ -422,12 +429,12 @@ void main() {
       fake.emitCharacteristicValue(
         'leader-device',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(state1),
+        _snapshot(state1),
       );
       fake.emitCharacteristicValue(
         'leader-device',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(state2),
+        _snapshot(state2),
       );
 
       await future;
@@ -460,7 +467,7 @@ void main() {
       final future = follower.reconnectToLeader('leader-device');
 
       await Future.delayed(const Duration(milliseconds: 10));
-      final stateBytes = DraftBleService.encodeState(testState);
+      final stateBytes = _snapshot(testState);
       fake.emitCharacteristicValue(
         'leader-device',
         DraftBleService.stateCharUuid,
@@ -496,9 +503,10 @@ void main() {
       fake.emitCharacteristicValue(
         'leader',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
+        _snapshot(testState),
       );
       await future;
+      fake.writes.clear();
 
       await follower.sendCommand(
         JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
@@ -535,9 +543,10 @@ void main() {
       fake.emitCharacteristicValue(
         'leader',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
+        _snapshot(testState),
       );
       await future;
+      fake.writes.clear();
 
       await follower.sendCommand(DropRequest());
       expect(fake.writes.length, 1);
@@ -556,9 +565,10 @@ void main() {
       fake.emitCharacteristicValue(
         'leader',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
+        _snapshot(testState),
       );
       await future;
+      fake.writes.clear();
 
       await follower.sendCommand(
         MatchResult(roundNumber: 1, matchId: 'm1', myWins: 2, opponentWins: 0),
@@ -579,9 +589,10 @@ void main() {
       fake.emitCharacteristicValue(
         'leader',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
+        _snapshot(testState),
       );
       await future;
+      fake.writes.clear();
 
       await follower.sendCommand(
         JoinRequest(playerName: 'Alice', deviceName: 'Phone'),
@@ -613,9 +624,10 @@ void main() {
         fake.emitCharacteristicValue(
           'leader',
           DraftBleService.stateCharUuid,
-          DraftBleService.encodeState(testState),
+          _snapshot(testState),
         );
         await future;
+        fake.writes.clear();
 
         // 55 scryfall-style UUIDs (~36 chars each) — far larger than the
         // negotiated MTU (512) can carry in a single write.
@@ -675,7 +687,7 @@ void main() {
       fake.emitCharacteristicValue(
         'leader',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
+        _snapshot(testState),
       );
       await future;
 
@@ -702,7 +714,7 @@ void main() {
       fake.emitCharacteristicValue(
         'leader',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
+        _snapshot(testState),
       );
       await future;
 
@@ -739,7 +751,7 @@ void main() {
       fake.emitCharacteristicValue(
         'leader',
         DraftBleService.stateCharUuid,
-        DraftBleService.encodeState(testState),
+        _snapshot(testState),
       );
       await future;
 

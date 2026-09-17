@@ -30,6 +30,11 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        context.read<DraftSessionNotifier>().requestDecklists();
+      }
+    });
   }
 
   @override
@@ -49,7 +54,7 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     final myDeviceId = notifier.myDeviceId;
     final hasSubmitted = notifier.hasSubmittedDecklist(myDeviceId);
     final submittedPlayers = state.players
-        .where((p) => p.decklistMainboard != null)
+        .where((p) => notifier.hasSubmittedDecklist(p.deviceId))
         .toList();
     final unsavedPlayers = submittedPlayers
         .where((p) => !_savedPlayerIds.contains(p.deviceId))
@@ -110,6 +115,23 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                             'Your decklist has been submitted',
                             style: Theme.of(context).textTheme.bodyMedium,
                           ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (notifier.decklistsLoading)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: const [
+                          SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          SizedBox(width: 12),
+                          Text('Loading decklists...'),
                         ],
                       ),
                     ),

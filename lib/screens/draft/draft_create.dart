@@ -6,6 +6,7 @@ import 'package:universal_ble/universal_ble.dart';
 
 import '../../data/models/cube.dart';
 import '../../data/repositories/cube_repository.dart';
+import '../../services/draft/draft_config.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import 'draft_management.dart';
 
@@ -24,6 +25,11 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
   final _roundMinCtrl = TextEditingController(text: '50');
   bool _creating = false;
 
+  // Debug-only topology overrides (visible when debug mode is enabled).
+  bool _debugEnabled = false;
+  int _maxDirectLinks = DraftConfig.defaultMaxDirectLinks;
+  int _relayMaxChildren = DraftConfig.defaultRelayMaxChildren;
+
   List<Cube> _cubes = [];
   String? _selectedCubecobraId;
   bool _cubesLoading = true;
@@ -41,9 +47,32 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
     setState(() {
       _nameCtrl.text = '${prefs.getString("username") ?? "Player"}\'s Draft';
       _playerCtrl.text = prefs.getString("username") ?? '';
+      _debugEnabled = prefs.getBool("debug_enabled") ?? false;
+      _maxDirectLinks = DraftConfig.clampMaxDirectLinks(
+        prefs.getInt(DraftConfig.prefMaxDirectLinks) ??
+            DraftConfig.defaultMaxDirectLinks,
+      );
+      _relayMaxChildren = DraftConfig.clampRelayMaxChildren(
+        prefs.getInt(DraftConfig.prefRelayMaxChildren) ??
+            DraftConfig.defaultRelayMaxChildren,
+      );
       _cubes = cubes;
       _cubesLoading = false;
     });
+  }
+
+  Future<void> _setMaxDirectLinks(int value) async {
+    final clamped = DraftConfig.clampMaxDirectLinks(value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(DraftConfig.prefMaxDirectLinks, clamped);
+    if (mounted) setState(() => _maxDirectLinks = clamped);
+  }
+
+  Future<void> _setRelayMaxChildren(int value) async {
+    final clamped = DraftConfig.clampRelayMaxChildren(value);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(DraftConfig.prefRelayMaxChildren, clamped);
+    if (mounted) setState(() => _relayMaxChildren = clamped);
   }
 
   @override
@@ -72,6 +101,8 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
         playerName: _playerCtrl.text.trim(),
         roundDurationSeconds: roundMin * 60,
         cubeId: _selectedCubecobraId,
+        maxDirectLinks: _maxDirectLinks,
+        relayMaxChildren: _relayMaxChildren,
       );
 
       if (mounted) {
@@ -88,6 +119,79 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
     } finally {
       if (mounted) setState(() => _creating = false);
     }
+  }
+
+  Widget _buildDebugCard() {
+    return Card(
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Colors.red.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.bug_report, size: 16, color: Colors.red.shade400),
+                const SizedBox(width: 8),
+                Text(
+                  'Debug: topology',
+                  style: TextStyle(
+                    color: Colors.red.shade400,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              key: ValueKey('maxDirectLinks-$_maxDirectLinks'),
+              initialValue: _maxDirectLinks,
+              decoration: const InputDecoration(
+                labelText: 'Max direct connections (host)',
+                border: OutlineInputBorder(),
+                helperText: 'Set to 1 to force relays with 3 devices',
+              ),
+              items: [
+                for (
+                  var i = DraftConfig.minMaxDirectLinks;
+                  i <= DraftConfig.maxMaxDirectLinks;
+                  i++
+                )
+                  DropdownMenuItem(value: i, child: Text('$i')),
+              ],
+              onChanged: (v) {
+                if (v != null) _setMaxDirectLinks(v);
+              },
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              key: ValueKey('relayMaxChildren-$_relayMaxChildren'),
+              initialValue: _relayMaxChildren,
+              decoration: const InputDecoration(
+                labelText: 'Relay child limit',
+                border: OutlineInputBorder(),
+                helperText:
+                    'Children this device accepts when acting as a relay',
+              ),
+              items: [
+                for (
+                  var i = DraftConfig.minRelayMaxChildren;
+                  i <= DraftConfig.maxRelayMaxChildren;
+                  i++
+                )
+                  DropdownMenuItem(value: i, child: Text('$i')),
+              ],
+              onChanged: (v) {
+                if (v != null) _setRelayMaxChildren(v);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -179,6 +283,10 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
                 },
               ),
               const SizedBox(height: 32),
+              if (_debugEnabled) ...[
+                _buildDebugCard(),
+                const SizedBox(height: 16),
+              ],
               SizedBox(
                 height: 48,
                 child: ElevatedButton(

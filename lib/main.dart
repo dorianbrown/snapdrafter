@@ -14,6 +14,7 @@ import '/screens/decks_overview.dart';
 import '/screens/image_processing_screen.dart';
 import '/screens/settings/download_screen.dart';
 import '/services/draft/draft_session_notifier.dart';
+import '/services/draft/draft_relay.dart';
 import '/services/draft/notification_service.dart';
 import '/utils/release_date_helper.dart';
 import '/utils/theme_notifier.dart';
@@ -67,7 +68,11 @@ Future<void> main() async {
       providers: [
         ChangeNotifierProvider(create: (_) => themeNotifier),
         ChangeNotifierProvider(
-          create: (_) => DraftSessionNotifier(myDeviceId: deviceId),
+          create: (_) => DraftSessionNotifier(
+            myDeviceId: deviceId,
+            relayFactory: (parent, maxChildren) =>
+                DraftRelayService(parent: parent, maxChildren: maxChildren),
+          ),
         ),
       ],
       child: MainApp(),

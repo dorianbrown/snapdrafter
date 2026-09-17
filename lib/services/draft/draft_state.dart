@@ -102,6 +102,11 @@ class DraftPlayer {
   final List<String>? decklistMainboard;
   final List<String>? decklistSideboard;
 
+  /// True when this player has submitted a decklist. Broadcast snapshots omit
+  /// the decklist contents (they are fetched on demand) and carry this flag
+  /// instead so followers can still show submission status.
+  final bool decklistSubmitted;
+
   const DraftPlayer({
     required this.deviceId,
     required this.playerName,
@@ -113,6 +118,7 @@ class DraftPlayer {
     this.matchDraws = 0,
     this.decklistMainboard,
     this.decklistSideboard,
+    this.decklistSubmitted = false,
   });
 
   /// Tournament match points: 3 per win, 1 per draw.
@@ -137,6 +143,7 @@ class DraftPlayer {
     int? matchDraws,
     List<String>? decklistMainboard,
     List<String>? decklistSideboard,
+    bool? decklistSubmitted,
     bool clearSeat = false,
     bool clearDecklistMainboard = false,
     bool clearDecklistSideboard = false,
@@ -156,10 +163,11 @@ class DraftPlayer {
       decklistSideboard: clearDecklistSideboard
           ? null
           : (decklistSideboard ?? this.decklistSideboard),
+      decklistSubmitted: decklistSubmitted ?? this.decklistSubmitted,
     );
   }
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson({bool includeDecklists = true}) => {
     'd': deviceId,
     'n': playerName,
     if (seatNumber != null) 't': seatNumber,
@@ -168,8 +176,11 @@ class DraftPlayer {
     if (matchWins != 0) 'mw': matchWins,
     if (matchLosses != 0) 'ml': matchLosses,
     if (matchDraws != 0) 'md': matchDraws,
-    if (decklistMainboard != null) 'dm': decklistMainboard,
-    if (decklistSideboard != null) 'ds': decklistSideboard,
+    if (includeDecklists) ...{
+      if (decklistMainboard != null) 'dm': decklistMainboard,
+      if (decklistSideboard != null) 'ds': decklistSideboard,
+    } else if (decklistMainboard != null || decklistSubmitted)
+      'dsub': true,
   };
 
   factory DraftPlayer.fromJson(Map<String, dynamic> json) {
@@ -184,6 +195,7 @@ class DraftPlayer {
       matchDraws: json['md'] as int? ?? 0,
       decklistMainboard: (json['dm'] as List<dynamic>?)?.cast<String>(),
       decklistSideboard: (json['ds'] as List<dynamic>?)?.cast<String>(),
+      decklistSubmitted: json['dsub'] as bool? ?? false,
     );
   }
 }
@@ -539,10 +551,12 @@ class DraftState {
   /// Returns a copy with the sequence number incremented by one.
   DraftState bumpSequence() => copyWith(sequenceNumber: sequenceNumber + 1);
 
-  Map<String, dynamic> toJson() => {
+  Map<String, dynamic> toJson({bool includeDecklists = true}) => {
     'q': sequenceNumber,
     's': session.toJson(),
-    'p': players.map((p) => p.toJson()).toList(),
+    'p': players
+        .map((p) => p.toJson(includeDecklists: includeDecklists))
+        .toList(),
     'r': rounds.map((r) => r.toJson()).toList(),
   };
 

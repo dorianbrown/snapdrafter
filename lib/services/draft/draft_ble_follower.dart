@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:universal_ble/universal_ble.dart';
 import 'ble_chunked.dart';
 import 'draft_ble_service.dart';
+import 'draft_protocol.dart';
 import 'draft_state.dart';
 import 'draft_message.dart';
 import 'ble_platform.dart';
@@ -17,12 +18,18 @@ import 'ble_platform_live.dart';
 /// subscribes to state notifications, and sends [DraftCommand] messages
 /// via the leader's command characteristic.
 ///
-/// State updates larger than the negotiated MTU are received in chunks
-/// and reassembled by [BleChunkedStream].
+/// Snapshots larger than the negotiated MTU arrive in chunks and are
+/// reassembled by [BleChunkedStream]. Every applied snapshot is acknowledged
+/// with a `stateAck`; a tick ahead of the applied sequence triggers a
+/// `resyncRequest` so a lost snapshot is recovered automatically.
 class DraftBleFollower extends DraftBleService {
   final BleCentral _ble;
 
-  DraftBleFollower({BleCentral? ble}) : _ble = ble ?? LiveBleCentral();
+  DraftBleFollower({BleCentral? ble, this.myDeviceId})
+    : _ble = ble ?? LiveBleCentral();
+
+  /// App-level device id used as `src` on outgoing commands and acks.
+  final String? myDeviceId;
 
   String? _leaderDeviceId;
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
@@ -32,8 +39,15 @@ class DraftBleFollower extends DraftBleService {
   final _streamChunker = BleChunkedStream();
   final _commandChunker = BleChunkedStream();
 
+  int _appliedSeq = -1;
+  Completer<DraftState>? _resyncCompleter;
+
   @override
   Stream<bool> get leaderConnected => _leaderConnectedCtrl.stream;
+
+  /// BLE device id of the parent (leader or relay) this follower is attached
+  /// to, or null when not connected. Used by the debug topology badge.
+  String? get parentDeviceId => _leaderDeviceId;
 
   /// Callback invoked each time a new [DraftState] is received from the
   /// leader (both the initial state and subsequent push notifications).
@@ -61,24 +75,50 @@ class DraftBleFollower extends DraftBleService {
 
   /// Begins a BLE scan for devices advertising the draft service UUID.
   /// Returns a stream of [DiscoveredDraft] items.
+  ///
+  /// Protocol v2 nodes advertise topology hints in manufacturer data; for
+  /// those, one entry per draft is emitted, always pointing at the best parent
+  /// (available capacity first, then leader, then shallowest depth, then RSSI).
+  /// Legacy/unrecognised advertisers fall back to one entry per device.
   Stream<DiscoveredDraft> scanForDrafts() {
     final ctrl = StreamController<DiscoveredDraft>.broadcast();
     final seenDeviceIds = <String>{};
+    final latestByDevice = <String, DiscoveredDraft>{};
+    final bestByDraft = <int, DiscoveredDraft>{};
 
     _scanStreamSub = _ble.scanStream.listen((BleDevice device) {
-      if (!seenDeviceIds.add(device.deviceId)) return;
-
-      final name = device.name;
-
-      final draftName = name ?? device.deviceId;
-
-      ctrl.add(
-        DiscoveredDraft(
-          deviceId: device.deviceId,
-          draftName: draftName,
-          rssi: device.rssi ?? 0,
-        ),
+      final advertisement = DraftProtocol.parseAdvertisement(
+        device.manufacturerDataList,
       );
+
+      if (advertisement == null) {
+        if (!seenDeviceIds.add(device.deviceId)) return;
+        ctrl.add(
+          DiscoveredDraft(
+            deviceId: device.deviceId,
+            draftName: device.name ?? device.deviceId,
+            rssi: device.rssi ?? 0,
+          ),
+        );
+        return;
+      }
+
+      final candidate = DiscoveredDraft(
+        deviceId: device.deviceId,
+        draftName: device.name ?? device.deviceId,
+        rssi: device.rssi ?? 0,
+        advertisement: advertisement,
+      );
+      latestByDevice[device.deviceId] = candidate;
+
+      final best = _bestParentFor(
+        advertisement.draftId,
+        latestByDevice.values,
+      );
+      if (best == null) return;
+      if (bestByDraft[advertisement.draftId]?.deviceId == best.deviceId) return;
+      bestByDraft[advertisement.draftId] = best;
+      ctrl.add(best);
     });
 
     _ble
@@ -100,12 +140,63 @@ class DraftBleFollower extends DraftBleService {
     return ctrl.stream;
   }
 
+  /// Picks the best parent among all known advertisers for a draft.
+  static DiscoveredDraft? _bestParentFor(
+    int draftId,
+    Iterable<DiscoveredDraft> candidates,
+  ) {
+    DiscoveredDraft? best;
+    for (final candidate in candidates) {
+      if (candidate.draftId != draftId) continue;
+      if (best == null || _isBetterParent(candidate, best)) {
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
+  /// Prefers a parent with free capacity, then the leader over relays, then
+  /// shallower depth, then stronger signal.
+  static bool _isBetterParent(DiscoveredDraft a, DiscoveredDraft b) {
+    final aAvailable = a.capacity > 0;
+    final bAvailable = b.capacity > 0;
+    if (aAvailable != bAvailable) return aAvailable;
+    if (a.isRelay != b.isRelay) return !a.isRelay;
+    if (a.depth != b.depth) return a.depth < b.depth;
+    return a.rssi > b.rssi;
+  }
+
   Future<void> stopScan() async {
     await _scanStreamSub?.cancel();
     _scanStreamSub = null;
     try {
       await _ble.stopScan();
     } catch (_) {}
+  }
+
+  /// Scans briefly and returns the best parent with free capacity, falling
+  /// back to the best known candidate when nothing has capacity.
+  @override
+  Future<DiscoveredDraft?> discoverBestParent({
+    Duration timeout = const Duration(seconds: 3),
+  }) async {
+    final ctrl = scanForDrafts();
+    DiscoveredDraft? best;
+    final completer = Completer<DiscoveredDraft?>();
+    final sub = ctrl.listen((draft) {
+      if (best == null || _isBetterParent(draft, best!)) {
+        best = draft;
+      }
+      if (draft.capacity > 0 && !completer.isCompleted) {
+        completer.complete(best);
+      }
+    });
+    try {
+      return await completer.future.timeout(timeout, onTimeout: () => best);
+    } finally {
+      await sub.cancel();
+      await stopScan();
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -129,6 +220,7 @@ class DraftBleFollower extends DraftBleService {
     await _stateValueSub?.cancel();
     _stateValueSub = null;
     _streamChunker.reset();
+    _leaderDeviceId = deviceId;
     return await _performConnection(deviceId);
   }
 
@@ -137,18 +229,10 @@ class DraftBleFollower extends DraftBleService {
     final stateCompleter = Completer<DraftState>();
     _stateValueSub = _ble
         .characteristicValueStream(deviceId, DraftBleService.stateCharUuid)
-        .listen((bytes) {
-          if (BleChunkedStream.isChunked(bytes)) {
-            _streamChunker.feed(bytes);
-            while (_streamChunker.hasCompleteMessage) {
-              final assembled = _streamChunker.data;
-              if (assembled == null) continue;
-              _processState(assembled, stateCompleter);
-            }
-          } else {
-            _processState(bytes, stateCompleter);
-          }
-        });
+        .listen(
+          (bytes) => _onStateBytes(bytes, stateCompleter),
+          onError: (Object e) => _log('[BLE_FOLLOWER] state stream error: $e'),
+        );
 
     // Subscribe to connection state before connecting so we catch
     // the full lifecycle including connect failures.
@@ -199,21 +283,117 @@ class DraftBleFollower extends DraftBleService {
     return state;
   }
 
-  /// Decodes raw BLE bytes into a [DraftState] and completes the initial
-  /// state future on the first call.
-  void _processState(Uint8List bytes, Completer<DraftState> stateCompleter) {
-    final newState = DraftBleService.decodeState(bytes);
-    if (newState == null) {
-      _log('[BLE_FOLLOWER] failed to decode state bytes');
+  // -------------------------------------------------------------------------
+  // State frames
+  // -------------------------------------------------------------------------
+
+  void _onStateBytes(Uint8List bytes, Completer<DraftState> stateCompleter) {
+    if (BleChunkedStream.isChunked(bytes)) {
+      _streamChunker.feed(bytes);
+      while (_streamChunker.hasCompleteMessage) {
+        final assembled = _streamChunker.data;
+        if (assembled == null) continue;
+        _handleFrameBytes(assembled, stateCompleter);
+      }
       return;
     }
+    if (DraftFrame.isDirectFrame(bytes)) {
+      _handleFrameBytes(bytes, stateCompleter);
+    }
+  }
+
+  void _handleFrameBytes(Uint8List bytes, Completer<DraftState> stateCompleter) {
+    final frame = DraftFrame.parse(bytes);
+    if (frame == null) {
+      _log('[BLE_FOLLOWER] malformed frame (${bytes.length} bytes)');
+      return;
+    }
+
+    if (frame.isTick) {
+      _handleTick(frame.seq);
+      return;
+    }
+
+    if (frame.isSnapshot) {
+      _handleSnapshot(frame, stateCompleter);
+      return;
+    }
+
+    if (frame.isDecklistData) {
+      onDecklistData?.call(frame.seq, frame.payload);
+      _sendAck(frame.seq);
+    }
+  }
+
+  void _handleTick(int seq) {
+    if (seq > _appliedSeq) {
+      _log('[BLE_FOLLOWER] tick seq=$seq ahead of applied=$_appliedSeq, resync');
+      requestResync();
+    }
+  }
+
+  void _handleSnapshot(DraftFrame frame, Completer<DraftState> stateCompleter) {
+    final newState = DraftBleService.decodeState(frame.payload);
+    if (newState == null) {
+      _log('[BLE_FOLLOWER] failed to decode state bytes');
+      _sendAck(frame.seq);
+      return;
+    }
+
     if (!stateCompleter.isCompleted) {
       _log(
         '[BLE_FOLLOWER] initial state received, seq=${newState.sequenceNumber}',
       );
       stateCompleter.complete(newState);
     }
-    onStatePush?.call(newState);
+
+    if (newState.sequenceNumber > _appliedSeq) {
+      _appliedSeq = newState.sequenceNumber;
+      onStatePush?.call(newState);
+    }
+
+    _resyncCompleter?.complete(newState);
+    _resyncCompleter = null;
+
+    // Always acknowledge so the leader can stop retransmitting.
+    _sendAck(frame.seq);
+  }
+
+  /// Requests all decklists from the leader via the command characteristic.
+  @override
+  Future<void> requestDecklists() async {
+    final deviceId = _leaderDeviceId;
+    if (deviceId == null) return;
+    try {
+      await _writeCommand(
+        deviceId,
+        DecklistRequest(targetDeviceId: 'all', src: myDeviceId ?? ''),
+      );
+    } catch (e) {
+      _log('[BLE_FOLLOWER] decklist request failed: $e');
+    }
+  }
+
+  void _sendAck(int seq) {
+    final deviceId = _leaderDeviceId;
+    if (deviceId == null) return;
+    final cmd = StateAck(seq: seq, src: myDeviceId ?? '');
+    _writeCommand(deviceId, cmd);
+  }
+
+  /// Requests a fresh snapshot from the leader (used after gaps and reconnects).
+  @override
+  Future<void> requestResync() async {
+    final deviceId = _leaderDeviceId;
+    if (deviceId == null) return;
+    try {
+      await _writeCommand(
+        deviceId,
+        ResyncRequest(appliedSeq: _appliedSeq, src: myDeviceId ?? ''),
+      );
+    } catch (e) {
+      _log('[BLE_FOLLOWER] resync request failed: $e');
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -231,14 +411,18 @@ class DraftBleFollower extends DraftBleService {
     if (_leaderDeviceId == null) {
       throw Exception('Not connected to a leader');
     }
+    await _writeCommand(_leaderDeviceId!, cmd);
+  }
+
+  Future<void> _writeCommand(String deviceId, DraftCommand cmd) async {
     final json = jsonEncode(cmd.toJson());
     final bytes = Uint8List.fromList(utf8.encode(json));
     _log(
-      '[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $_leaderDeviceId (${json.length} chars)',
+      '[BLE_FOLLOWER] sendCommand: ${cmd.runtimeType} to $deviceId (${json.length} chars)',
     );
     if (bytes.length <= _commandChunker.maxRawPayload) {
       await _ble.write(
-        _leaderDeviceId!,
+        deviceId,
         DraftBleService.serviceUuid,
         DraftBleService.commandCharUuid,
         bytes,
@@ -252,7 +436,7 @@ class DraftBleFollower extends DraftBleService {
         await Future<void>.delayed(const Duration(milliseconds: 10));
       }
       await _ble.write(
-        _leaderDeviceId!,
+        deviceId,
         DraftBleService.serviceUuid,
         DraftBleService.commandCharUuid,
         chunks[i],
@@ -260,64 +444,32 @@ class DraftBleFollower extends DraftBleService {
     }
   }
 
-  /// Reads the current [DraftState] from the leader by unsubscribing from and
-  /// re-subscribing to the state characteristic, which triggers a fresh
-  /// notification push from the leader. This avoids Android's BLE read cache
-  /// when GATT reads return stale data.
-  ///
-  /// Cancels the previous [DraftBleFollower._stateValueSub] before starting
-  /// and re-establishes it as the permanent notification listener so that
-  /// ongoing state pushes continue working after this call returns.
+  /// Requests a fresh snapshot from the leader and waits for it to arrive.
+  /// Replaces the old unsubscribe/resubscribe dance: the leader keeps
+  /// notifications flowing and just retransmits the current snapshot.
   @override
   Future<DraftState?> resubscribeAndReadState() async {
     final deviceId = _leaderDeviceId;
     if (deviceId == null) return null;
 
-    await _stateValueSub?.cancel();
-    _stateValueSub = null;
-    _streamChunker.reset();
-
-    try {
-      await _ble.unsubscribe(
-        deviceId,
-        DraftBleService.serviceUuid,
-        DraftBleService.stateCharUuid,
-      );
-    } catch (_) {}
-
     final completer = Completer<DraftState>();
-
-    _stateValueSub = _ble
-        .characteristicValueStream(deviceId, DraftBleService.stateCharUuid)
-        .listen((bytes) {
-          if (BleChunkedStream.isChunked(bytes)) {
-            _streamChunker.feed(bytes);
-            while (_streamChunker.hasCompleteMessage) {
-              final assembled = _streamChunker.data;
-              if (assembled == null) continue;
-              _processState(assembled, completer);
-            }
-          } else {
-            _processState(bytes, completer);
-          }
-        });
+    _resyncCompleter = completer;
 
     try {
-      await _ble.subscribeNotifications(
+      await _writeCommand(
         deviceId,
-        DraftBleService.serviceUuid,
-        DraftBleService.stateCharUuid,
+        ResyncRequest(appliedSeq: _appliedSeq, src: myDeviceId ?? ''),
       );
-
-      DraftState? state;
-      try {
-        state = await completer.future.timeout(const Duration(seconds: 3));
-      } on TimeoutException {
-        state = null;
-      }
-      return state;
     } catch (e) {
-      _log('[BLE_FOLLOWER] resubscribe FAILED: $e');
+      _log('[BLE_FOLLOWER] resync FAILED: $e');
+      _resyncCompleter = null;
+      return null;
+    }
+
+    try {
+      return await completer.future.timeout(const Duration(seconds: 3));
+    } on TimeoutException {
+      _resyncCompleter = null;
       return null;
     }
   }
@@ -341,6 +493,7 @@ class DraftBleFollower extends DraftBleService {
       }
     }
     _leaderDeviceId = null;
+    _appliedSeq = -1;
     if (!_leaderConnectedCtrl.isClosed) {
       await _leaderConnectedCtrl.close();
     }

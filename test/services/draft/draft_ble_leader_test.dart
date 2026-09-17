@@ -40,6 +40,7 @@ class FakeBlePeripheral implements BlePeripheral {
   bool startedAdvertising = false;
   bool stoppedAdvertising = false;
   bool clearedServices = false;
+  ManufacturerData? lastManufacturerData;
   final List<Map<String, dynamic>> characteristicUpdates = [];
   String? lastMaximumNotifyDeviceId;
 
@@ -103,10 +104,12 @@ class FakeBlePeripheral implements BlePeripheral {
   Future<void> startAdvertising({
     required List<String> services,
     String? localName,
+    ManufacturerData? manufacturerData,
     PeripheralPlatformConfig? platformConfig,
   }) async {
     if (advertiseThrow != null) throw advertiseThrow!;
     startedAdvertising = true;
+    lastManufacturerData = manufacturerData;
   }
 
   @override
@@ -184,6 +187,13 @@ DraftState _testState({String name = 'Test Draft'}) {
     leaderPlayerName: 'Leader',
     seatCount: 8,
   );
+}
+
+void _ackDevice(FakeBlePeripheral fake, String deviceId, int seq) {
+  final bytes = Uint8List.fromList(
+    utf8.encode(jsonEncode(StateAck(seq: seq, src: deviceId).toJson())),
+  );
+  fake.writeHandler!(deviceId, DraftBleService.commandCharUuid, 0, bytes);
 }
 
 void main() {
@@ -295,12 +305,17 @@ void main() {
         fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
         fakeBle.emitSubscription('dev2', DraftBleService.stateCharUuid, true);
 
-        // Settle the subscribe-time re-pushes.
+        // Settle the subscribe-time re-pushes and acknowledge them so the
+        // reliable link sessions are free for the next snapshot.
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        _ackDevice(fakeBle, 'dev1', 0);
+        _ackDevice(fakeBle, 'dev2', 0);
         await Future<void>.delayed(const Duration(milliseconds: 50));
         final countBefore = fakeBle.characteristicUpdates.length;
 
         final newState = _testState().bumpSequence();
         await leader.pushState(newState);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
 
         // pushState itself must deliver to every subscribed device even though
         // no connection events were emitted (iOS peripherals never get them).
@@ -324,11 +339,14 @@ void main() {
         await leader.startAsLeader(_testState());
 
         fakeBle.emitSubscription('dev1', DraftBleService.stateCharUuid, true);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+        _ackDevice(fakeBle, 'dev1', 0);
         await Future<void>.delayed(const Duration(milliseconds: 50));
         final countBefore = fakeBle.characteristicUpdates.length;
 
         final newState = _testState().bumpSequence();
         await leader.pushState(newState);
+        await Future<void>.delayed(const Duration(milliseconds: 100));
 
         final newUpdates = fakeBle.characteristicUpdates
             .skip(countBefore)

@@ -136,11 +136,13 @@ class LiveBlePeripheral implements BlePeripheral {
   Future<void> startAdvertising({
     required List<String> services,
     String? localName,
+    ManufacturerData? manufacturerData,
     PeripheralPlatformConfig? platformConfig,
   }) {
     return UniversalBlePeripheral.startAdvertising(
       services: services,
       localName: localName,
+      manufacturerData: manufacturerData,
       platformConfig: platformConfig,
     );
   }

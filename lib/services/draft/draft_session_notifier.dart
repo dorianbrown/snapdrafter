@@ -1,15 +1,27 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'draft_state.dart';
 import 'draft_message.dart';
 import 'draft_ble_service.dart';
 import 'draft_ble_leader.dart';
 import 'draft_ble_follower.dart';
+import 'draft_config.dart';
+import 'draft_relay.dart';
 import 'swiss_pairing.dart';
 import 'notification_service.dart';
 
 enum DraftRole { none, leader, follower }
+
+/// A player's submitted decklist, fetched on demand at the results stage.
+class DecklistPayload {
+  final List<String> mainboard;
+  final List<String> sideboard;
+
+  const DecklistPayload({required this.mainboard, required this.sideboard});
+}
 
 /// Top-level coordinator for a draft session.
 ///
@@ -28,18 +40,27 @@ class DraftSessionNotifier extends ChangeNotifier {
   bool _isReconnecting = false;
   StreamSubscription<bool>? _leaderConnectedSub;
   final Map<String, String> _bleToAppId = {};
+  final Map<String, DecklistPayload> _decklists = {};
+  bool _decklistsLoading = false;
   final DraftBleService Function()? _bleLeaderFactory;
   final DraftBleService Function()? _bleFollowerFactory;
+  final DraftRelayService Function(DraftBleFollower parent, int maxChildren)?
+  _relayFactory;
+  DraftRelayService? _relay;
+  int _relayMaxChildren = DraftConfig.defaultRelayMaxChildren;
   final List<int> _reconnectDelaysSeconds;
 
   DraftSessionNotifier({
     required String myDeviceId,
     DraftBleService Function()? bleLeaderFactory,
     DraftBleService Function()? bleFollowerFactory,
+    DraftRelayService Function(DraftBleFollower parent, int maxChildren)?
+    relayFactory,
     List<int>? reconnectDelaysSeconds,
   }) : _myDeviceId = myDeviceId,
        _bleLeaderFactory = bleLeaderFactory,
        _bleFollowerFactory = bleFollowerFactory,
+       _relayFactory = relayFactory,
        _reconnectDelaysSeconds =
            reconnectDelaysSeconds ?? _defaultReconnectDelays();
 
@@ -96,6 +117,15 @@ class DraftSessionNotifier extends ChangeNotifier {
   String get myDeviceId => _myDeviceId;
   bool get isReconnecting => _isReconnecting;
 
+  /// True when this follower is currently advertising as a relay.
+  bool get isRelaying => _relay != null;
+
+  /// BLE device id of the parent this follower is attached to, if any.
+  String? get parentDeviceId {
+    final ble = _bleService;
+    return ble is DraftBleFollower ? ble.parentDeviceId : null;
+  }
+
   bool hasReportedResult(int roundNumber) {
     if (_state == null) return false;
     final myMatch = _state!.getMyMatch(_myDeviceId, roundNumber);
@@ -125,9 +155,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     required int seatCount,
     required String playerName,
     int roundDurationSeconds = 300,
+    int maxDirectLinks = DraftConfig.defaultMaxDirectLinks,
+    int relayMaxChildren = DraftConfig.defaultRelayMaxChildren,
   }) async {
     await _bleService?.stop();
     _myPlayerName = playerName;
+    _relayMaxChildren = DraftConfig.clampRelayMaxChildren(relayMaxChildren);
 
     final state = DraftState.create(
       name: name,
@@ -139,7 +172,11 @@ class DraftSessionNotifier extends ChangeNotifier {
       roundDurationSeconds: roundDurationSeconds,
     );
 
-    final leader = _bleLeaderFactory?.call() ?? DraftBleLeader();
+    final leader =
+        _bleLeaderFactory?.call() ??
+        DraftBleLeader(
+          maxDirectLinks: DraftConfig.clampMaxDirectLinks(maxDirectLinks),
+        );
     leader.onCommandReceived = _handleCommand;
     await leader.startAsLeader(state);
 
@@ -147,22 +184,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     _role = DraftRole.leader;
     _state = state;
 
-    leader.followerConnected?.listen((_) {
-      if (isLeader &&
-          _bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
-        _bleService!.pauseAdvertising();
-      }
-    });
-
+    // Keep advertising with an updated capacity; relays absorb any overflow.
     leader.followerDisconnected?.listen((_) {
       if (_role == DraftRole.leader && _state != null && isActive) {
         leader.resumeAdvertising();
       }
     });
-
-    if (leader.connectedDeviceCount + 1 >= seatCount) {
-      leader.pauseAdvertising();
-    }
 
     notifyListeners();
   }
@@ -272,15 +299,22 @@ class DraftSessionNotifier extends ChangeNotifier {
   void _handleCommand(String deviceId, DraftCommand cmd) {
     if (!isLeader || _state == null) return;
 
+    String senderId(String src) =>
+        src.isNotEmpty ? src : (_bleToAppId[deviceId] ?? deviceId);
+
     switch (cmd) {
       case JoinRequest(:final playerName, :final deviceName):
         _handleJoinRequest(deviceId, playerName, deviceName);
       case MatchResult result:
-        _handleMatchResult(_bleToAppId[deviceId] ?? deviceId, result);
+        _handleMatchResult(senderId(result.src), result);
       case DropRequest():
-        _handleDropRequest(_bleToAppId[deviceId] ?? deviceId);
+        _handleDropRequest(senderId(cmd.src));
       case SubmitDecklist cmd:
-        _handleDecklistSubmission(_bleToAppId[deviceId] ?? deviceId, cmd);
+        _handleDecklistSubmission(senderId(cmd.src), cmd);
+      case StateAck():
+      case ResyncRequest():
+      case DecklistRequest():
+        break;
     }
   }
 
@@ -319,10 +353,6 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     _bleService!.pushState(_state!);
     notifyListeners();
-
-    if (_bleService!.connectedDeviceCount + 1 >= _state!.session.seatCount) {
-      _bleService!.pauseAdvertising();
-    }
 
     _log(
       '[NOTIFIER] _handleJoinRequest done: players=${_state!.players.length}, seq=${_state!.sequenceNumber}',
@@ -507,6 +537,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     players[idx] = players[idx].copyWith(
       decklistMainboard: cmd.mainboardScryfallIds,
       decklistSideboard: cmd.sideboardScryfallIds,
+      decklistSubmitted: true,
     );
 
     _state = _state!.copyWith(players: players).bumpSequence();
@@ -515,7 +546,88 @@ class DraftSessionNotifier extends ChangeNotifier {
   }
 
   bool hasSubmittedDecklist(String deviceId) {
-    return _state?.getPlayer(deviceId)?.decklistMainboard != null;
+    final player = _state?.getPlayer(deviceId);
+    if (player == null) return false;
+    return player.decklistMainboard != null || player.decklistSubmitted;
+  }
+
+  /// Decklist contents for [deviceId], if fetched. Live snapshots omit
+  /// decklists; call [requestDecklists] at the results stage.
+  DecklistPayload? decklistFor(String deviceId) => _decklists[deviceId];
+
+  bool get decklistsLoading => _decklistsLoading;
+
+  /// Fetches all submitted decklists. The leader already holds them locally;
+  /// followers request a bulk transfer from the leader.
+  Future<void> requestDecklists() async {
+    if (_state == null) return;
+
+    if (isLeader) {
+      _decklists
+        ..clear()
+        ..addEntries(
+          _state!.players
+              .where((p) => p.decklistMainboard != null)
+              .map(
+                (p) => MapEntry(
+                  p.deviceId,
+                  DecklistPayload(
+                    mainboard: p.decklistMainboard!,
+                    sideboard: p.decklistSideboard ?? const [],
+                  ),
+                ),
+              ),
+        );
+      notifyListeners();
+      return;
+    }
+
+    if (!isFollower || _bleService == null) return;
+    _decklistsLoading = true;
+    notifyListeners();
+    try {
+      await _bleService!.requestDecklists();
+    } catch (_) {
+      _decklistsLoading = false;
+      notifyListeners();
+    }
+  }
+
+  void _handleDecklistData(int seq, Uint8List payload) {
+    try {
+      final json = jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
+      final decks = json['d'] as Map<String, dynamic>? ?? {};
+      _decklists.clear();
+      for (final entry in decks.entries) {
+        final deck = entry.value as Map<String, dynamic>;
+        _decklists[entry.key] = DecklistPayload(
+          mainboard: (deck['mb'] as List<dynamic>? ?? []).cast<String>(),
+          sideboard: (deck['sb'] as List<dynamic>? ?? []).cast<String>(),
+        );
+      }
+      _decklistsLoading = false;
+      _mergeDecklistsIntoState();
+      _relay?.forwardDecklists(seq, payload);
+      notifyListeners();
+    } catch (e) {
+      _log('[NOTIFIER] failed to parse decklist payload: $e');
+    }
+  }
+
+  /// Merges fetched decklist contents back into the local state so existing
+  /// result/deck-sharing UI can keep reading `player.decklistMainboard`.
+  void _mergeDecklistsIntoState() {
+    if (_state == null) return;
+    final players = _state!.players.map((player) {
+      final deck = _decklists[player.deviceId];
+      if (deck == null) return player;
+      return player.copyWith(
+        decklistMainboard: deck.mainboard,
+        decklistSideboard: deck.sideboard,
+        decklistSubmitted: true,
+      );
+    }).toList();
+    _state = _state!.copyWith(players: players);
   }
 
   // -------------------------------------------------------------------------
@@ -527,11 +639,14 @@ class DraftSessionNotifier extends ChangeNotifier {
   Future<void> joinDraft({
     required String leaderDeviceId,
     required String playerName,
+    int relayMaxChildren = DraftConfig.defaultRelayMaxChildren,
   }) async {
     await _bleService?.stop();
     _myPlayerName = playerName;
+    _relayMaxChildren = DraftConfig.clampRelayMaxChildren(relayMaxChildren);
 
-    final follower = _bleFollowerFactory?.call() ?? DraftBleFollower();
+    final follower =
+        _bleFollowerFactory?.call() ?? DraftBleFollower(myDeviceId: _myDeviceId);
     follower.onStatePush = (newState) {
       final myPlayer = newState.getPlayer(_myDeviceId);
       if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
@@ -548,9 +663,12 @@ class DraftSessionNotifier extends ChangeNotifier {
             newState.rounds.isNotEmpty) {
           _notifyNewRoundForDevice(newState.rounds.last, _myDeviceId);
         }
+        if (_decklists.isNotEmpty) _mergeDecklistsIntoState();
+        _syncRelay(newState);
         notifyListeners();
       }
     };
+    follower.onDecklistData = _handleDecklistData;
 
     // On BLE disconnect, auto-reconnect to the same leader
     // as long as this device hasn't intentionally left the draft.
@@ -569,15 +687,52 @@ class DraftSessionNotifier extends ChangeNotifier {
       notifyListeners();
 
       await follower.sendCommand(
-        JoinRequest(playerName: playerName, deviceName: _myDeviceId),
+        JoinRequest(
+          playerName: playerName,
+          deviceName: _myDeviceId,
+          src: _myDeviceId,
+        ),
       );
 
       await _waitForStateUpdate();
+      await _startRelayIfEnabled();
     } catch (_) {
       // Initial connect failed; let the reconnect loop retry in the background.
       _role = DraftRole.follower;
       _attemptReconnect(leaderDeviceId);
     }
+  }
+
+  /// Starts relay advertising so extra players can join through this device
+  /// when the host runs out of direct connection capacity.
+  Future<void> _startRelayIfEnabled() async {
+    if (_relay != null || _relayFactory == null || _state == null) return;
+    final bleService = _bleService;
+    if (bleService is! DraftBleFollower) return;
+    if (_state!.session.phase != DraftPhase.lobby) return;
+    try {
+      final relay = _relayFactory(bleService, _relayMaxChildren);
+      await relay.start(_state!);
+      _relay = relay;
+      _log('[NOTIFIER] relay advertising started');
+      notifyListeners();
+    } catch (e) {
+      _log('[NOTIFIER] relay start failed: $e');
+    }
+  }
+
+  /// Keeps the relay's downstream state in sync, and shuts relay advertising
+  /// down once the lobby closes.
+  void _syncRelay(DraftState newState) {
+    final relay = _relay;
+    if (relay == null) return;
+    if (newState.session.phase != DraftPhase.lobby) {
+      _relay = null;
+      relay.stop().catchError((_) {});
+      _log('[NOTIFIER] relay stopped (lobby closed)');
+      return;
+    }
+    relay.pushState(newState).catchError((_) {});
   }
 
   /// Auto-reconnect loop with exponential backoff.
@@ -588,6 +743,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     _isReconnecting = true;
     notifyListeners();
 
+    var target = leaderDeviceId;
     for (final delay in _reconnectDelaysSeconds) {
       if (_role != DraftRole.follower) break;
 
@@ -598,7 +754,16 @@ class DraftSessionNotifier extends ChangeNotifier {
       if (bleService == null) break;
 
       try {
-        final state = await bleService.reconnectToLeader(leaderDeviceId);
+        // Re-discover so a full parent can be replaced by a relay.
+        final discovered = await bleService.discoverBestParent();
+        if (discovered != null && discovered.deviceId != target) {
+          _log(
+            '[NOTIFIER] reconnect: switching parent to ${discovered.deviceId}',
+          );
+          target = discovered.deviceId;
+        }
+
+        final state = await bleService.reconnectToLeader(target);
         if (_role == DraftRole.follower &&
             _myPlayerName != null &&
             state.getPlayer(_myDeviceId) == null) {
@@ -609,7 +774,11 @@ class DraftSessionNotifier extends ChangeNotifier {
           );
           try {
             await bleService.sendCommand(
-              JoinRequest(playerName: _myPlayerName!, deviceName: _myDeviceId),
+              JoinRequest(
+                playerName: _myPlayerName!,
+                deviceName: _myDeviceId,
+                src: _myDeviceId,
+              ),
             );
           } catch (_) {}
         }
@@ -629,7 +798,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   Future<void> dropFromDraft() async {
     if (isFollower && _bleService != null) {
       try {
-        await _bleService!.sendCommand(DropRequest());
+        await _bleService!.sendCommand(DropRequest(src: _myDeviceId));
       } catch (_) {}
     }
     await leaveDraft();
@@ -657,6 +826,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       matchId: matchId,
       myWins: myWins,
       opponentWins: opponentWins,
+      src: _myDeviceId,
     );
 
     if (isLeader) {
@@ -687,6 +857,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     final cmd = SubmitDecklist(
       mainboardScryfallIds: mainboardScryfallIds,
       sideboardScryfallIds: sideboardScryfallIds,
+      src: _myDeviceId,
     );
 
     if (isLeader) {
@@ -817,6 +988,16 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = null;
     _myPlayerName = null;
     _bleToAppId.clear();
+    _decklists.clear();
+    _decklistsLoading = false;
+
+    final relay = _relay;
+    _relay = null;
+    if (relay != null) {
+      try {
+        await relay.stop();
+      } catch (_) {}
+    }
 
     _leaderConnectedSub?.cancel();
     _leaderConnectedSub = null;
@@ -848,6 +1029,10 @@ class DraftSessionNotifier extends ChangeNotifier {
     _role = DraftRole.none;
     _state = null;
     _bleToAppId.clear();
+    _decklists.clear();
+    _decklistsLoading = false;
+    _relay?.stop();
+    _relay = null;
     if (_bleService != null) {
       _bleService!.stop();
     }

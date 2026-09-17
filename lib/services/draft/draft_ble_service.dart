@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'draft_state.dart';
 import 'draft_message.dart';
+import 'draft_protocol.dart';
 
 /// Lightweight info returned from a BLE scan when a draft is discovered.
 class DiscoveredDraft {
@@ -10,11 +11,20 @@ class DiscoveredDraft {
   final String draftName;
   final int rssi;
 
+  /// Topology hints parsed from the advertisement, when present.
+  final DraftAdvertisement? advertisement;
+
   const DiscoveredDraft({
     required this.deviceId,
     required this.draftName,
     required this.rssi,
+    this.advertisement,
   });
+
+  bool get isRelay => advertisement?.isRelay ?? false;
+  int get depth => advertisement?.depth ?? 0;
+  int get capacity => advertisement?.capacity ?? 0;
+  int get draftId => advertisement?.draftId ?? 0;
 }
 
 /// Abstract base for the BLE draft service.
@@ -36,8 +46,14 @@ abstract class DraftBleService {
 
   /// Encodes the full [DraftState] for the state characteristic.
   /// May be chunked before transmission if it exceeds the negotiated MTU.
-  static Uint8List encodeState(DraftState state) {
-    final json = jsonEncode(state.toJson());
+  ///
+  /// Decklist contents are omitted by default: live snapshots only carry a
+  /// submission flag, and bulk decklists are fetched on demand.
+  static Uint8List encodeState(
+    DraftState state, {
+    bool includeDecklists = false,
+  }) {
+    final json = jsonEncode(state.toJson(includeDecklists: includeDecklists));
     return Uint8List.fromList(utf8.encode(json));
   }
 
@@ -87,6 +103,12 @@ abstract class DraftBleService {
   /// leader.
   void Function(DraftState state)? onStatePush;
 
+  /// Callback invoked when a bulk decklist payload arrives (followers only).
+  void Function(int seq, Uint8List payload)? onDecklistData;
+
+  /// Requests all decklists from the leader (followers only).
+  Future<void> requestDecklists() async {}
+
   /// Stream that emits `true` when connected and `false` on disconnect.
   Stream<bool> get leaderConnected;
 
@@ -94,6 +116,16 @@ abstract class DraftBleService {
   /// unsubscribe+resubscribe on the state characteristic. Avoids Android's
   /// BLE GATT read cache that returns stale values.
   Future<DraftState?> resubscribeAndReadState() async => null;
+
+  /// Requests a fresh snapshot from the leader after detecting a gap.
+  /// No-op for the leader.
+  Future<void> requestResync() async {}
+
+  /// Scans briefly and returns the best parent (leader or relay) for this
+  /// draft. Returns null when scanning is unsupported.
+  Future<DiscoveredDraft?> discoverBestParent({
+    Duration timeout = const Duration(seconds: 3),
+  }) async => null;
 
   // -------------------------------------------------------------------------
   // Leader: advertising lifecycle (default no-ops for follower implementations)

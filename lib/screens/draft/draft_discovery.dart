@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/draft/draft_ble_follower.dart';
 import '../../services/draft/draft_ble_service.dart';
+import '../../services/draft/draft_config.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import 'draft_waiting.dart';
 
@@ -22,6 +23,7 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
   DraftBleFollower? _scanFollower;
   Timer? _scanTimer;
   String _playerName = '';
+  int _relayMaxChildren = DraftConfig.defaultRelayMaxChildren;
   bool _joining = false;
 
   @override
@@ -36,6 +38,10 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
     if (mounted) {
       setState(() {
         _playerName = prefs.getString("username") ?? '';
+        _relayMaxChildren = DraftConfig.clampRelayMaxChildren(
+          prefs.getInt(DraftConfig.prefRelayMaxChildren) ??
+              DraftConfig.defaultRelayMaxChildren,
+        );
       });
     }
   }
@@ -61,7 +67,9 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
         if (mounted) {
           setState(() {
             final idx = _discoveredDrafts.indexWhere(
-              (d) => d.deviceId == draft.deviceId,
+              (d) => draft.advertisement != null && d.advertisement != null
+                  ? d.draftId == draft.draftId
+                  : d.deviceId == draft.deviceId,
             );
             if (idx >= 0) {
               _discoveredDrafts[idx] = draft;
@@ -114,6 +122,7 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
       await context.read<DraftSessionNotifier>().joinDraft(
         leaderDeviceId: draft.deviceId,
         playerName: _playerName.isEmpty ? 'Player' : _playerName,
+        relayMaxChildren: _relayMaxChildren,
       );
       if (mounted) {
         _stopScan();
@@ -202,9 +211,8 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
                       return ListTile(
                         title: Text(draft.draftName),
                         subtitle: Text(
-                          draft.deviceId.length > 24
-                              ? '${draft.deviceId.substring(0, 24)}...'
-                              : draft.deviceId,
+                          '${draft.advertisement == null ? '' : draft.isRelay ? 'via relay · ' : 'host · '}'
+                          '${draft.deviceId.length > 24 ? '${draft.deviceId.substring(0, 24)}...' : draft.deviceId}',
                           style: const TextStyle(
                             fontSize: 10,
                             fontFamily: 'monospace',

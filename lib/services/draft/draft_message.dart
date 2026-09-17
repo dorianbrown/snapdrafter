@@ -6,7 +6,10 @@ enum DraftCommandType {
   joinRequest,
   matchResult,
   dropRequest,
-  submitDecklist;
+  submitDecklist,
+  stateAck,
+  resyncRequest,
+  decklistRequest;
 
   String get name {
     switch (this) {
@@ -18,6 +21,12 @@ enum DraftCommandType {
         return 'drop_request';
       case DraftCommandType.submitDecklist:
         return 'submit_decklist';
+      case DraftCommandType.stateAck:
+        return 'state_ack';
+      case DraftCommandType.resyncRequest:
+        return 'resync_request';
+      case DraftCommandType.decklistRequest:
+        return 'decklist_request';
     }
   }
 
@@ -30,6 +39,12 @@ enum DraftCommandType {
 }
 
 sealed class DraftCommand {
+  /// App-level device id of the sender. Preserved end-to-end so commands can
+  /// be routed through relay nodes without losing the originating player.
+  final String src;
+
+  DraftCommand({this.src = ''});
+
   DraftCommandType get type;
 
   Map<String, dynamic> toJson();
@@ -47,6 +62,12 @@ sealed class DraftCommand {
         return DropRequest.fromJson(json);
       case DraftCommandType.submitDecklist:
         return SubmitDecklist.fromJson(json);
+      case DraftCommandType.stateAck:
+        return StateAck.fromJson(json);
+      case DraftCommandType.resyncRequest:
+        return ResyncRequest.fromJson(json);
+      case DraftCommandType.decklistRequest:
+        return DecklistRequest.fromJson(json);
     }
   }
 }
@@ -57,7 +78,11 @@ class JoinRequest extends DraftCommand {
   final String playerName;
   final String deviceName;
 
-  JoinRequest({required this.playerName, required this.deviceName});
+  JoinRequest({
+    required this.playerName,
+    required this.deviceName,
+    super.src,
+  });
 
   @override
   DraftCommandType get type => DraftCommandType.joinRequest;
@@ -65,6 +90,7 @@ class JoinRequest extends DraftCommand {
   @override
   Map<String, dynamic> toJson() => {
     'type': type.name,
+    'src': src,
     'playerName': playerName,
     'deviceName': deviceName,
   };
@@ -73,6 +99,7 @@ class JoinRequest extends DraftCommand {
     return JoinRequest(
       playerName: json['playerName'] as String,
       deviceName: json['deviceName'] as String,
+      src: json['src'] as String? ?? '',
     );
   }
 }
@@ -92,6 +119,7 @@ class MatchResult extends DraftCommand {
     required this.matchId,
     required this.myWins,
     required this.opponentWins,
+    super.src,
   });
 
   @override
@@ -100,6 +128,7 @@ class MatchResult extends DraftCommand {
   @override
   Map<String, dynamic> toJson() => {
     'type': type.name,
+    'src': src,
     'roundNumber': roundNumber,
     'matchId': matchId,
     'myWins': myWins,
@@ -112,22 +141,23 @@ class MatchResult extends DraftCommand {
       matchId: json['matchId'] as String,
       myWins: json['myWins'] as int,
       opponentWins: json['opponentWins'] as int,
+      src: json['src'] as String? ?? '',
     );
   }
 }
 
 /// Signals that a player is voluntarily leaving the draft.
 class DropRequest extends DraftCommand {
-  DropRequest();
+  DropRequest({super.src});
 
   @override
   DraftCommandType get type => DraftCommandType.dropRequest;
 
   @override
-  Map<String, dynamic> toJson() => {'type': type.name};
+  Map<String, dynamic> toJson() => {'type': type.name, 'src': src};
 
   factory DropRequest.fromJson(Map<String, dynamic> json) {
-    return DropRequest();
+    return DropRequest(src: json['src'] as String? ?? '');
   }
 }
 
@@ -139,6 +169,7 @@ class SubmitDecklist extends DraftCommand {
   SubmitDecklist({
     required this.mainboardScryfallIds,
     required this.sideboardScryfallIds,
+    super.src,
   });
 
   @override
@@ -147,6 +178,7 @@ class SubmitDecklist extends DraftCommand {
   @override
   Map<String, dynamic> toJson() => {
     'type': type.name,
+    'src': src,
     'mb': mainboardScryfallIds,
     'sb': sideboardScryfallIds,
   };
@@ -155,6 +187,81 @@ class SubmitDecklist extends DraftCommand {
     return SubmitDecklist(
       mainboardScryfallIds: (json['mb'] as List<dynamic>).cast<String>(),
       sideboardScryfallIds: (json['sb'] as List<dynamic>).cast<String>(),
+      src: json['src'] as String? ?? '',
+    );
+  }
+}
+
+/// Sent by a follower after applying a snapshot, carrying the applied sequence.
+class StateAck extends DraftCommand {
+  final int seq;
+
+  StateAck({required this.seq, super.src});
+
+  @override
+  DraftCommandType get type => DraftCommandType.stateAck;
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': type.name,
+    'src': src,
+    'seq': seq,
+  };
+
+  factory StateAck.fromJson(Map<String, dynamic> json) {
+    return StateAck(
+      seq: json['seq'] as int,
+      src: json['src'] as String? ?? '',
+    );
+  }
+}
+
+/// Sent by a follower that detected it is behind (e.g. via a tick) to request
+/// a fresh snapshot from the leader.
+class ResyncRequest extends DraftCommand {
+  final int appliedSeq;
+
+  ResyncRequest({required this.appliedSeq, super.src});
+
+  @override
+  DraftCommandType get type => DraftCommandType.resyncRequest;
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': type.name,
+    'src': src,
+    'appliedSeq': appliedSeq,
+  };
+
+  factory ResyncRequest.fromJson(Map<String, dynamic> json) {
+    return ResyncRequest(
+      appliedSeq: json['appliedSeq'] as int,
+      src: json['src'] as String? ?? '',
+    );
+  }
+}
+
+/// Requests the full decklist for [targetDeviceId]. Used at the results stage
+/// when followers need deck contents that were omitted from live snapshots.
+class DecklistRequest extends DraftCommand {
+  final String targetDeviceId;
+
+  DecklistRequest({required this.targetDeviceId, super.src});
+
+  @override
+  DraftCommandType get type => DraftCommandType.decklistRequest;
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': type.name,
+    'src': src,
+    'targetDeviceId': targetDeviceId,
+  };
+
+  factory DecklistRequest.fromJson(Map<String, dynamic> json) {
+    return DecklistRequest(
+      targetDeviceId: json['targetDeviceId'] as String,
+      src: json['src'] as String? ?? '',
     );
   }
 }

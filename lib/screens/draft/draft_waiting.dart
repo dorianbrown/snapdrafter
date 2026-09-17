@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
@@ -16,16 +17,28 @@ class DraftWaitingScreen extends StatefulWidget {
 
 class _DraftWaitingScreenState extends State<DraftWaitingScreen>
     with WidgetsBindingObserver {
+  bool _debugEnabled = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadDebug();
     _watchPhase();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<DraftSessionNotifier>().refreshFromLeader();
       }
     });
+  }
+
+  Future<void> _loadDebug() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(
+        () => _debugEnabled = prefs.getBool('debug_enabled') ?? false,
+      );
+    }
   }
 
   @override
@@ -210,6 +223,10 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
               ),
               const SizedBox(height: 16),
               if (notifier.isReconnecting) const ReconnectingCard(),
+              if (_debugEnabled) ...[
+                const SizedBox(height: 8),
+                _buildTopologyBadge(notifier, state),
+              ],
               const SizedBox(height: 8),
               Text(
                 'Players (${state.players.length})',
@@ -298,6 +315,37 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
         child: Text(
           isHost ? 'host' : player.status.name,
           style: const TextStyle(fontSize: 10, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTopologyBadge(
+    DraftSessionNotifier notifier,
+    DraftState state,
+  ) {
+    final String role;
+    if (notifier.isLeader) {
+      role = 'host';
+    } else if (notifier.isRelaying) {
+      role = 'relay';
+    } else {
+      role = 'leaf';
+    }
+    final parent = notifier.parentDeviceId ?? '-';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.red.withValues(alpha: 0.08),
+        border: Border.all(color: Colors.red.shade200),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        'DEBUG role: $role · parent: $parent · seq: ${state.sequenceNumber}',
+        style: const TextStyle(
+          fontSize: 11,
+          fontFamily: 'monospace',
+          color: Colors.red,
         ),
       ),
     );

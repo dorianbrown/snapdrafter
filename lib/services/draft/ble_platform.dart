@@ -105,6 +105,7 @@ abstract class BlePeripheral {
   Future<void> startAdvertising({
     required List<String> services,
     String? localName,
+    ManufacturerData? manufacturerData,
     PeripheralPlatformConfig? platformConfig,
   });
 
