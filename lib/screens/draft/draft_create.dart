@@ -8,7 +8,6 @@ import '../../data/models/cube.dart';
 import '../../data/repositories/cube_repository.dart';
 import '../../services/draft/draft_config.dart';
 import '../../services/draft/draft_session_notifier.dart';
-import 'draft_management.dart';
 
 class DraftCreateScreen extends StatefulWidget {
   const DraftCreateScreen({super.key});
@@ -105,11 +104,8 @@ class _DraftCreateScreenState extends State<DraftCreateScreen> {
         relayMaxChildren: _relayMaxChildren,
       );
 
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const DraftManagementScreen()),
-        );
-      }
+      // Navigation is handled by DraftNavigationController once the notifier
+      // reports a hosted session.
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(

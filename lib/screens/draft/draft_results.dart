@@ -37,6 +37,17 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     });
   }
 
+  bool _hasUnavailableDecklists(
+    DraftSessionNotifier notifier,
+    DraftState state,
+  ) {
+    for (final player in state.players) {
+      if (!notifier.hasSubmittedDecklist(player.deviceId)) continue;
+      if (notifier.decklistFor(player.deviceId) == null) return true;
+    }
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<DraftSessionNotifier>();
@@ -66,9 +77,6 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
         leading: BackButton(
           onPressed: () async {
             await notifier.leaveDraft();
-            if (context.mounted) {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            }
           },
         ),
       ),
@@ -132,6 +140,28 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                           ),
                           SizedBox(width: 12),
                           Text('Loading decklists...'),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (!notifier.decklistsLoading &&
+                    _hasUnavailableDecklists(notifier, state))
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.cloud_off,
+                            size: 18,
+                            color: Colors.orange,
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(child: Text('Decklists unavailable')),
+                          TextButton(
+                            onPressed: () => notifier.retryDecklists(),
+                            child: const Text('Retry'),
+                          ),
                         ],
                       ),
                     ),

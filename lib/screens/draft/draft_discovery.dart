@@ -7,7 +7,6 @@ import '../../services/draft/draft_ble_follower.dart';
 import '../../services/draft/draft_ble_service.dart';
 import '../../services/draft/draft_config.dart';
 import '../../services/draft/draft_session_notifier.dart';
-import 'draft_waiting.dart';
 
 class DraftDiscoveryScreen extends StatefulWidget {
   const DraftDiscoveryScreen({super.key});
@@ -124,17 +123,8 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
         playerName: _playerName.isEmpty ? 'Player' : _playerName,
         relayMaxChildren: _relayMaxChildren,
       );
-      if (mounted) {
-        _stopScan();
-        Navigator.of(context)
-            .push(MaterialPageRoute(builder: (_) => const DraftWaitingScreen()))
-            .then((_) {
-              if (mounted) {
-                setState(() => _joining = false);
-                _startScan();
-              }
-            });
-      }
+      // The controller navigates once the notifier reports a joined session.
+      if (mounted) _stopScan();
     } catch (e) {
       if (mounted) {
         setState(() => _joining = false);

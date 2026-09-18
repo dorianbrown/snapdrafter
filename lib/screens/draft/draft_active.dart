@@ -8,7 +8,6 @@ import '../../services/draft/notification_service.dart';
 import '../../widgets/reconnecting_card.dart';
 import '../../widgets/draft/match_result_dialog.dart';
 import '../../widgets/draft/standings_sheet.dart';
-import 'draft_results.dart';
 
 class DraftActiveScreen extends StatefulWidget {
   const DraftActiveScreen({super.key});
@@ -21,12 +20,12 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
     with WidgetsBindingObserver {
   Timer? _tickTimer;
   int? _timeElapsedNotifiedRound;
+  DraftSessionNotifier? _notifier;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _syncTickTimer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<DraftSessionNotifier>().refreshFromLeader();
@@ -35,7 +34,28 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final notifier = context.read<DraftSessionNotifier>();
+    if (!identical(notifier, _notifier)) {
+      _notifier?.removeListener(_onNotifierChanged);
+      _notifier = notifier;
+      notifier.addListener(_onNotifierChanged);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onNotifierChanged();
+      });
+    }
+  }
+
+  void _onNotifierChanged() {
+    if (!mounted) return;
+    _syncTickTimer();
+  }
+
+  @override
   void dispose() {
+    _notifier?.removeListener(_onNotifierChanged);
+    _notifier = null;
     WidgetsBinding.instance.removeObserver(this);
     _tickTimer?.cancel();
     _tickTimer = null;
@@ -50,8 +70,9 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
   }
 
   void _syncTickTimer() {
-    final notifier = context.read<DraftSessionNotifier>();
+    final notifier = _notifier;
     final inProgress =
+        notifier != null &&
         notifier.state != null &&
         notifier.state!.session.phase == DraftPhase.inProgress;
 
@@ -140,50 +161,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
     }
   }
 
-  void _navigateIfNeeded(DraftSessionNotifier notifier) {
-    if (notifier.state == null) return;
-    final phase = notifier.state!.session.phase;
-    if (phase == DraftPhase.complete) {
-      _tickTimer?.cancel();
-      _tickTimer = null;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (_) => const DraftResultsScreen()),
-          );
-        }
-      });
-    } else if (phase == DraftPhase.cancelled) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted) {
-          await notifier.leaveDraft();
-          if (mounted) {
-            Navigator.of(context).popUntil((route) => route.isFirst);
-          }
-        }
-      });
-    }
-
-    if (notifier.isFollower) {
-      final myPlayer = notifier.state!.getPlayer(notifier.myDeviceId);
-      if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
-        _tickTimer?.cancel();
-        _tickTimer = null;
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('You were removed from the draft')),
-            );
-            await notifier.leaveDraft();
-            if (mounted) {
-              Navigator.of(context).popUntil((route) => route.isFirst);
-            }
-          }
-        });
-      }
-    }
-  }
-
   Color _matchStatusColor(MatchStatus status) {
     switch (status) {
       case MatchStatus.pending:
@@ -209,8 +186,6 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
   @override
   Widget build(BuildContext context) {
     final notifier = context.watch<DraftSessionNotifier>();
-    _syncTickTimer();
-    _navigateIfNeeded(notifier);
 
     final state = notifier.state;
     if (state == null) {
@@ -237,10 +212,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
-          final shouldPop = await _onWillPop();
-          if (shouldPop && mounted) {
-            Navigator.of(context).pop();
-          }
+          await _onWillPop();
         }
       },
       child: Scaffold(
@@ -248,10 +220,7 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
           title: Text(state.session.name),
           leading: BackButton(
             onPressed: () async {
-              final shouldPop = await _onWillPop();
-              if (shouldPop && mounted) {
-                Navigator.of(context).pop();
-              }
+              await _onWillPop();
             },
           ),
           actions: [

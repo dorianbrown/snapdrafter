@@ -157,4 +157,27 @@ void main() {
 
     expect(find.text('No standings available'), findsOneWidget);
   });
+
+  testWidgets('shows retry card when a submitted decklist is missing', (
+    tester,
+  ) async {
+    final notifier = DraftSessionNotifier(myDeviceId: 'leader-device');
+    final state = _resultsState();
+    notifier.state = state.copyWith(
+      players: state.players
+          .map((p) => p.copyWith(decklistSubmitted: true))
+          .toList(),
+    );
+
+    await tester.pumpWidget(_wrap(notifier));
+    await tester.pump();
+
+    expect(find.text('Decklists unavailable'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+
+    // Tapping retry must not throw even when no fetch is possible.
+    await tester.tap(find.text('Retry'));
+    await tester.pump();
+    expect(find.text('Decklists unavailable'), findsOneWidget);
+  });
 }

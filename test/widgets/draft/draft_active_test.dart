@@ -77,11 +77,9 @@ DraftSessionNotifier _createFollowerNotifier({
 }
 
 Widget _wrap(DraftSessionNotifier notifier) {
-  return MaterialApp(
-    home: ChangeNotifierProvider.value(
-      value: notifier,
-      child: const DraftActiveScreen(),
-    ),
+  return ChangeNotifierProvider.value(
+    value: notifier,
+    child: const MaterialApp(home: DraftActiveScreen()),
   );
 }
 

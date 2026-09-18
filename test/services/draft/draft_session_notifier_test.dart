@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:snapdrafter/services/draft/draft_state.dart';
@@ -73,6 +74,8 @@ class FakeDraftBleFollower extends DraftBleService {
   Object? sendCommandThrow;
   int resubscribeCallCount = 0;
   DraftState? resubscribeResult;
+  int decklistRequestCount = 0;
+  Object? requestDecklistsThrow;
 
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
 
@@ -122,6 +125,12 @@ class FakeDraftBleFollower extends DraftBleService {
   Future<void> sendCommand(DraftCommand cmd) async {
     if (sendCommandThrow != null) throw sendCommandThrow!;
     sentCommands.add(cmd);
+  }
+
+  @override
+  Future<void> requestDecklists() async {
+    decklistRequestCount++;
+    if (requestDecklistsThrow != null) throw requestDecklistsThrow!;
   }
 
   @override
@@ -1295,6 +1304,105 @@ void main() {
 
       await Future.delayed(const Duration(milliseconds: 50));
       expect(notifier.role, DraftRole.none);
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Follower: decklist fetch retry state machine
+  // -----------------------------------------------------------------------
+
+  group('follower: decklist fetch', () {
+    late FakeDraftBleFollower fakeFollower;
+    late DraftSessionNotifier notifier;
+
+    setUp(() async {
+      fakeFollower = FakeDraftBleFollower();
+      notifier = DraftSessionNotifier(
+        myDeviceId: 'my-device',
+        bleFollowerFactory: () => fakeFollower,
+        decklistTimeout: const Duration(milliseconds: 50),
+        decklistRetryDelays: const [
+          Duration(milliseconds: 20),
+          Duration(milliseconds: 20),
+        ],
+      );
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+      );
+    });
+
+    tearDown(() {
+      notifier.dispose();
+    });
+
+    test('requestDecklists is idempotent while loading', () async {
+      await notifier.requestDecklists();
+      await notifier.requestDecklists();
+      expect(fakeFollower.decklistRequestCount, 1);
+      expect(notifier.decklistsLoading, isTrue);
+    });
+
+    test('auto-retries and then clears loading after exhausting attempts',
+        () async {
+      await notifier.requestDecklists();
+      expect(fakeFollower.decklistRequestCount, 1);
+
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+
+      // initial attempt + 2 auto-retries
+      expect(fakeFollower.decklistRequestCount, 3);
+      expect(notifier.decklistsLoading, isFalse);
+    });
+
+    test('data arrival clears loading and stops retries', () async {
+      await notifier.requestDecklists();
+      expect(fakeFollower.decklistRequestCount, 1);
+
+      final payload = Uint8List.fromList(
+        utf8.encode(
+          jsonEncode({
+            'd': {
+              'my-device': {
+                'mb': ['card-1', 'card-2'],
+                'sb': ['side-1'],
+              },
+            },
+          }),
+        ),
+      );
+      fakeFollower.onDecklistData?.call(7, payload);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(notifier.decklistsLoading, isFalse);
+      expect(notifier.decklistFor('my-device')?.mainboard, ['card-1', 'card-2']);
+      expect(notifier.decklistFor('my-device')?.sideboard, ['side-1']);
+
+      final countAfterData = fakeFollower.decklistRequestCount;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      expect(fakeFollower.decklistRequestCount, countAfterData);
+    });
+
+    test('write errors trigger auto-retry', () async {
+      fakeFollower.requestDecklistsThrow = Exception('write failed');
+      await notifier.requestDecklists();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(fakeFollower.decklistRequestCount, 3);
+      expect(notifier.decklistsLoading, isFalse);
+    });
+
+    test('retryDecklists starts a fresh attempt cycle after failure', () async {
+      await notifier.requestDecklists();
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(notifier.decklistsLoading, isFalse);
+
+      final before = fakeFollower.decklistRequestCount;
+      await notifier.retryDecklists();
+      expect(fakeFollower.decklistRequestCount, before + 1);
+      expect(notifier.decklistsLoading, isTrue);
+
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(notifier.decklistsLoading, isFalse);
     });
   });
 

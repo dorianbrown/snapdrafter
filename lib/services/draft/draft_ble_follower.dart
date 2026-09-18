@@ -363,7 +363,9 @@ class DraftBleFollower extends DraftBleService {
   @override
   Future<void> requestDecklists() async {
     final deviceId = _leaderDeviceId;
-    if (deviceId == null) return;
+    if (deviceId == null) {
+      throw Exception('Not connected to a leader');
+    }
     try {
       await _writeCommand(
         deviceId,
@@ -371,6 +373,7 @@ class DraftBleFollower extends DraftBleService {
       );
     } catch (e) {
       _log('[BLE_FOLLOWER] decklist request failed: $e');
+      rethrow;
     }
   }
 

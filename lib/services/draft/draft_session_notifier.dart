@@ -49,6 +49,11 @@ class DraftSessionNotifier extends ChangeNotifier {
   DraftRelayService? _relay;
   int _relayMaxChildren = DraftConfig.defaultRelayMaxChildren;
   final List<int> _reconnectDelaysSeconds;
+  final Duration _decklistTimeout;
+  final List<Duration> _decklistRetryDelays;
+  int _decklistAttempt = 0;
+  Timer? _decklistRetryTimer;
+  bool _decklistRequestInFlight = false;
 
   DraftSessionNotifier({
     required String myDeviceId,
@@ -57,10 +62,20 @@ class DraftSessionNotifier extends ChangeNotifier {
     DraftRelayService Function(DraftBleFollower parent, int maxChildren)?
     relayFactory,
     List<int>? reconnectDelaysSeconds,
+    Duration decklistTimeout = const Duration(seconds: 5),
+    List<Duration>? decklistRetryDelays,
   }) : _myDeviceId = myDeviceId,
        _bleLeaderFactory = bleLeaderFactory,
        _bleFollowerFactory = bleFollowerFactory,
        _relayFactory = relayFactory,
+       _decklistTimeout = decklistTimeout,
+       _decklistRetryDelays =
+           decklistRetryDelays ??
+           const [
+             Duration(seconds: 1),
+             Duration(seconds: 2),
+             Duration(seconds: 4),
+           ],
        _reconnectDelaysSeconds =
            reconnectDelaysSeconds ?? _defaultReconnectDelays();
 
@@ -559,44 +574,123 @@ class DraftSessionNotifier extends ChangeNotifier {
 
   /// Fetches all submitted decklists. The leader already holds them locally;
   /// followers request a bulk transfer from the leader.
-  Future<void> requestDecklists() async {
+  ///
+  /// Followers get bounded auto-retry with backoff; once attempts are
+  /// exhausted [decklistsLoading] clears so the UI can offer a manual retry
+  /// via [retryDecklists].
+  Future<void> requestDecklists({bool force = false}) async {
     if (_state == null) return;
 
     if (isLeader) {
+      _decklistRetryTimer?.cancel();
+      _decklistRetryTimer = null;
+      _decklistAttempt = 0;
+      _decklistsLoading = false;
+      final fetched = <String, DecklistPayload>{
+        for (final player in _state!.players)
+          if (player.decklistMainboard != null)
+            player.deviceId: DecklistPayload(
+              mainboard: player.decklistMainboard!,
+              sideboard: player.decklistSideboard ?? const [],
+            ),
+      };
+      final changed = !_decklistsEqual(_decklists, fetched);
       _decklists
         ..clear()
-        ..addEntries(
-          _state!.players
-              .where((p) => p.decklistMainboard != null)
-              .map(
-                (p) => MapEntry(
-                  p.deviceId,
-                  DecklistPayload(
-                    mainboard: p.decklistMainboard!,
-                    sideboard: p.decklistSideboard ?? const [],
-                  ),
-                ),
-              ),
-        );
-      notifyListeners();
+        ..addAll(fetched);
+      if (changed) notifyListeners();
       return;
     }
 
     if (!isFollower || _bleService == null) return;
+    if (!force) {
+      if (_decklists.isNotEmpty) return;
+      if (_decklistsLoading) return;
+    }
+    _decklistAttempt = 0;
+    _startDecklistFetch();
+  }
+
+  /// Manual retry from the results screen after auto-retry is exhausted.
+  Future<void> retryDecklists() => requestDecklists(force: true);
+
+  void _startDecklistFetch() {
+    _decklistAttempt++;
     _decklistsLoading = true;
     notifyListeners();
+    _sendDecklistRequest();
+  }
+
+  Future<void> _sendDecklistRequest() async {
+    if (!_decklistsLoading || _decklists.isNotEmpty) return;
+    _decklistRetryTimer?.cancel();
+    _decklistRetryTimer = Timer(_decklistTimeout, _onDecklistTimeout);
+    _decklistRequestInFlight = true;
     try {
       await _bleService!.requestDecklists();
-    } catch (_) {
-      _decklistsLoading = false;
-      notifyListeners();
+    } catch (e) {
+      _log('[NOTIFIER] decklist request failed: $e');
+      _decklistRetryTimer?.cancel();
+      _decklistRetryTimer = null;
+      _scheduleDecklistRetry();
+    } finally {
+      _decklistRequestInFlight = false;
     }
+  }
+
+  void _onDecklistTimeout() {
+    if (!_decklistsLoading || _decklists.isNotEmpty) return;
+    _log('[NOTIFIER] decklist request timed out (attempt $_decklistAttempt)');
+    _scheduleDecklistRetry();
+  }
+
+  void _scheduleDecklistRetry() {
+    if (!_decklistsLoading || _decklists.isNotEmpty) return;
+    final retryIndex = _decklistAttempt - 1;
+    if (retryIndex >= _decklistRetryDelays.length) {
+      _decklistRetryTimer = null;
+      _decklistsLoading = false;
+      _log('[NOTIFIER] decklist fetch gave up after $_decklistAttempt attempts');
+      notifyListeners();
+      return;
+    }
+    final delay = _decklistRetryDelays[retryIndex];
+    _decklistRetryTimer = Timer(delay, () {
+      if (!_decklistsLoading || _decklists.isNotEmpty) return;
+      _decklistAttempt++;
+      _sendDecklistRequest();
+    });
+  }
+
+  void _cancelDecklistFetch() {
+    _decklistRetryTimer?.cancel();
+    _decklistRetryTimer = null;
+    _decklistAttempt = 0;
+    _decklistRequestInFlight = false;
+    _decklistsLoading = false;
+  }
+
+  static bool _decklistsEqual(
+    Map<String, DecklistPayload> a,
+    Map<String, DecklistPayload> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (final entry in a.entries) {
+      final other = b[entry.key];
+      if (other == null) return false;
+      if (!listEquals(entry.value.mainboard, other.mainboard)) return false;
+      if (!listEquals(entry.value.sideboard, other.sideboard)) return false;
+    }
+    return true;
   }
 
   void _handleDecklistData(int seq, Uint8List payload) {
     try {
       final json = jsonDecode(utf8.decode(payload)) as Map<String, dynamic>;
       final decks = json['d'] as Map<String, dynamic>? ?? {};
+      _decklistRetryTimer?.cancel();
+      _decklistRetryTimer = null;
+      _decklistAttempt = 0;
       _decklists.clear();
       for (final entry in decks.entries) {
         final deck = entry.value as Map<String, dynamic>;
@@ -988,8 +1082,8 @@ class DraftSessionNotifier extends ChangeNotifier {
     _state = null;
     _myPlayerName = null;
     _bleToAppId.clear();
+    _cancelDecklistFetch();
     _decklists.clear();
-    _decklistsLoading = false;
 
     final relay = _relay;
     _relay = null;
@@ -1029,8 +1123,8 @@ class DraftSessionNotifier extends ChangeNotifier {
     _role = DraftRole.none;
     _state = null;
     _bleToAppId.clear();
+    _cancelDecklistFetch();
     _decklists.clear();
-    _decklistsLoading = false;
     _relay?.stop();
     _relay = null;
     if (_bleService != null) {

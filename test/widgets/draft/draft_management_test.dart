@@ -53,11 +53,9 @@ DraftSessionNotifier _createLeader({
 }
 
 Widget _wrap(DraftSessionNotifier notifier) {
-  return MaterialApp(
-    home: ChangeNotifierProvider.value(
-      value: notifier,
-      child: const DraftManagementScreen(),
-    ),
+  return ChangeNotifierProvider.value(
+    value: notifier,
+    child: const MaterialApp(home: DraftManagementScreen()),
   );
 }
 

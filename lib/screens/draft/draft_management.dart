@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
-import 'draft_active.dart';
 
 class DraftManagementScreen extends StatefulWidget {
   const DraftManagementScreen({super.key});
@@ -13,30 +12,6 @@ class DraftManagementScreen extends StatefulWidget {
 }
 
 class _DraftManagementScreenState extends State<DraftManagementScreen> {
-  @override
-  void initState() {
-    super.initState();
-    _watchPhase();
-  }
-
-  void _watchPhase() {
-    final notifier = context.read<DraftSessionNotifier>();
-    if (notifier.state != null) {
-      final phase = notifier.state!.session.phase;
-      if (phase == DraftPhase.inProgress) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _navigateToActive();
-        });
-      }
-    }
-  }
-
-  void _navigateToActive() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DraftActiveScreen()),
-    );
-  }
-
   Future<bool> _onWillPop() async {
     final notifier = context.read<DraftSessionNotifier>();
     if (notifier.state == null) return true;
@@ -98,26 +73,11 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
     final accepted = state.acceptedPlayers.length;
     final isFull = accepted >= session.seatCount;
 
-    if (session.phase == DraftPhase.inProgress) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _navigateToActive();
-      });
-    }
-    if (session.phase == DraftPhase.complete ||
-        session.phase == DraftPhase.cancelled) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pop();
-      });
-    }
-
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
-          final shouldPop = await _onWillPop();
-          if (shouldPop && mounted) {
-            Navigator.of(context).pop();
-          }
+          await _onWillPop();
         }
       },
       child: Scaffold(
@@ -125,10 +85,7 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
           title: Text(session.name),
           leading: BackButton(
             onPressed: () async {
-              final shouldPop = await _onWillPop();
-              if (shouldPop && mounted) {
-                Navigator.of(context).pop();
-              }
+              await _onWillPop();
             },
           ),
         ),

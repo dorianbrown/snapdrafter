@@ -11,6 +11,7 @@ import '/data/database/database_helper.dart';
 import '/data/repositories/card_repository.dart';
 import '/data/repositories/set_repository.dart';
 import '/screens/decks_overview.dart';
+import '/screens/draft/draft_navigation_controller.dart';
 import '/screens/image_processing_screen.dart';
 import '/screens/settings/download_screen.dart';
 import '/services/draft/draft_session_notifier.dart';
@@ -90,12 +91,19 @@ class MainApp extends StatefulWidget {
 class MainAppState extends State<MainApp> with WidgetsBindingObserver {
   late StreamSubscription _intentDataStreamSubscription;
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey =
+      GlobalKey<ScaffoldMessengerState>();
+  late final DraftNavigationController _draftRouter;
   final ReleaseDateHelper _releaseDateHelper = ReleaseDateHelper();
   late SetRepository _setRepository;
   
   @override
   void initState() {
     super.initState();
+    _draftRouter = DraftNavigationController(
+      navigatorKey: navigatorKey,
+      messengerKey: scaffoldMessengerKey,
+    );
     WidgetsBinding.instance.addObserver(this);
     _setRepository = SetRepository();
     
@@ -122,6 +130,12 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
         });
       }
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _draftRouter.attach(context.read<DraftSessionNotifier>());
   }
 
   void addShareIntentCallback(String imagePath) async {
@@ -270,6 +284,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
           darkTheme: darkTheme,
           themeMode: themeNotifier.themeMode,
           navigatorKey: navigatorKey,
+          scaffoldMessengerKey: scaffoldMessengerKey,
           navigatorObservers: [routeObserver],
           home: MyDecksOverview(),
           debugShowCheckedModeBanner: false,
@@ -280,6 +295,7 @@ class MainAppState extends State<MainApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _draftRouter.detach();
     WidgetsBinding.instance.removeObserver(this);
     _intentDataStreamSubscription.cancel();
     super.dispose();

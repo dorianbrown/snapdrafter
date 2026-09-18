@@ -6,7 +6,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import '../../widgets/reconnecting_card.dart';
-import 'draft_active.dart';
 
 class DraftWaitingScreen extends StatefulWidget {
   const DraftWaitingScreen({super.key});
@@ -24,7 +23,6 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _loadDebug();
-    _watchPhase();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<DraftSessionNotifier>().refreshFromLeader();
@@ -52,25 +50,6 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
     if (state == AppLifecycleState.resumed && mounted) {
       context.read<DraftSessionNotifier>().refreshFromLeader();
     }
-  }
-
-  void _watchPhase() {
-    final notifier = context.read<DraftSessionNotifier>();
-    final state = notifier.state;
-    if (state != null) {
-      final phase = state.session.phase;
-      if (phase == DraftPhase.inProgress) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _navigateToActive();
-        });
-      }
-    }
-  }
-
-  void _navigateToActive() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const DraftActiveScreen()),
-    );
   }
 
   Future<bool> _onWillPop() async {
@@ -118,53 +97,13 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
 
     final session = state.session;
 
-    if (session.phase == DraftPhase.inProgress) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _navigateToActive();
-      });
-    }
-
-    if (session.phase == DraftPhase.cancelled) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('The host cancelled the draft')),
-          );
-          await notifier.leaveDraft();
-          if (mounted) {
-            Navigator.of(context).popUntil(
-              (route) => route.isFirst || route.settings.name == 'draft_lobby',
-            );
-          }
-        }
-      });
-    }
-
-    final myPlayer = state.getPlayer(notifier.myDeviceId);
-    if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('You were removed from the draft')),
-          );
-          await notifier.leaveDraft();
-          if (mounted) {
-            Navigator.of(context).pop();
-          }
-        }
-      });
-    }
-
     final host = state.getPlayer(state.leaderDeviceId ?? '');
 
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
         if (!didPop) {
-          final shouldPop = await _onWillPop();
-          if (shouldPop && mounted) {
-            Navigator.of(context).pop();
-          }
+          await _onWillPop();
         }
       },
       child: Scaffold(
@@ -172,10 +111,7 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
           title: const Text('Waiting Room'),
           leading: BackButton(
             onPressed: () async {
-              final shouldPop = await _onWillPop();
-              if (shouldPop && mounted) {
-                Navigator.of(context).pop();
-              }
+              await _onWillPop();
             },
           ),
         ),
@@ -252,10 +188,7 @@ class _DraftWaitingScreenState extends State<DraftWaitingScreen>
         ),
         floatingActionButton: FloatingActionButton.extended(
           onPressed: () async {
-            final shouldDrop = await _onWillPop();
-            if (shouldDrop && mounted) {
-              Navigator.of(context).pop();
-            }
+            await _onWillPop();
           },
           icon: const Icon(Icons.exit_to_app),
           label: const Text('Drop from Draft'),

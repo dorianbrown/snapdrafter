@@ -1,13 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../../services/draft/draft_state.dart';
-import '../../services/draft/draft_session_notifier.dart';
 import 'draft_create.dart';
 import 'draft_discovery.dart';
-import 'draft_active.dart';
-import 'draft_management.dart';
-import 'draft_waiting.dart';
 
 class DraftLobbyScreen extends StatefulWidget {
   const DraftLobbyScreen({super.key});
@@ -17,46 +11,6 @@ class DraftLobbyScreen extends StatefulWidget {
 }
 
 class _DraftLobbyScreenState extends State<DraftLobbyScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _checkExistingSession(),
-    );
-  }
-
-  void _checkExistingSession() {
-    final notifier = context.read<DraftSessionNotifier>();
-    final state = notifier.state;
-    if (state == null) return;
-
-    final phase = state.session.phase;
-    if (phase == DraftPhase.complete || phase == DraftPhase.cancelled) return;
-
-    Widget target;
-    if (notifier.isLeader) {
-      if (phase == DraftPhase.lobby) {
-        target = const DraftManagementScreen();
-      } else {
-        target = const DraftActiveScreen();
-      }
-    } else if (notifier.isFollower) {
-      if (phase == DraftPhase.lobby) {
-        target = const DraftWaitingScreen();
-      } else {
-        target = const DraftActiveScreen();
-      }
-    } else {
-      return;
-    }
-
-    if (mounted) {
-      Navigator.of(
-        context,
-      ).pushReplacement(MaterialPageRoute(builder: (_) => target));
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
