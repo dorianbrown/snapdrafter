@@ -78,11 +78,7 @@ class JoinRequest extends DraftCommand {
   final String playerName;
   final String deviceName;
 
-  JoinRequest({
-    required this.playerName,
-    required this.deviceName,
-    super.src,
-  });
+  JoinRequest({required this.playerName, required this.deviceName, super.src});
 
   @override
   DraftCommandType get type => DraftCommandType.joinRequest;
@@ -202,17 +198,10 @@ class StateAck extends DraftCommand {
   DraftCommandType get type => DraftCommandType.stateAck;
 
   @override
-  Map<String, dynamic> toJson() => {
-    'type': type.name,
-    'src': src,
-    'seq': seq,
-  };
+  Map<String, dynamic> toJson() => {'type': type.name, 'src': src, 'seq': seq};
 
   factory StateAck.fromJson(Map<String, dynamic> json) {
-    return StateAck(
-      seq: json['seq'] as int,
-      src: json['src'] as String? ?? '',
-    );
+    return StateAck(seq: json['seq'] as int, src: json['src'] as String? ?? '');
   }
 }
 
@@ -241,12 +230,12 @@ class ResyncRequest extends DraftCommand {
   }
 }
 
-/// Requests the full decklist for [targetDeviceId]. Used at the results stage
-/// when followers need deck contents that were omitted from live snapshots.
+/// Requests full decklist contents. [targetDeviceIds] lists the players whose
+/// decklists are missing; an empty list means "all submitted decklists".
 class DecklistRequest extends DraftCommand {
-  final String targetDeviceId;
+  final List<String> targetDeviceIds;
 
-  DecklistRequest({required this.targetDeviceId, super.src});
+  DecklistRequest({this.targetDeviceIds = const [], super.src});
 
   @override
   DraftCommandType get type => DraftCommandType.decklistRequest;
@@ -255,12 +244,12 @@ class DecklistRequest extends DraftCommand {
   Map<String, dynamic> toJson() => {
     'type': type.name,
     'src': src,
-    'targetDeviceId': targetDeviceId,
+    'targets': targetDeviceIds,
   };
 
   factory DecklistRequest.fromJson(Map<String, dynamic> json) {
     return DecklistRequest(
-      targetDeviceId: json['targetDeviceId'] as String,
+      targetDeviceIds: (json['targets'] as List<dynamic>? ?? []).cast<String>(),
       src: json['src'] as String? ?? '',
     );
   }

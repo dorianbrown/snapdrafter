@@ -106,8 +106,9 @@ abstract class DraftBleService {
   /// Callback invoked when a bulk decklist payload arrives (followers only).
   void Function(int seq, Uint8List payload)? onDecklistData;
 
-  /// Requests all decklists from the leader (followers only).
-  Future<void> requestDecklists() async {}
+  /// Requests decklists from the leader (followers only). An empty
+  /// [deviceIds] requests every submitted decklist.
+  Future<void> requestDecklists({List<String> deviceIds = const []}) async {}
 
   /// Stream that emits `true` when connected and `false` on disconnect.
   Stream<bool> get leaderConnected;

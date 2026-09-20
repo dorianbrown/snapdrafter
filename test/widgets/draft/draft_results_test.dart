@@ -158,7 +158,17 @@ void main() {
     expect(find.text('No standings available'), findsOneWidget);
   });
 
-  testWidgets('shows retry card when a submitted decklist is missing', (
+  testWidgets('debug box is hidden when debug mode is off', (tester) async {
+    final notifier = DraftSessionNotifier(myDeviceId: 'leader-device');
+    notifier.state = _resultsState();
+
+    await tester.pumpWidget(_wrap(notifier));
+    await tester.pump();
+
+    expect(find.textContaining('DEBUG'), findsNothing);
+  });
+
+  testWidgets('shows sync card when a submitted decklist is missing', (
     tester,
   ) async {
     final notifier = DraftSessionNotifier(myDeviceId: 'leader-device');
@@ -172,12 +182,12 @@ void main() {
     await tester.pumpWidget(_wrap(notifier));
     await tester.pump();
 
-    expect(find.text('Decklists unavailable'), findsOneWidget);
-    expect(find.text('Retry'), findsOneWidget);
+    expect(find.text('Decklists not synced'), findsOneWidget);
+    expect(find.text('Sync'), findsOneWidget);
 
-    // Tapping retry must not throw even when no fetch is possible.
-    await tester.tap(find.text('Retry'));
+    // Tapping sync must not throw even when no fetch is possible.
+    await tester.tap(find.text('Sync'));
     await tester.pump();
-    expect(find.text('Decklists unavailable'), findsOneWidget);
+    expect(find.text('Decklists not synced'), findsOneWidget);
   });
 }

@@ -9,6 +9,7 @@ import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import '../../widgets/reconnecting_card.dart';
 import '../../widgets/draft/cubecobra_submission_card.dart';
+import '../../widgets/draft/draft_debug_status_box.dart';
 import '../../utils/deck_change_notifier.dart';
 import '../deck_scanner.dart';
 import 'decklist_preview_sheet.dart';
@@ -32,18 +33,17 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<DraftSessionNotifier>().requestDecklists();
+        // Local no-op when nothing is missing; schedules a fetch otherwise.
+        context.read<DraftSessionNotifier>().syncDecklists();
       }
     });
   }
 
-  bool _hasUnavailableDecklists(
-    DraftSessionNotifier notifier,
-    DraftState state,
-  ) {
+  /// True when a submitted decklist's contents have not been synced yet.
+  bool _hasUnsyncedDecklists(DraftState state) {
     for (final player in state.players) {
-      if (!notifier.hasSubmittedDecklist(player.deviceId)) continue;
-      if (notifier.decklistFor(player.deviceId) == null) return true;
+      if (!player.decklistSubmitted) continue;
+      if (player.decklistMainboard == null) return true;
     }
     return false;
   }
@@ -64,8 +64,10 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
     final session = state.session;
     final myDeviceId = notifier.myDeviceId;
     final hasSubmitted = notifier.hasSubmittedDecklist(myDeviceId);
+    // Only players whose contents are loaded can be saved, so the count
+    // matches what "Save All" actually saves.
     final submittedPlayers = state.players
-        .where((p) => notifier.hasSubmittedDecklist(p.deviceId))
+        .where((p) => p.decklistMainboard != null)
         .toList();
     final unsavedPlayers = submittedPlayers
         .where((p) => !_savedPlayerIds.contains(p.deviceId))
@@ -86,6 +88,8 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
               padding: const EdgeInsets.all(16),
               children: [
                 if (notifier.isReconnecting) const ReconnectingCard(),
+                const DraftDebugStatusBox(),
+                const SizedBox(height: 12),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -144,23 +148,22 @@ class _DraftResultsScreenState extends State<DraftResultsScreen> {
                       ),
                     ),
                   ),
-                if (!notifier.decklistsLoading &&
-                    _hasUnavailableDecklists(notifier, state))
+                if (!notifier.decklistsLoading && _hasUnsyncedDecklists(state))
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
                         children: [
                           const Icon(
-                            Icons.cloud_off,
+                            Icons.sync_problem,
                             size: 18,
                             color: Colors.orange,
                           ),
                           const SizedBox(width: 12),
-                          const Expanded(child: Text('Decklists unavailable')),
+                          const Expanded(child: Text('Decklists not synced')),
                           TextButton(
                             onPressed: () => notifier.retryDecklists(),
-                            child: const Text('Retry'),
+                            child: const Text('Sync'),
                           ),
                         ],
                       ),

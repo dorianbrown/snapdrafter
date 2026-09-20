@@ -111,10 +111,7 @@ class DraftBleFollower extends DraftBleService {
       );
       latestByDevice[device.deviceId] = candidate;
 
-      final best = _bestParentFor(
-        advertisement.draftId,
-        latestByDevice.values,
-      );
+      final best = _bestParentFor(advertisement.draftId, latestByDevice.values);
       if (best == null) return;
       if (bestByDraft[advertisement.draftId]?.deviceId == best.deviceId) return;
       bestByDraft[advertisement.draftId] = best;
@@ -302,7 +299,10 @@ class DraftBleFollower extends DraftBleService {
     }
   }
 
-  void _handleFrameBytes(Uint8List bytes, Completer<DraftState> stateCompleter) {
+  void _handleFrameBytes(
+    Uint8List bytes,
+    Completer<DraftState> stateCompleter,
+  ) {
     final frame = DraftFrame.parse(bytes);
     if (frame == null) {
       _log('[BLE_FOLLOWER] malformed frame (${bytes.length} bytes)');
@@ -327,7 +327,9 @@ class DraftBleFollower extends DraftBleService {
 
   void _handleTick(int seq) {
     if (seq > _appliedSeq) {
-      _log('[BLE_FOLLOWER] tick seq=$seq ahead of applied=$_appliedSeq, resync');
+      _log(
+        '[BLE_FOLLOWER] tick seq=$seq ahead of applied=$_appliedSeq, resync',
+      );
       requestResync();
     }
   }
@@ -359,9 +361,10 @@ class DraftBleFollower extends DraftBleService {
     _sendAck(frame.seq);
   }
 
-  /// Requests all decklists from the leader via the command characteristic.
+  /// Requests decklists from the leader via the command characteristic.
+  /// An empty [deviceIds] requests every submitted decklist.
   @override
-  Future<void> requestDecklists() async {
+  Future<void> requestDecklists({List<String> deviceIds = const []}) async {
     final deviceId = _leaderDeviceId;
     if (deviceId == null) {
       throw Exception('Not connected to a leader');
@@ -369,7 +372,7 @@ class DraftBleFollower extends DraftBleService {
     try {
       await _writeCommand(
         deviceId,
-        DecklistRequest(targetDeviceId: 'all', src: myDeviceId ?? ''),
+        DecklistRequest(targetDeviceIds: deviceIds, src: myDeviceId ?? ''),
       );
     } catch (e) {
       _log('[BLE_FOLLOWER] decklist request failed: $e');

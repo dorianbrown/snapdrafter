@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
+import '../../widgets/draft/draft_debug_status_box.dart';
 
 class DraftManagementScreen extends StatefulWidget {
   const DraftManagementScreen({super.key});
@@ -94,6 +95,8 @@ class _DraftManagementScreenState extends State<DraftManagementScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              const DraftDebugStatusBox(),
+              const SizedBox(height: 12),
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),

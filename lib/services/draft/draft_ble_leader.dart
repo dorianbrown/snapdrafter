@@ -358,7 +358,9 @@ class DraftBleLeader extends DraftBleService {
 
   /// Re-advertises with an updated capacity after links change.
   void _scheduleAdvertisementRefresh() {
-    if (_advertisingPaused || _currentState == null || _savedLocalName == null) {
+    if (_advertisingPaused ||
+        _currentState == null ||
+        _savedLocalName == null) {
       return;
     }
     _adRefreshTimer?.cancel();
@@ -388,10 +390,7 @@ class DraftBleLeader extends DraftBleService {
     return _sessions.putIfAbsent(deviceId, () {
       return DraftLinkSession(
         deviceId: deviceId,
-        chunker: _stateChunkers.putIfAbsent(
-          deviceId,
-          () => BleChunkedStream(),
-        ),
+        chunker: _stateChunkers.putIfAbsent(deviceId, () => BleChunkedStream()),
         send: (chunk) => _ble.updateCharacteristicValue(
           characteristicId: DraftBleService.stateCharUuid,
           value: chunk,
@@ -518,11 +517,11 @@ class DraftBleLeader extends DraftBleService {
           _sessions[deviceId]?.onAck(seq);
         case ResyncRequest():
           _resendTo(deviceId);
-        case DecklistRequest():
+        case DecklistRequest(:final targetDeviceIds):
           if (forwardDecklistRequests) {
             onCommandReceived?.call(deviceId, cmd);
           } else {
-            _sendDecklists(deviceId);
+            _sendDecklists(deviceId, targetDeviceIds);
           }
         default:
           onCommandReceived?.call(deviceId, cmd);
@@ -537,7 +536,9 @@ class DraftBleLeader extends DraftBleService {
     if (state == null) return;
     final session = _sessions[deviceId];
     if (session == null) return;
-    _log('[BLE_ADV] resync requested by $deviceId (seq=${state.sequenceNumber})');
+    _log(
+      '[BLE_ADV] resync requested by $deviceId (seq=${state.sequenceNumber})',
+    );
     session.sendSnapshot(
       state.sequenceNumber,
       DraftFrame.encodeSnapshot(
@@ -553,18 +554,20 @@ class DraftBleLeader extends DraftBleService {
     _sessions[deviceId]?.sendMessage(seq, frame);
   }
 
-  /// Sends the full decklists for every player that has submitted one. Decklist
-  /// contents are excluded from live snapshots, so followers fetch them on
-  /// demand at the results stage.
-  void _sendDecklists(String requesterDeviceId) {
+  /// Sends decklists for the requested players (or all submitted players when
+  /// [requestedIds] is empty). Decklist contents are excluded from live
+  /// snapshots, so followers fetch them on demand at the results stage.
+  void _sendDecklists(String requesterDeviceId, List<String> requestedIds) {
     final state = _currentState;
     if (state == null) return;
     final session = _sessions[requesterDeviceId];
     if (session == null) return;
 
+    final wanted = requestedIds.toSet();
     final decks = <String, dynamic>{};
     for (final player in state.players) {
       if (player.decklistMainboard == null) continue;
+      if (wanted.isNotEmpty && !wanted.contains(player.deviceId)) continue;
       decks[player.deviceId] = {
         'mb': player.decklistMainboard,
         'sb': player.decklistSideboard ?? const <String>[],

@@ -184,11 +184,11 @@ void main() {
       isNull,
     );
 
-    // Contents arrive only when fetched.
-    await cluster.notifiers[2].requestDecklists();
+    // Contents arrive automatically once the submission is detected; the
+    // snapshot itself only carried the flag.
     await waitUntil(
       () => cluster.notifiers[2].decklistFor('p1') != null,
-      timeout: const Duration(seconds: 20),
+      timeout: const Duration(seconds: 30),
     );
     final fetched = cluster.notifiers[2].decklistFor('p1')!;
     expect(fetched.mainboard.length, 40);

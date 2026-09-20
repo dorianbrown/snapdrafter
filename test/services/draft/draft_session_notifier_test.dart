@@ -16,6 +16,7 @@ class FakeDraftBleLeader extends DraftBleService {
   final List<DraftState> pushedStates = [];
   bool stopCalled = false;
   int resubscribeCallCount = 0;
+  int decklistRequestCount = 0;
 
   final Set<String> connectedDevices = {};
 
@@ -57,6 +58,11 @@ class FakeDraftBleLeader extends DraftBleService {
       throw UnsupportedError('Fake leader has no connection stream');
 
   @override
+  Future<void> requestDecklists({List<String> deviceIds = const []}) async {
+    decklistRequestCount++;
+  }
+
+  @override
   Future<void> stop() async {
     stopCalled = true;
   }
@@ -75,6 +81,7 @@ class FakeDraftBleFollower extends DraftBleService {
   int resubscribeCallCount = 0;
   DraftState? resubscribeResult;
   int decklistRequestCount = 0;
+  final List<List<String>> decklistRequestIds = [];
   Object? requestDecklistsThrow;
 
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
@@ -128,8 +135,9 @@ class FakeDraftBleFollower extends DraftBleService {
   }
 
   @override
-  Future<void> requestDecklists() async {
+  Future<void> requestDecklists({List<String> deviceIds = const []}) async {
     decklistRequestCount++;
+    decklistRequestIds.add(List.of(deviceIds));
     if (requestDecklistsThrow != null) throw requestDecklistsThrow!;
   }
 
@@ -171,6 +179,42 @@ DraftSessionNotifier _createFollowerNotifier(FakeDraftBleFollower fake) {
   return DraftSessionNotifier(
     myDeviceId: 'my-device',
     bleFollowerFactory: () => fake,
+  );
+}
+
+/// State containing submitted-but-not-synced players, as a follower sees it.
+DraftState _stateWithSubmitted(List<String> submittedIds, {int seq = 1}) {
+  final base = DraftState.create(
+    name: 'Decklist Draft',
+    leaderDeviceId: 'leader-device',
+    leaderPlayerName: 'Host',
+    seatCount: 4,
+  );
+  return base.copyWith(
+    sequenceNumber: seq,
+    players: [
+      for (var i = 0; i < submittedIds.length; i++)
+        DraftPlayer(
+          deviceId: submittedIds[i],
+          playerName: submittedIds[i],
+          joinOrder: i + 1,
+          status: PlayerStatus.accepted,
+          decklistSubmitted: true,
+        ),
+    ],
+  );
+}
+
+Uint8List _decklistPayload(Map<String, List<String>> decks) {
+  return Uint8List.fromList(
+    utf8.encode(
+      jsonEncode({
+        'd': {
+          for (final entry in decks.entries)
+            entry.key: {'mb': entry.value, 'sb': <String>[]},
+        },
+      }),
+    ),
   );
 }
 
@@ -1321,6 +1365,7 @@ void main() {
         myDeviceId: 'my-device',
         bleFollowerFactory: () => fakeFollower,
         decklistTimeout: const Duration(milliseconds: 50),
+        decklistDebounce: const Duration(milliseconds: 30),
         decklistRetryDelays: const [
           Duration(milliseconds: 20),
           Duration(milliseconds: 20),
@@ -1336,73 +1381,128 @@ void main() {
       notifier.dispose();
     });
 
-    test('requestDecklists is idempotent while loading', () async {
-      await notifier.requestDecklists();
-      await notifier.requestDecklists();
+    test(
+      'state push schedules a debounced request for missing players',
+      () async {
+        fakeFollower.onStatePush!(_stateWithSubmitted(['p1'], seq: 1));
+
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        expect(
+          fakeFollower.decklistRequestCount,
+          0,
+          reason: 'still debouncing',
+        );
+
+        await Future<void>.delayed(const Duration(milliseconds: 60));
+        expect(fakeFollower.decklistRequestCount, 1);
+        expect(fakeFollower.decklistRequestIds.single, ['p1']);
+      },
+    );
+
+    test('submissions within the debounce window coalesce', () async {
+      fakeFollower.onStatePush!(_stateWithSubmitted(['p1'], seq: 1));
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      fakeFollower.onStatePush!(_stateWithSubmitted(['p1', 'p2'], seq: 2));
+
+      await Future<void>.delayed(const Duration(milliseconds: 60));
       expect(fakeFollower.decklistRequestCount, 1);
-      expect(notifier.decklistsLoading, isTrue);
+      expect(fakeFollower.decklistRequestIds.single.toSet(), {'p1', 'p2'});
     });
 
-    test('auto-retries and then clears loading after exhausting attempts',
-        () async {
-      await notifier.requestDecklists();
+    test('incremental merge keeps loading until every deck arrives', () async {
+      fakeFollower.onStatePush!(_stateWithSubmitted(['p1', 'p2'], seq: 1));
+      await Future<void>.delayed(const Duration(milliseconds: 60));
       expect(fakeFollower.decklistRequestCount, 1);
+      expect(fakeFollower.decklistRequestIds.single.toSet(), {'p1', 'p2'});
 
+      fakeFollower.onDecklistData!(
+        1,
+        _decklistPayload({
+          'p1': ['card-1'],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(notifier.decklistFor('p1')?.mainboard, ['card-1']);
+      expect(notifier.decklistsLoading, isTrue);
+      expect(fakeFollower.decklistRequestCount, 2);
+      expect(fakeFollower.decklistRequestIds.last, ['p2']);
+
+      fakeFollower.onDecklistData!(
+        2,
+        _decklistPayload({
+          'p2': ['card-2'],
+        }),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(notifier.decklistsLoading, isFalse);
+      expect(notifier.decklistFor('p2')?.mainboard, ['card-2']);
+    });
+
+    test('auto-retries the remaining set then clears loading', () async {
+      fakeFollower.onStatePush!(_stateWithSubmitted(['p1'], seq: 1));
       await Future<void>.delayed(const Duration(milliseconds: 300));
 
       // initial attempt + 2 auto-retries
       expect(fakeFollower.decklistRequestCount, 3);
+      expect(
+        fakeFollower.decklistRequestIds.every((ids) => ids.length == 1),
+        isTrue,
+      );
       expect(notifier.decklistsLoading, isFalse);
     });
 
-    test('data arrival clears loading and stops retries', () async {
-      await notifier.requestDecklists();
+    test('manual retry cancels the debounce and fetches immediately', () async {
+      fakeFollower.onStatePush!(_stateWithSubmitted(['p1'], seq: 1));
+      await notifier.retryDecklists();
+
       expect(fakeFollower.decklistRequestCount, 1);
+      expect(fakeFollower.decklistRequestIds.single, ['p1']);
 
-      final payload = Uint8List.fromList(
-        utf8.encode(
-          jsonEncode({
-            'd': {
-              'my-device': {
-                'mb': ['card-1', 'card-2'],
-                'sb': ['side-1'],
-              },
-            },
-          }),
-        ),
-      );
-      fakeFollower.onDecklistData?.call(7, payload);
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-
-      expect(notifier.decklistsLoading, isFalse);
-      expect(notifier.decklistFor('my-device')?.mainboard, ['card-1', 'card-2']);
-      expect(notifier.decklistFor('my-device')?.sideboard, ['side-1']);
-
-      final countAfterData = fakeFollower.decklistRequestCount;
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-      expect(fakeFollower.decklistRequestCount, countAfterData);
+      // The debounce timer must not fire a duplicate request.
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(fakeFollower.decklistRequestCount, 1);
     });
 
     test('write errors trigger auto-retry', () async {
       fakeFollower.requestDecklistsThrow = Exception('write failed');
-      await notifier.requestDecklists();
+      fakeFollower.onStatePush!(_stateWithSubmitted(['p1'], seq: 1));
       await Future<void>.delayed(const Duration(milliseconds: 300));
       expect(fakeFollower.decklistRequestCount, 3);
       expect(notifier.decklistsLoading, isFalse);
     });
 
-    test('retryDecklists starts a fresh attempt cycle after failure', () async {
-      await notifier.requestDecklists();
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      expect(notifier.decklistsLoading, isFalse);
+    test('leader never sends decklist requests', () async {
+      final fakeLeader = FakeDraftBleLeader();
+      final leaderNotifier = DraftSessionNotifier(
+        myDeviceId: 'my-device',
+        bleLeaderFactory: () => fakeLeader,
+      );
+      await leaderNotifier.createAndHost(
+        name: 'Decklist Draft',
+        seatCount: 4,
+        playerName: 'Host',
+      );
+      leaderNotifier.state = leaderNotifier.state!.copyWith(
+        players: [
+          DraftPlayer(
+            deviceId: 'my-device',
+            playerName: 'Host',
+            joinOrder: 0,
+            status: PlayerStatus.accepted,
+            decklistMainboard: const ['card-1'],
+            decklistSubmitted: true,
+          ),
+        ],
+      );
 
-      final before = fakeFollower.decklistRequestCount;
-      await notifier.retryDecklists();
-      expect(fakeFollower.decklistRequestCount, before + 1);
-      expect(notifier.decklistsLoading, isTrue);
+      leaderNotifier.syncDecklists();
+      await leaderNotifier.retryDecklists();
+      await Future<void>.delayed(const Duration(milliseconds: 100));
 
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      expect(notifier.decklistsLoading, isFalse);
+      expect(fakeLeader.decklistRequestCount, 0);
+      leaderNotifier.dispose();
     });
   });
 

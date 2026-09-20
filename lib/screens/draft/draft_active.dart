@@ -6,6 +6,7 @@ import '../../services/draft/draft_state.dart';
 import '../../services/draft/draft_session_notifier.dart';
 import '../../services/draft/notification_service.dart';
 import '../../widgets/reconnecting_card.dart';
+import '../../widgets/draft/draft_debug_status_box.dart';
 import '../../widgets/draft/match_result_dialog.dart';
 import '../../widgets/draft/standings_sheet.dart';
 
@@ -238,6 +239,10 @@ class _DraftActiveScreenState extends State<DraftActiveScreen>
         body: Column(
           children: [
             if (notifier.isReconnecting) const ReconnectingCard(),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: DraftDebugStatusBox(),
+            ),
             _buildRoundHeader(
               roundNum,
               totalRounds,
