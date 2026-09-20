@@ -37,6 +37,32 @@ class DraftProtocol {
   /// Manufacturer-data company id used to carry draft topology hints.
   static const int advertisementCompanyId = 0xFFFF;
 
+  /// Maximum bytes for the advertised local name.
+  ///
+  /// Legacy advertisements cap the packet at 31 bytes. The host advertises
+  /// flags (3) + local name (2 + n) + manufacturer data (12), so names longer
+  /// than 14 bytes make Android fail with `ADVERTISE_FAILED_DATA_TOO_LARGE`
+  /// (and iOS silently drop fields). Keep a conservative budget.
+  static const int advertisedNameMaxBytes = 12;
+
+  /// Truncates [name] to [advertisedNameMaxBytes] UTF-8 bytes on a rune
+  /// boundary. The full name remains in [DraftState].
+  static String advertisedName(String name) {
+    final trimmed = name.trim();
+    if (utf8.encode(trimmed).length <= advertisedNameMaxBytes) {
+      return trimmed;
+    }
+    final buffer = StringBuffer();
+    var used = 0;
+    for (final rune in trimmed.runes) {
+      final runeBytes = utf8.encode(String.fromCharCode(rune)).length;
+      if (used + runeBytes > advertisedNameMaxBytes) break;
+      buffer.writeCharCode(rune);
+      used += runeBytes;
+    }
+    return buffer.toString();
+  }
+
   /// Advertisement payload layout:
   ///   version(1) role(1) depth(1) capacity(1) draftId(4)
   static const int advertisementSize = 8;

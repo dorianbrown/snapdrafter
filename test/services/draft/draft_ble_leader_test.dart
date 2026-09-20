@@ -9,6 +9,7 @@ import 'package:snapdrafter/services/draft/ble_chunked.dart';
 import 'package:snapdrafter/services/draft/ble_platform.dart';
 import 'package:snapdrafter/services/draft/draft_ble_leader.dart';
 import 'package:snapdrafter/services/draft/draft_ble_service.dart';
+import 'package:snapdrafter/services/draft/draft_protocol.dart';
 import 'package:snapdrafter/services/draft/draft_state.dart';
 import 'package:snapdrafter/services/draft/draft_message.dart';
 
@@ -20,6 +21,8 @@ class FakeBlePeripheral implements BlePeripheral {
         BlePeripheralCharacteristicSubscriptionChanged
       >.broadcast();
   final _mtuChangedCtrl = StreamController<BlePeripheralMtuChanged>.broadcast();
+  final _advertisingStateCtrl =
+      StreamController<BlePeripheralAdvertisingStateChanged>.broadcast();
 
   @override
   Stream<BlePeripheralConnectionStateChanged> get connectionStateStream =>
@@ -33,6 +36,10 @@ class FakeBlePeripheral implements BlePeripheral {
   Stream<BlePeripheralMtuChanged> get mtuChangedStream =>
       _mtuChangedCtrl.stream;
 
+  @override
+  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream =>
+      _advertisingStateCtrl.stream;
+
   // Recorded calls
   BlePeripheralService? addedService;
   bool readHandlersSet = false;
@@ -40,6 +47,7 @@ class FakeBlePeripheral implements BlePeripheral {
   bool startedAdvertising = false;
   bool stoppedAdvertising = false;
   bool clearedServices = false;
+  String? lastLocalName;
   ManufacturerData? lastManufacturerData;
   final List<Map<String, dynamic>> characteristicUpdates = [];
   String? lastMaximumNotifyDeviceId;
@@ -109,6 +117,7 @@ class FakeBlePeripheral implements BlePeripheral {
   }) async {
     if (advertiseThrow != null) throw advertiseThrow!;
     startedAdvertising = true;
+    lastLocalName = localName;
     lastManufacturerData = manufacturerData;
   }
 
@@ -173,10 +182,17 @@ class FakeBlePeripheral implements BlePeripheral {
     _mtuChangedCtrl.add(BlePeripheralMtuChanged(deviceId, mtu));
   }
 
+  void emitAdvertisingState(PeripheralAdvertisingState state, String? error) {
+    _advertisingStateCtrl.add(
+      BlePeripheralAdvertisingStateChanged(state, error),
+    );
+  }
+
   Future<void> disposeStreams() async {
     await _connectionStateCtrl.close();
     await _charSubCtrl.close();
     await _mtuChangedCtrl.close();
+    await _advertisingStateCtrl.close();
   }
 }
 
@@ -255,6 +271,42 @@ void main() {
     test('starts advertising', () async {
       await leader.startAsLeader(_testState());
       expect(fakeBle.startedAdvertising, isTrue);
+    });
+
+    test('advertises a truncated local name for long draft names', () async {
+      final state = DraftState.create(
+        name: "BallzofFury's Draft",
+        leaderDeviceId: 'leader-device',
+        leaderPlayerName: 'Leader',
+        seatCount: 8,
+      );
+      await leader.startAsLeader(state);
+
+      expect(fakeBle.lastLocalName, isNotNull);
+      expect(
+        utf8.encode(fakeBle.lastLocalName!).length,
+        lessThanOrEqualTo(DraftProtocol.advertisedNameMaxBytes),
+      );
+      expect(fakeBle.lastLocalName, startsWith('BallzofFury'));
+    });
+
+    test('surfaces advertising errors from the platform stream', () async {
+      await leader.startAsLeader(_testState());
+      expect(leader.advertisingError, isNull);
+
+      fakeBle.emitAdvertisingState(
+        PeripheralAdvertisingState.error,
+        'Data too large',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(leader.advertisingError, 'Data too large');
+
+      fakeBle.emitAdvertisingState(
+        PeripheralAdvertisingState.advertising,
+        null,
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(leader.advertisingError, isNull);
     });
 
     test('read handler returns state bytes', () async {

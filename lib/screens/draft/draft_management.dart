@@ -13,6 +13,47 @@ class DraftManagementScreen extends StatefulWidget {
 }
 
 class _DraftManagementScreenState extends State<DraftManagementScreen> {
+  DraftSessionNotifier? _notifier;
+  String? _lastAdvertisingError;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final notifier = context.read<DraftSessionNotifier>();
+    if (!identical(notifier, _notifier)) {
+      _notifier?.removeListener(_onNotifierChanged);
+      _notifier = notifier;
+      notifier.addListener(_onNotifierChanged);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _onNotifierChanged();
+      });
+    }
+  }
+
+  void _onNotifierChanged() {
+    final notifier = _notifier;
+    if (notifier == null || !mounted) return;
+    final error = notifier.advertisingError;
+    if (error != null && error != _lastAdvertisingError) {
+      _lastAdvertisingError = error;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Draft is not discoverable: $error'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else if (error == null) {
+      _lastAdvertisingError = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _notifier?.removeListener(_onNotifierChanged);
+    _notifier = null;
+    super.dispose();
+  }
+
   Future<bool> _onWillPop() async {
     final notifier = context.read<DraftSessionNotifier>();
     if (notifier.state == null) return true;

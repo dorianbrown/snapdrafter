@@ -78,6 +78,10 @@ abstract class BlePeripheral {
 
   Stream<BlePeripheralMtuChanged> get mtuChangedStream;
 
+  /// Advertising lifecycle updates, including start failures. Advertising
+  /// errors are otherwise silent (the platform reports them via callback).
+  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream;
+
   Future<BlePeripheralCapabilities> getCapabilities();
 
   Future<void> addService(BlePeripheralService service);

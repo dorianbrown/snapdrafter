@@ -45,6 +45,7 @@ class DraftBleLeader extends DraftBleService {
   _charSubStreamSub;
   StreamSubscription<BlePeripheralMtuChanged>? _mtuChangedSub;
   StreamSubscription<BlePeripheralConnectionStateChanged>? _connStateSub;
+  StreamSubscription<BlePeripheralAdvertisingStateChanged>? _advStateSub;
   Timer? _tickTimer;
   Timer? _adRefreshTimer;
 
@@ -52,6 +53,10 @@ class DraftBleLeader extends DraftBleService {
 
   bool _advertisingPaused = false;
   String? _savedLocalName;
+  String? _advertisingError;
+
+  /// Last advertising failure reported by the platform, if any.
+  String? get advertisingError => _advertisingError;
 
   DraftBleLeader({
     BlePeripheral? ble,
@@ -255,7 +260,18 @@ class DraftBleLeader extends DraftBleService {
 
     _tickTimer = Timer.periodic(tickInterval, (_) => _broadcastTick());
 
-    final localName = state.session.name;
+    // Advertising failures are reported via callback, not exceptions; without
+    // this the host silently advertises nothing.
+    _advStateSub = _ble.advertisingStateStream.listen((event) {
+      if (event.state == PeripheralAdvertisingState.error) {
+        _advertisingError = event.error ?? 'Advertising failed';
+        _log('[BLE_ADV] ADVERTISING ERROR: $_advertisingError');
+      } else if (event.state == PeripheralAdvertisingState.advertising) {
+        _advertisingError = null;
+      }
+    });
+
+    final localName = DraftProtocol.advertisedName(state.session.name);
     _log(
       '[BLE_ADV] starting advertising: service=${DraftBleService.serviceUuid} localName="$localName"',
     );
@@ -265,7 +281,10 @@ class DraftBleLeader extends DraftBleService {
       localName: localName,
       manufacturerData: _advertisementData(),
       platformConfig: PeripheralPlatformConfig(
-        android: PeripheralAndroidOptions(addServicesInScanResponse: true),
+        android: PeripheralAndroidOptions(
+          addServicesInScanResponse: true,
+          addManufacturerDataInScanResponse: true,
+        ),
       ),
     );
     _savedLocalName = localName;
@@ -328,7 +347,10 @@ class DraftBleLeader extends DraftBleService {
         localName: _savedLocalName,
         manufacturerData: _advertisementData(),
         platformConfig: PeripheralPlatformConfig(
-          android: PeripheralAndroidOptions(addServicesInScanResponse: true),
+          android: PeripheralAndroidOptions(
+            addServicesInScanResponse: true,
+            addManufacturerDataInScanResponse: true,
+          ),
         ),
       );
       _advertisingPaused = false;
@@ -373,7 +395,10 @@ class DraftBleLeader extends DraftBleService {
           localName: _savedLocalName,
           manufacturerData: _advertisementData(),
           platformConfig: PeripheralPlatformConfig(
-            android: PeripheralAndroidOptions(addServicesInScanResponse: true),
+            android: PeripheralAndroidOptions(
+              addServicesInScanResponse: true,
+              addManufacturerDataInScanResponse: true,
+            ),
           ),
         );
       } catch (e) {
@@ -599,6 +624,9 @@ class DraftBleLeader extends DraftBleService {
     _mtuChangedSub = null;
     await _connStateSub?.cancel();
     _connStateSub = null;
+    await _advStateSub?.cancel();
+    _advStateSub = null;
+    _advertisingError = null;
     for (final session in _sessions.values) {
       session.dispose();
     }

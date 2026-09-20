@@ -152,6 +152,12 @@ class DraftSessionNotifier extends ChangeNotifier {
   /// Number of children served by this device's relay role, if any.
   int get relayChildCount => _relay?.childCount ?? 0;
 
+  /// Last advertising failure reported by the platform (host only).
+  String? get advertisingError {
+    final ble = _bleService;
+    return ble is DraftBleLeader ? ble.advertisingError : null;
+  }
+
   bool hasReportedResult(int roundNumber) {
     if (_state == null) return false;
     final myMatch = _state!.getMyMatch(_myDeviceId, roundNumber);

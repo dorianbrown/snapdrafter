@@ -97,6 +97,10 @@ class LiveBlePeripheral implements BlePeripheral {
       UniversalBlePeripheral.mtuChangedStream;
 
   @override
+  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream =>
+      UniversalBlePeripheral.advertisingStateStream;
+
+  @override
   Future<BlePeripheralCapabilities> getCapabilities() {
     return UniversalBlePeripheral.getCapabilities();
   }

@@ -346,8 +346,12 @@ class FakeNetworkPeripheral implements BlePeripheral {
   final _connectionCtrl =
       StreamController<BlePeripheralConnectionStateChanged>.broadcast();
   final _charSubCtrl =
-      StreamController<BlePeripheralCharacteristicSubscriptionChanged>.broadcast();
+      StreamController<
+        BlePeripheralCharacteristicSubscriptionChanged
+      >.broadcast();
   final _mtuCtrl = StreamController<BlePeripheralMtuChanged>.broadcast();
+  final _advertisingStateCtrl =
+      StreamController<BlePeripheralAdvertisingStateChanged>.broadcast();
 
   bool _advertising = false;
   String? _advertisedName;
@@ -369,6 +373,10 @@ class FakeNetworkPeripheral implements BlePeripheral {
 
   @override
   Stream<BlePeripheralMtuChanged> get mtuChangedStream => _mtuCtrl.stream;
+
+  @override
+  Stream<BlePeripheralAdvertisingStateChanged> get advertisingStateStream =>
+      _advertisingStateCtrl.stream;
 
   @override
   Future<BlePeripheralCapabilities> getCapabilities() async {
@@ -465,5 +473,6 @@ class FakeNetworkPeripheral implements BlePeripheral {
     _connectionCtrl.close();
     _charSubCtrl.close();
     _mtuCtrl.close();
+    _advertisingStateCtrl.close();
   }
 }

@@ -61,6 +61,10 @@ class _DraftDebugStatusBoxState extends State<DraftDebugStatusBox> {
     if (notifier.isReconnecting) {
       parts.add('RECONNECTING');
     }
+    final advertisingError = notifier.advertisingError;
+    if (advertisingError != null) {
+      parts.add('ADV ERROR: $advertisingError');
+    }
     return parts.join(' · ');
   }
 
