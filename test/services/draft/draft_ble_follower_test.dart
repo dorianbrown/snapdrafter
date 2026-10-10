@@ -182,6 +182,30 @@ Uint8List _snapshot(DraftState state) => DraftFrame.encodeSnapshot(
   DraftBleService.encodeState(state),
 );
 
+/// Builds a scan result carrying a protocol v2 topology advertisement.
+BleDevice _advertisedDevice({
+  required String deviceId,
+  required int draftId,
+  required int depth,
+  required int capacity,
+  int rssi = -50,
+  bool isRelay = true,
+}) {
+  return BleDevice(
+    deviceId: deviceId,
+    name: 'Draft',
+    rssi: rssi,
+    manufacturerDataList: [
+      DraftProtocol.buildManufacturerData(
+        role: isRelay ? DraftAdvertisement.roleRelay : DraftAdvertisement.roleLeader,
+        depth: depth,
+        capacity: capacity,
+        draftId: draftId,
+      )!,
+    ],
+  );
+}
+
 void main() {
   late FakeBleCentral fake;
   late DraftBleFollower follower;
@@ -290,6 +314,121 @@ void main() {
     test('stopScan without a prior scan does not throw', () async {
       await follower.stopScan();
       // No exception thrown — test passes.
+    });
+
+    test('stopScan closes the scan stream', () async {
+      final stream = follower.scanForDrafts();
+      final results = <DiscoveredDraft>[];
+      final sub = stream.listen(results.add);
+
+      await follower.stopScan();
+      fake.emitScanDevice(
+        BleDevice(deviceId: 'after-stop', name: 'Late', rssi: -50),
+      );
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      expect(results, isEmpty);
+      await sub.cancel();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // discoverBestParent filters
+  // -----------------------------------------------------------------------
+
+  group('discoverBestParent', () {
+    setUp(() {
+      fake = FakeBleCentral();
+      follower = _createFollower(fake);
+    });
+
+    test('returns the best parent of the requested draft only', () async {
+      final future = follower.discoverBestParent(
+        draftId: 111,
+        timeout: const Duration(milliseconds: 150),
+      );
+
+      // A better-signalled advertiser from a different draft must not win.
+      fake.emitScanDevice(
+        _advertisedDevice(
+          deviceId: 'other-draft',
+          draftId: 222,
+          depth: 0,
+          capacity: 3,
+          rssi: -30,
+        ),
+      );
+      fake.emitScanDevice(
+        _advertisedDevice(
+          deviceId: 'our-draft',
+          draftId: 111,
+          depth: 0,
+          capacity: 1,
+          rssi: -80,
+        ),
+      );
+
+      expect((await future)?.deviceId, 'our-draft');
+    });
+
+    test('never returns an excluded child', () async {
+      final future = follower.discoverBestParent(
+        draftId: 111,
+        excludeDeviceIds: const {'my-child'},
+        timeout: const Duration(milliseconds: 150),
+      );
+
+      fake.emitScanDevice(
+        _advertisedDevice(
+          deviceId: 'my-child',
+          draftId: 111,
+          depth: 1,
+          capacity: 3,
+          rssi: -30,
+        ),
+      );
+
+      expect(await future, isNull);
+    });
+
+    test('never returns a parent at or below the depth limit', () async {
+      final future = follower.discoverBestParent(
+        draftId: 111,
+        maxDepthExclusive: 1,
+        timeout: const Duration(milliseconds: 150),
+      );
+
+      fake.emitScanDevice(
+        _advertisedDevice(
+          deviceId: 'sibling-relay',
+          draftId: 111,
+          depth: 1,
+          capacity: 3,
+          rssi: -30,
+        ),
+      );
+
+      expect(await future, isNull);
+    });
+
+    test('accepts a strictly shallower parent', () async {
+      final future = follower.discoverBestParent(
+        draftId: 111,
+        maxDepthExclusive: 1,
+        timeout: const Duration(milliseconds: 150),
+      );
+
+      fake.emitScanDevice(
+        _advertisedDevice(
+          deviceId: 'host',
+          draftId: 111,
+          depth: 0,
+          capacity: 1,
+          rssi: -60,
+        ),
+      );
+
+      expect((await future)?.deviceId, 'host');
     });
   });
 
