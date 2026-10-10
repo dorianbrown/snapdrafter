@@ -32,4 +32,43 @@ void main() {
       expect(DraftProtocol.advertisedName('  Draft  '), 'Draft');
     });
   });
+
+  group('DraftProtocol.draftIdFor', () {
+    test('is stable for the same session id', () {
+      const id = 'a1b2c3d4-0000-4000-8000-000000000000';
+      expect(DraftProtocol.draftIdFor(id), DraftProtocol.draftIdFor(id));
+    });
+
+    test('differs for different session ids', () {
+      expect(
+        DraftProtocol.draftIdFor('session-one'),
+        isNot(DraftProtocol.draftIdFor('session-two')),
+      );
+    });
+
+    test('fits in an unsigned 32-bit advertisement field', () {
+      for (final id in ['a', 'draft-name', 'x' * 64]) {
+        final value = DraftProtocol.draftIdFor(id);
+        expect(value, inInclusiveRange(0, 0xFFFFFFFF));
+      }
+    });
+  });
+
+  group('advertisement round-trip', () {
+    test('encodes and parses role, depth, capacity and draft id', () {
+      final data = DraftProtocol.buildManufacturerData(
+        role: DraftAdvertisement.roleRelay,
+        depth: 2,
+        capacity: 3,
+        draftId: 0xDEADBEEF,
+      )!;
+
+      final parsed = DraftProtocol.parseAdvertisement([data]);
+      expect(parsed, isNotNull);
+      expect(parsed!.role, DraftAdvertisement.roleRelay);
+      expect(parsed.depth, 2);
+      expect(parsed.capacity, 3);
+      expect(parsed.draftId, 0xDEADBEEF);
+    });
+  });
 }

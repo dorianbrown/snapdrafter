@@ -67,6 +67,19 @@ class DraftProtocol {
   ///   version(1) role(1) depth(1) capacity(1) draftId(4)
   static const int advertisementSize = 8;
 
+  /// Stable 32-bit identifier for a session id, shared by the host and every
+  /// relay so scanners can group advertisements per draft and reconnect to
+  /// the draft they were already in. Uses FNV-1a instead of [String.hashCode]
+  /// so the value is identical across platforms and app versions.
+  static int draftIdFor(String sessionId) {
+    var hash = 0x811c9dc5;
+    for (final byte in utf8.encode(sessionId)) {
+      hash ^= byte;
+      hash = (hash * 0x01000193) & 0xFFFFFFFF;
+    }
+    return hash;
+  }
+
   static Uint8List encodeAdvertisement({
     required int role,
     required int depth,

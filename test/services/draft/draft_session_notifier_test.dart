@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:snapdrafter/services/draft/draft_state.dart';
 import 'package:snapdrafter/services/draft/draft_message.dart';
 import 'package:snapdrafter/services/draft/draft_ble_service.dart';
+import 'package:snapdrafter/services/draft/draft_protocol.dart';
 import 'package:snapdrafter/services/draft/draft_session_notifier.dart';
 
 // ---------------------------------------------------------------------------
@@ -470,6 +471,97 @@ void main() {
       expect(fakeLeader.pushStateCallCount, beforeLen);
     });
 
+    test('handleJoinRequest is rejected once the draft has started', () {
+      final state = notifier.state!;
+      notifier.state = state.copyWith(
+        session: state.session.copyWith(phase: DraftPhase.inProgress),
+      );
+      final beforeLen = fakeLeader.pushStateCallCount;
+
+      fakeLeader.onCommandReceived?.call(
+        'late',
+        JoinRequest(playerName: 'Late', deviceName: 'late-device'),
+      );
+
+      expect(notifier.state!.players.length, 1);
+      expect(fakeLeader.pushStateCallCount, beforeLen);
+    });
+
+    test('handleJoinRequest is rejected when every seat is taken', () {
+      // seatCount is 4: the host plus three joins fill it.
+      for (var i = 0; i < 3; i++) {
+        fakeLeader.onCommandReceived?.call(
+          'f$i',
+          JoinRequest(playerName: 'Player $i', deviceName: 'device-$i'),
+        );
+      }
+      expect(notifier.state!.acceptedPlayers.length, 4);
+
+      final beforeLen = fakeLeader.pushStateCallCount;
+      fakeLeader.onCommandReceived?.call(
+        'ninth',
+        JoinRequest(playerName: 'Ninth', deviceName: 'device-9'),
+      );
+
+      expect(notifier.state!.players.length, 4);
+      expect(fakeLeader.pushStateCallCount, beforeLen);
+    });
+
+    test(
+      'a dropped player who rejoins is reinstated in place, not duplicated',
+      () async {
+        fakeLeader.onCommandReceived?.call(
+          'f1',
+          JoinRequest(playerName: 'Alice', deviceName: 'device-1'),
+        );
+        notifier.removePlayer('device-1');
+        expect(notifier.state!.getPlayer('device-1')!.status, PlayerStatus.dropped);
+
+        fakeLeader.onCommandReceived?.call(
+          'f1',
+          JoinRequest(playerName: 'Alice', deviceName: 'device-1'),
+        );
+
+        expect(notifier.state!.players.length, 2);
+        expect(
+          notifier.state!.getPlayer('device-1')!.status,
+          PlayerStatus.accepted,
+        );
+
+        // The pending removal must have been cancelled by the rejoin.
+        await Future<void>.delayed(const Duration(milliseconds: 5200));
+        expect(notifier.state!.players.length, 2);
+        expect(
+          notifier.state!.getPlayer('device-1')!.status,
+          PlayerStatus.accepted,
+        );
+      },
+      timeout: const Timeout(Duration(seconds: 15)),
+    );
+
+    test(
+      'an accepted player reconnect during the draft is still idempotent',
+      () {
+        fakeLeader.onCommandReceived?.call(
+          'f1',
+          JoinRequest(playerName: 'Alice', deviceName: 'device-1'),
+        );
+        final state = notifier.state!;
+        notifier.state = state.copyWith(
+          session: state.session.copyWith(phase: DraftPhase.inProgress),
+        );
+
+        final beforeLen = fakeLeader.pushStateCallCount;
+        fakeLeader.onCommandReceived?.call(
+          'f1',
+          JoinRequest(playerName: 'Alice', deviceName: 'device-1'),
+        );
+
+        expect(notifier.state!.players.length, 2);
+        expect(fakeLeader.pushStateCallCount, beforeLen);
+      },
+    );
+
     test('handleMatchResult first report → reported, scores saved', () {
       final state = notifier.state!;
       notifier.state = state.copyWith(
@@ -932,6 +1024,71 @@ void main() {
       fakeFollower.onStatePush?.call(staleState);
 
       expect(notifyCount, 0);
+    });
+
+    test('joinDraft rejects a state from a different draft', () async {
+      fakeFollower.connectResult = DraftState.create(
+        name: 'Other',
+        leaderDeviceId: 'leader-device',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
+
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+        draftId: DraftProtocol.draftIdFor('some-other-session'),
+      );
+
+      expect(notifier.role, DraftRole.none);
+      expect(notifier.state, isNull);
+    });
+
+    test('joinDraft accepts a state matching the expected draft', () async {
+      final state = DraftState.create(
+        name: 'Mine',
+        leaderDeviceId: 'leader-device',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
+      fakeFollower.connectResult = state;
+
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+        draftId: DraftProtocol.draftIdFor(state.session.sessionId),
+      );
+
+      expect(notifier.role, DraftRole.follower);
+      expect(notifier.state, isNotNull);
+    });
+
+    test('onStatePush from a different draft triggers leaveDraft', () async {
+      final state = DraftState.create(
+        name: 'Mine',
+        leaderDeviceId: 'leader-device',
+        leaderPlayerName: 'Host',
+        seatCount: 4,
+      );
+      fakeFollower.connectResult = state;
+
+      await notifier.joinDraft(
+        leaderDeviceId: 'leader-device',
+        playerName: 'Bob',
+        draftId: DraftProtocol.draftIdFor(state.session.sessionId),
+      );
+      expect(notifier.state, isNotNull);
+
+      final other = DraftState.create(
+        name: 'Other',
+        leaderDeviceId: 'other-leader',
+        leaderPlayerName: 'Other Host',
+        seatCount: 4,
+      );
+      fakeFollower.onStatePush?.call(other);
+
+      expect(notifier.role, DraftRole.none);
+      expect(notifier.state, isNull);
     });
 
     test(

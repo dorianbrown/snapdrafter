@@ -4,8 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:snapdrafter/services/draft/draft_ble_follower.dart';
 import 'package:snapdrafter/services/draft/draft_ble_leader.dart';
+import 'package:snapdrafter/services/draft/draft_ble_service.dart';
 import 'package:snapdrafter/services/draft/draft_relay.dart';
 import 'package:snapdrafter/services/draft/draft_session_notifier.dart';
+import 'package:snapdrafter/services/draft/draft_state.dart';
 
 import '../../support/fake_ble_network.dart';
 
@@ -71,6 +73,43 @@ Future<_Cluster> startCluster(
     );
     notifiers.add(follower);
     await follower.joinDraft(leaderDeviceId: 'host', playerName: 'Player $i');
+  }
+  return _Cluster(network, notifiers);
+}
+
+/// Starts an 8-player cluster where the host accepts at most 4 direct links,
+/// forcing the remaining players to join through relays.
+Future<_Cluster> startRelayCluster(FakeBleNetwork network) async {
+  final hostNode = network.addNode('host');
+  final host = DraftSessionNotifier(
+    myDeviceId: 'host',
+    bleLeaderFactory: () =>
+        DraftBleLeader(ble: hostNode.peripheral, maxDirectLinks: 4),
+  );
+  final notifiers = <DraftSessionNotifier>[host];
+  await host.createAndHost(name: 'Relay', seatCount: 8, playerName: 'Host');
+
+  for (var i = 1; i <= 7; i++) {
+    final node = network.addNode('p$i');
+    final follower = DraftSessionNotifier(
+      myDeviceId: 'p$i',
+      bleFollowerFactory: () =>
+          DraftBleFollower(ble: node.central, myDeviceId: 'p$i'),
+      relayFactory: (parent, maxChildren, depth) => DraftRelayService(
+        parent: parent,
+        ble: node.peripheral,
+        maxChildren: maxChildren,
+        depth: depth,
+      ),
+    );
+    notifiers.add(follower);
+
+    final parent = await _findParent(node);
+    await follower.joinDraft(
+      leaderDeviceId: parent.deviceId,
+      playerName: 'Player $i',
+      parentDepth: parent.depth,
+    );
   }
   return _Cluster(network, notifiers);
 }
@@ -201,68 +240,143 @@ void main() {
       maxConnectionsPerNode: 4,
       latency: const Duration(milliseconds: 1),
     );
-
-    final hostNode = network.addNode('host');
-    final host = DraftSessionNotifier(
-      myDeviceId: 'host',
-      bleLeaderFactory: () =>
-          DraftBleLeader(ble: hostNode.peripheral, maxDirectLinks: 4),
-    );
-    final notifiers = <DraftSessionNotifier>[host];
-    await host.createAndHost(
-      name: 'Relay',
-      seatCount: 8,
-      playerName: 'Host',
-    );
-
-    for (var i = 1; i <= 7; i++) {
-      final node = network.addNode('p$i');
-      final follower = DraftSessionNotifier(
-        myDeviceId: 'p$i',
-        bleFollowerFactory: () =>
-            DraftBleFollower(ble: node.central, myDeviceId: 'p$i'),
-        relayFactory: (parent, maxChildren) => DraftRelayService(
-          parent: parent,
-          ble: node.peripheral,
-          maxChildren: maxChildren,
-        ),
-      );
-      notifiers.add(follower);
-
-      final parent = await _findParent(node);
-      await follower.joinDraft(leaderDeviceId: parent, playerName: 'Player $i');
-    }
-
-    addTearDown(() async {
-      for (final notifier in notifiers.reversed) {
-        try {
-          await notifier.leaveDraft();
-        } catch (_) {}
-      }
-      for (final node in network.nodes.values) {
-        node.central.dispose();
-        node.peripheral.dispose();
-      }
-    });
+    final cluster = await startRelayCluster(network);
+    addTearDown(cluster.tearDown);
 
     await waitUntil(
-      () => notifiers.every((n) => n.state?.players.length == 8),
+      () => cluster.notifiers.every((n) => n.state?.players.length == 8),
       timeout: const Duration(seconds: 60),
     );
 
-    final seqs = notifiers
+    final seqs = cluster.notifiers
         .map((n) => n.state!.sequenceNumber)
         .toSet();
     expect(seqs.length, 1);
 
     // The host must not have exceeded its connection limit, and at least one
     // relay must have taken children.
+    final hostNode = network.nodes['host']!;
     expect(hostNode.incomingLinks.length, lessThanOrEqualTo(4));
     final relayedChildren = network.nodes.values
         .where((n) => n.deviceId != 'host')
         .where((n) => n.incomingLinks.isNotEmpty)
         .toList();
     expect(relayedChildren, isNotEmpty);
+  }, timeout: const Timeout(Duration(minutes: 3)));
+
+  test(
+    'relay children keep syncing and can report after the lobby closes',
+    () async {
+      final network = FakeBleNetwork(
+        mtu: 185,
+        maxConnectionsPerNode: 4,
+        latency: const Duration(milliseconds: 1),
+      );
+      final cluster = await startRelayCluster(network);
+      addTearDown(cluster.tearDown);
+
+      await waitUntil(
+        () => cluster.notifiers.every((n) => n.state?.players.length == 8),
+        timeout: const Duration(seconds: 60),
+      );
+
+      await cluster.host.closeLobby();
+
+      // Relays must keep forwarding state after the phase change; children
+      // have no way to migrate to the host while their link stays up.
+      await waitUntil(
+        () => cluster.notifiers.every(
+          (n) => n.state?.session.phase == DraftPhase.inProgress,
+        ),
+        timeout: const Duration(seconds: 30),
+      );
+
+      // A player attached through a relay reports a result; the command must
+      // traverse the relay and the resulting state must reach every node.
+      final relayed = cluster.notifiers.firstWhere(
+        (n) => n.isFollower && n.parentDeviceId != 'host',
+      );
+      final match = relayed.state!.getMyMatch(relayed.myDeviceId, 1)!;
+      await relayed.submitResult(
+        roundNumber: 1,
+        matchId: match.matchId,
+        myWins: 2,
+        opponentWins: 0,
+      );
+
+      await waitUntil(
+        () => cluster.notifiers.every(
+          (n) => n.state!.rounds[0].matches
+              .firstWhere((m) => m.matchId == match.matchId)
+              .status ==
+              MatchStatus.reported,
+        ),
+        timeout: const Duration(seconds: 30),
+      );
+    },
+    timeout: const Timeout(Duration(minutes: 3)),
+  );
+
+  test('decklists reach every child of a relay that requested them', () async {
+    final network = FakeBleNetwork(
+      mtu: 185,
+      maxConnectionsPerNode: 4,
+      latency: const Duration(milliseconds: 1),
+    );
+    final cluster = await startRelayCluster(network);
+    addTearDown(cluster.tearDown);
+
+    await waitUntil(
+      () => cluster.notifiers.every((n) => n.state?.players.length == 8),
+      timeout: const Duration(seconds: 60),
+    );
+
+    // A relayed player submits; every node sees the submission flag.
+    final relayed = cluster.notifiers.firstWhere(
+      (n) => n.isFollower && n.parentDeviceId != 'host',
+    );
+    final ids = List.generate(
+      30,
+      (i) => 'card-${i.toString().padLeft(4, '0')}',
+    );
+    final accepted = await relayed.submitDecklist(
+      mainboardScryfallIds: ids,
+      sideboardScryfallIds: const ['side-1'],
+    );
+    expect(accepted, isTrue);
+
+    // Find a relay serving at least two children.
+    final childrenByParent = <String, List<DraftSessionNotifier>>{};
+    for (final n in cluster.notifiers) {
+      if (!n.isFollower) continue;
+      final parent = n.parentDeviceId;
+      if (parent == null || parent == 'host') continue;
+      childrenByParent.putIfAbsent(parent, () => []).add(n);
+    }
+    final children = childrenByParent.values.firstWhere(
+      (c) => c.length >= 2,
+      orElse: () => throw StateError('no relay has multiple children'),
+    );
+
+    await waitUntil(
+      () => children.every(
+        (c) => c.state?.getPlayer(relayed.myDeviceId)?.decklistSubmitted ==
+            true,
+      ),
+      timeout: const Duration(seconds: 20),
+    );
+
+    // Request concurrently, before the auto-sync debounce fires, so both
+    // children are pending when the response arrives.
+    await Future.wait(children.map((c) => c.retryDecklists()));
+
+    for (final child in children) {
+      await waitUntil(
+        () => child.decklistFor(relayed.myDeviceId) != null,
+        timeout: const Duration(seconds: 30),
+      );
+      expect(child.decklistFor(relayed.myDeviceId)!.mainboard.length, 30);
+    }
   }, timeout: const Timeout(Duration(minutes: 3)));
 
   test('3 nodes with host capacity 1 route the third through a relay', () async {
@@ -287,10 +401,11 @@ void main() {
       myDeviceId: 'p1',
       bleFollowerFactory: () =>
           DraftBleFollower(ble: relayNode.central, myDeviceId: 'p1'),
-      relayFactory: (parent, maxChildren) => DraftRelayService(
+      relayFactory: (parent, maxChildren, depth) => DraftRelayService(
         parent: parent,
         ble: relayNode.peripheral,
         maxChildren: maxChildren,
+        depth: depth,
       ),
     );
     notifiers.add(relay);
@@ -310,8 +425,12 @@ void main() {
     );
     notifiers.add(leaf);
     final parent = await _findParent(leafNode);
-    expect(parent, 'p1');
-    await leaf.joinDraft(leaderDeviceId: parent, playerName: 'Player 2');
+    expect(parent.deviceId, 'p1');
+    await leaf.joinDraft(
+      leaderDeviceId: parent.deviceId,
+      playerName: 'Player 2',
+      parentDepth: parent.depth,
+    );
 
     addTearDown(() async {
       for (final notifier in notifiers.reversed) {
@@ -336,13 +455,13 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 2)));
 }
 
-/// Scans until a parent with free capacity appears and returns its device id.
-Future<String> _findParent(FakeBleNode node) async {
+/// Scans until a parent with free capacity appears and returns it.
+Future<DiscoveredDraft> _findParent(FakeBleNode node) async {
   final scanner = DraftBleFollower(ble: node.central);
-  final completer = Completer<String>();
+  final completer = Completer<DiscoveredDraft>();
   final sub = scanner.scanForDrafts().listen((draft) {
     if (!completer.isCompleted && draft.capacity > 0) {
-      completer.complete(draft.deviceId);
+      completer.complete(draft);
     }
   });
   try {

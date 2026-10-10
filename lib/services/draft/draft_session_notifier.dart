@@ -9,6 +9,7 @@ import 'draft_ble_service.dart';
 import 'draft_ble_leader.dart';
 import 'draft_ble_follower.dart';
 import 'draft_config.dart';
+import 'draft_protocol.dart';
 import 'draft_relay.dart';
 import 'swiss_pairing.dart';
 import 'notification_service.dart';
@@ -40,14 +41,25 @@ class DraftSessionNotifier extends ChangeNotifier {
   bool _isReconnecting = false;
   StreamSubscription<bool>? _leaderConnectedSub;
   final Map<String, String> _bleToAppId = {};
+  final Map<String, Timer> _pendingRemovals = {};
   final Map<String, DecklistPayload> _decklists = {};
   bool _decklistsLoading = false;
   final DraftBleService Function()? _bleLeaderFactory;
   final DraftBleService Function()? _bleFollowerFactory;
-  final DraftRelayService Function(DraftBleFollower parent, int maxChildren)?
+  final DraftRelayService Function(
+    DraftBleFollower parent,
+    int maxChildren,
+    int depth,
+  )?
   _relayFactory;
   DraftRelayService? _relay;
   int _relayMaxChildren = DraftConfig.defaultRelayMaxChildren;
+  int _myDepth = 0;
+
+  /// Draft id this device expects to be attached to, if known. Reconnects
+  /// only consider advertisers of this draft and state from a different
+  /// session is rejected.
+  int? _expectedDraftId;
   final List<int> _reconnectDelaysSeconds;
   final Duration _decklistTimeout;
   final Duration _decklistDebounce;
@@ -61,7 +73,11 @@ class DraftSessionNotifier extends ChangeNotifier {
     required String myDeviceId,
     DraftBleService Function()? bleLeaderFactory,
     DraftBleService Function()? bleFollowerFactory,
-    DraftRelayService Function(DraftBleFollower parent, int maxChildren)?
+    DraftRelayService Function(
+      DraftBleFollower parent,
+      int maxChildren,
+      int depth,
+    )?
     relayFactory,
     List<int>? reconnectDelaysSeconds,
     Duration decklistTimeout = const Duration(seconds: 5),
@@ -192,6 +208,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   }) async {
     await _bleService?.stop();
     _myPlayerName = playerName;
+    _myDepth = 0;
     _relayMaxChildren = DraftConfig.clampRelayMaxChildren(relayMaxChildren);
 
     final state = DraftState.create(
@@ -215,6 +232,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     _bleService = leader;
     _role = DraftRole.leader;
     _state = state;
+    _expectedDraftId = DraftProtocol.draftIdFor(state.session.sessionId);
 
     // Keep advertising with an updated capacity; relays absorb any overflow.
     leader.followerDisconnected?.listen((_) {
@@ -350,8 +368,11 @@ class DraftSessionNotifier extends ChangeNotifier {
     }
   }
 
-  /// Adds a joining player to the session. If the player already exists and
-  /// is accepted the request is silently ignored (idempotent reconnect).
+  /// Adds a joining player to the session.
+  ///
+  /// Idempotent for players already accepted. A dropped player who rejoins
+  /// while still in the lobby is reinstated in place (never duplicated), and
+  /// joins are rejected once the draft has started or every seat is taken.
   void _handleJoinRequest(
     String deviceId,
     String playerName,
@@ -364,13 +385,40 @@ class DraftSessionNotifier extends ChangeNotifier {
       return;
     }
 
+    if (_state!.session.phase != DraftPhase.lobby) {
+      _log('[NOTIFIER] _handleJoinRequest: draft already started, rejecting');
+      return;
+    }
+
+    _bleToAppId[deviceId] = deviceName;
+
+    if (existing != null) {
+      // Reinstating a dropped player: reuse the existing seat/join order so
+      // the players list never contains duplicate device ids.
+      _pendingRemovals.remove(deviceName)?.cancel();
+      final players = _state!.players.toList();
+      final idx = players.indexWhere((p) => p.deviceId == deviceName);
+      players[idx] = players[idx].copyWith(
+        playerName: playerName,
+        status: PlayerStatus.accepted,
+      );
+      _state = _state!.copyWith(players: players).bumpSequence();
+      _bleService!.pushState(_state!);
+      notifyListeners();
+      _log('[NOTIFIER] _handleJoinRequest: reinstated ${players[idx].deviceId}');
+      return;
+    }
+
+    if (_state!.acceptedPlayers.length >= _state!.session.seatCount) {
+      _log('[NOTIFIER] _handleJoinRequest: draft is full, rejecting');
+      return;
+    }
+
     final joinOrder =
         _state!.players
             .map((p) => p.joinOrder)
             .fold<int>(0, (max, o) => o > max ? o : max) +
         1;
-
-    _bleToAppId[deviceId] = deviceName;
 
     final newPlayer = DraftPlayer(
       deviceId: deviceName,
@@ -541,7 +589,11 @@ class DraftSessionNotifier extends ChangeNotifier {
     _bleService!.pushState(_state!);
     notifyListeners();
 
-    Timer(const Duration(seconds: 5), () {
+    // Remove the player shortly after dropping, unless they rejoin first
+    // (which cancels this timer and reinstates them in place).
+    _pendingRemovals.remove(deviceId)?.cancel();
+    _pendingRemovals[deviceId] = Timer(const Duration(seconds: 5), () {
+      _pendingRemovals.remove(deviceId);
       if (_state == null) return;
       final filtered = _state!.players
           .where((p) => p.deviceId != deviceId)
@@ -764,15 +816,26 @@ class DraftSessionNotifier extends ChangeNotifier {
     required String leaderDeviceId,
     required String playerName,
     int relayMaxChildren = DraftConfig.defaultRelayMaxChildren,
+    int parentDepth = 0,
+    int? draftId,
   }) async {
     await _bleService?.stop();
     _myPlayerName = playerName;
+    _myDepth = parentDepth + 1;
+    _expectedDraftId = (draftId == null || draftId == 0) ? null : draftId;
     _relayMaxChildren = DraftConfig.clampRelayMaxChildren(relayMaxChildren);
 
     final follower =
         _bleFollowerFactory?.call() ??
         DraftBleFollower(myDeviceId: _myDeviceId);
     follower.onStatePush = (newState) {
+      final expected = _expectedDraftId;
+      if (expected != null &&
+          DraftProtocol.draftIdFor(newState.session.sessionId) != expected) {
+        _log('[NOTIFIER] onStatePush: state from a different draft, leaving');
+        leaveDraft();
+        return;
+      }
       final myPlayer = newState.getPlayer(_myDeviceId);
       if (myPlayer != null && myPlayer.status == PlayerStatus.dropped) {
         _log('[NOTIFIER] onStatePush: I was dropped!');
@@ -806,8 +869,17 @@ class DraftSessionNotifier extends ChangeNotifier {
 
     _bleService = follower;
 
+    var abortedWrongDraft = false;
     try {
       final state = await follower.connectToLeader(leaderDeviceId);
+      final expected = _expectedDraftId;
+      if (expected != null &&
+          DraftProtocol.draftIdFor(state.session.sessionId) != expected) {
+        abortedWrongDraft = true;
+        _log('[NOTIFIER] joinDraft: connected to a different draft, aborting');
+        await leaveDraft();
+        return;
+      }
       _role = DraftRole.follower;
       _state = state;
       notifyListeners();
@@ -823,6 +895,7 @@ class DraftSessionNotifier extends ChangeNotifier {
       await _waitForStateUpdate();
       await _startRelayIfEnabled();
     } catch (_) {
+      if (abortedWrongDraft) return;
       // Initial connect failed; let the reconnect loop retry in the background.
       _role = DraftRole.follower;
       _attemptReconnect(leaderDeviceId);
@@ -837,27 +910,32 @@ class DraftSessionNotifier extends ChangeNotifier {
     if (bleService is! DraftBleFollower) return;
     if (_state!.session.phase != DraftPhase.lobby) return;
     try {
-      final relay = _relayFactory(bleService, _relayMaxChildren);
+      final relay = _relayFactory(bleService, _relayMaxChildren, _myDepth);
       await relay.start(_state!);
       _relay = relay;
-      _log('[NOTIFIER] relay advertising started');
+      _log('[NOTIFIER] relay advertising started (depth=$_myDepth)');
       notifyListeners();
     } catch (e) {
       _log('[NOTIFIER] relay start failed: $e');
     }
   }
 
-  /// Keeps the relay's downstream state in sync, and shuts relay advertising
-  /// down once the lobby closes.
+  /// Keeps the relay's downstream state in sync for the entire session.
+  ///
+  /// Children keep their BLE link to this relay even after the lobby closes,
+  /// so stopping the relay would strand them with no way to migrate to the
+  /// host. Instead the relay keeps serving existing children and only stops
+  /// advertising for new ones.
   void _syncRelay(DraftState newState) {
     final relay = _relay;
     if (relay == null) return;
-    if (newState.session.phase != DraftPhase.lobby) {
+    if (newState.session.phase == DraftPhase.cancelled) {
       _relay = null;
       relay.stop().catchError((_) {});
-      _log('[NOTIFIER] relay stopped (lobby closed)');
+      _log('[NOTIFIER] relay stopped (draft cancelled)');
       return;
     }
+    relay.setAcceptingChildren(newState.session.phase == DraftPhase.lobby);
     relay.pushState(newState).catchError((_) {});
   }
 
@@ -880,8 +958,19 @@ class DraftSessionNotifier extends ChangeNotifier {
       if (bleService == null) break;
 
       try {
-        // Re-discover so a full parent can be replaced by a relay.
-        final discovered = await bleService.discoverBestParent();
+        // Re-discover so a full parent can be replaced by a relay. Restrict
+        // the scan to this session and never attach to our own children. A
+        // device that is already relaying must additionally stay strictly
+        // shallower than its current position so reconnects cannot form a
+        // cycle through its descendants; a fresh joiner has nothing to
+        // protect and may attach at any depth.
+        final childIds = _relay?.childDeviceIds ?? const <String>{};
+        final relaying = childIds.isNotEmpty;
+        final discovered = await bleService.discoverBestParent(
+          draftId: _expectedDraftId,
+          excludeDeviceIds: childIds,
+          maxDepthExclusive: relaying ? _myDepth : null,
+        );
         if (discovered != null && discovered.deviceId != target) {
           _log(
             '[NOTIFIER] reconnect: switching parent to ${discovered.deviceId}',
@@ -889,10 +978,13 @@ class DraftSessionNotifier extends ChangeNotifier {
           target = discovered.deviceId;
         }
 
-        final state = await bleService.reconnectToLeader(target);
+        final freshState = await bleService.reconnectToLeader(target);
+        if (discovered != null) {
+          _myDepth = discovered.depth + 1;
+        }
         if (_role == DraftRole.follower &&
             _myPlayerName != null &&
-            state.getPlayer(_myDeviceId) == null) {
+            freshState.getPlayer(_myDeviceId) == null) {
           // The join request was lost in the disconnect race; re-join so
           // this device is not left connected but invisible to the lobby.
           _log(
@@ -909,6 +1001,9 @@ class DraftSessionNotifier extends ChangeNotifier {
           } catch (_) {}
         }
         _isReconnecting = false;
+        // A fresh joiner that recovered via reconnect still needs to start
+        // relaying so later players have somewhere to attach.
+        await _startRelayIfEnabled();
         notifyListeners();
         return;
       } catch (_) {
@@ -1113,7 +1208,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     _role = DraftRole.none;
     _state = null;
     _myPlayerName = null;
+    _expectedDraftId = null;
     _bleToAppId.clear();
+    for (final timer in _pendingRemovals.values) {
+      timer.cancel();
+    }
+    _pendingRemovals.clear();
     _cancelDecklistFetch();
     _decklists.clear();
 
@@ -1154,7 +1254,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     _leaderConnectedSub = null;
     _role = DraftRole.none;
     _state = null;
+    _expectedDraftId = null;
     _bleToAppId.clear();
+    for (final timer in _pendingRemovals.values) {
+      timer.cancel();
+    }
+    _pendingRemovals.clear();
     _cancelDecklistFetch();
     _decklists.clear();
     _relay?.stop();
