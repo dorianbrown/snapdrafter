@@ -17,7 +17,6 @@ import 'deck_scanner.dart';
 import 'image_processing_screen.dart';
 import 'settings.dart';
 import 'settings/backup.dart';
-import 'draft/draft_lobby.dart';
 
 import '/data/models/deck.dart';
 import '/data/models/cube.dart';
@@ -254,12 +253,6 @@ class MyDecksOverviewState extends State<MyDecksOverview> {
                     });
                   }
                 }),
-            IconButton(
-                tooltip: "Draft BLE",
-                icon: Icon(Icons.diversity_3),
-                onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                        builder: (context) => DraftLobbyScreen()))),
             Spacer(),
             IconButton(
                 tooltip: "Settings Menu",

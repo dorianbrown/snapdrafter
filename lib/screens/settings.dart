@@ -15,6 +15,7 @@ import 'settings/user.dart';
 // import 'settings/help.dart'; // TODO: restore when Help screen is re-enabled
 import 'settings/donations.dart';
 import 'settings/changelog_screen.dart';
+import 'draft/draft_lobby.dart';
 import '/utils/theme_notifier.dart';
 import '/utils/card_art.dart';
 import '/utils/route_observer.dart';
@@ -262,6 +263,20 @@ class _SettingsState extends State<Settings> with RouteAware {
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => BackupSettings()),
+                );
+              },
+            ),
+            ListTile(
+              title: Text("Draft Manager"),
+              leading: Icon(Icons.diversity_3),
+              subtitle: Text(
+                "Experimental: host or join a draft over Bluetooth",
+                style: subtitleColor,
+              ),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => DraftLobbyScreen()),
                 );
               },
             ),
