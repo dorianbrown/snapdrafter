@@ -34,6 +34,7 @@ class DraftBleFollower extends DraftBleService {
   String? _leaderDeviceId;
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
   StreamSubscription? _scanStreamSub;
+  StreamController<DiscoveredDraft>? _scanCtrl;
   StreamSubscription? _stateValueSub;
   StreamSubscription? _connectionStreamSub;
   final _streamChunker = BleChunkedStream();
@@ -41,6 +42,8 @@ class DraftBleFollower extends DraftBleService {
 
   int _appliedSeq = -1;
   Completer<DraftState>? _resyncCompleter;
+  bool _resyncInFlight = false;
+  Timer? _resyncResetTimer;
 
   @override
   Stream<bool> get leaderConnected => _leaderConnectedCtrl.stream;
@@ -81,12 +84,15 @@ class DraftBleFollower extends DraftBleService {
   /// (available capacity first, then leader, then shallowest depth, then RSSI).
   /// Legacy/unrecognised advertisers fall back to one entry per device.
   Stream<DiscoveredDraft> scanForDrafts() {
+    _scanCtrl?.close();
     final ctrl = StreamController<DiscoveredDraft>.broadcast();
+    _scanCtrl = ctrl;
     final seenDeviceIds = <String>{};
     final latestByDevice = <String, DiscoveredDraft>{};
     final bestByDraft = <int, DiscoveredDraft>{};
 
     _scanStreamSub = _ble.scanStream.listen((BleDevice device) {
+      if (ctrl.isClosed) return;
       final advertisement = DraftProtocol.parseAdvertisement(
         device.manufacturerDataList,
       );
@@ -166,6 +172,11 @@ class DraftBleFollower extends DraftBleService {
   Future<void> stopScan() async {
     await _scanStreamSub?.cancel();
     _scanStreamSub = null;
+    final ctrl = _scanCtrl;
+    _scanCtrl = null;
+    if (ctrl != null && !ctrl.isClosed) {
+      await ctrl.close();
+    }
     try {
       await _ble.stopScan();
     } catch (_) {}
@@ -173,14 +184,27 @@ class DraftBleFollower extends DraftBleService {
 
   /// Scans briefly and returns the best parent with free capacity, falling
   /// back to the best known candidate when nothing has capacity.
+  ///
+  /// Optional filters keep reconnects safe: [draftId] restricts the scan to
+  /// the session we were already in, [excludeDeviceIds] drops our own
+  /// children (attaching to one would create a cycle), and [maxDepthExclusive]
+  /// only accepts parents strictly shallower than this device.
   @override
   Future<DiscoveredDraft?> discoverBestParent({
     Duration timeout = const Duration(seconds: 3),
+    int? draftId,
+    Set<String> excludeDeviceIds = const {},
+    int? maxDepthExclusive,
   }) async {
     final ctrl = scanForDrafts();
     DiscoveredDraft? best;
     final completer = Completer<DiscoveredDraft?>();
     final sub = ctrl.listen((draft) {
+      if (draftId != null && draft.draftId != draftId) return;
+      if (excludeDeviceIds.contains(draft.deviceId)) return;
+      if (maxDepthExclusive != null && draft.depth >= maxDepthExclusive) {
+        return;
+      }
       if (best == null || _isBetterParent(draft, best!)) {
         best = draft;
       }
@@ -326,7 +350,7 @@ class DraftBleFollower extends DraftBleService {
   }
 
   void _handleTick(int seq) {
-    if (seq > _appliedSeq) {
+    if (seq > _appliedSeq && !_resyncInFlight) {
       _log(
         '[BLE_FOLLOWER] tick seq=$seq ahead of applied=$_appliedSeq, resync',
       );
@@ -337,8 +361,9 @@ class DraftBleFollower extends DraftBleService {
   void _handleSnapshot(DraftFrame frame, Completer<DraftState> stateCompleter) {
     final newState = DraftBleService.decodeState(frame.payload);
     if (newState == null) {
+      // Do not ack: let the leader retransmit (and ticks keep driving
+      // resyncs) instead of silently advancing past undecodable state.
       _log('[BLE_FOLLOWER] failed to decode state bytes');
-      _sendAck(frame.seq);
       return;
     }
 
@@ -356,6 +381,9 @@ class DraftBleFollower extends DraftBleService {
 
     _resyncCompleter?.complete(newState);
     _resyncCompleter = null;
+    _resyncInFlight = false;
+    _resyncResetTimer?.cancel();
+    _resyncResetTimer = null;
 
     // Always acknowledge so the leader can stop retransmitting.
     _sendAck(frame.seq);
@@ -387,17 +415,28 @@ class DraftBleFollower extends DraftBleService {
     _writeCommand(deviceId, cmd);
   }
 
-  /// Requests a fresh snapshot from the leader (used after gaps and reconnects).
+  /// Requests a fresh snapshot from the leader (used after gaps and
+  /// reconnects). At most one request is outstanding; a watchdog clears the
+  /// in-flight flag if no snapshot arrives so recovery cannot wedge.
   @override
   Future<void> requestResync() async {
     final deviceId = _leaderDeviceId;
     if (deviceId == null) return;
+    if (_resyncInFlight) return;
+    _resyncInFlight = true;
+    _resyncResetTimer?.cancel();
+    _resyncResetTimer = Timer(const Duration(seconds: 3), () {
+      _resyncInFlight = false;
+    });
     try {
       await _writeCommand(
         deviceId,
         ResyncRequest(appliedSeq: _appliedSeq, src: myDeviceId ?? ''),
       );
     } catch (e) {
+      _resyncInFlight = false;
+      _resyncResetTimer?.cancel();
+      _resyncResetTimer = null;
       _log('[BLE_FOLLOWER] resync request failed: $e');
     }
   }
@@ -460,6 +499,11 @@ class DraftBleFollower extends DraftBleService {
 
     final completer = Completer<DraftState>();
     _resyncCompleter = completer;
+    _resyncInFlight = true;
+    _resyncResetTimer?.cancel();
+    _resyncResetTimer = Timer(const Duration(seconds: 3), () {
+      _resyncInFlight = false;
+    });
 
     try {
       await _writeCommand(
@@ -469,6 +513,9 @@ class DraftBleFollower extends DraftBleService {
     } catch (e) {
       _log('[BLE_FOLLOWER] resync FAILED: $e');
       _resyncCompleter = null;
+      _resyncInFlight = false;
+      _resyncResetTimer?.cancel();
+      _resyncResetTimer = null;
       return null;
     }
 
@@ -476,6 +523,9 @@ class DraftBleFollower extends DraftBleService {
       return await completer.future.timeout(const Duration(seconds: 3));
     } on TimeoutException {
       _resyncCompleter = null;
+      _resyncInFlight = false;
+      _resyncResetTimer?.cancel();
+      _resyncResetTimer = null;
       return null;
     }
   }
@@ -490,7 +540,12 @@ class DraftBleFollower extends DraftBleService {
     _stateValueSub = null;
     await _connectionStreamSub?.cancel();
     _connectionStreamSub = null;
+    await stopScan();
     _streamChunker.reset();
+    _resyncResetTimer?.cancel();
+    _resyncResetTimer = null;
+    _resyncInFlight = false;
+    _resyncCompleter = null;
     if (_leaderDeviceId != null) {
       try {
         await _ble.disconnect(_leaderDeviceId!);

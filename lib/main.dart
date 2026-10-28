@@ -71,8 +71,11 @@ Future<void> main() async {
         ChangeNotifierProvider(
           create: (_) => DraftSessionNotifier(
             myDeviceId: deviceId,
-            relayFactory: (parent, maxChildren) =>
-                DraftRelayService(parent: parent, maxChildren: maxChildren),
+            relayFactory: (parent, maxChildren, depth) => DraftRelayService(
+              parent: parent,
+              maxChildren: maxChildren,
+              depth: depth,
+            ),
           ),
         ),
       ],

@@ -122,6 +122,8 @@ class _DraftDiscoveryScreenState extends State<DraftDiscoveryScreen> {
         leaderDeviceId: draft.deviceId,
         playerName: _playerName.isEmpty ? 'Player' : _playerName,
         relayMaxChildren: _relayMaxChildren,
+        parentDepth: draft.depth,
+        draftId: draft.draftId,
       );
       // The controller navigates once the notifier reports a joined session.
       if (mounted) _stopScan();

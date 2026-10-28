@@ -124,8 +124,15 @@ abstract class DraftBleService {
 
   /// Scans briefly and returns the best parent (leader or relay) for this
   /// draft. Returns null when scanning is unsupported.
+  ///
+  /// [draftId] restricts results to a specific session, [excludeDeviceIds]
+  /// drops known children (cycle prevention) and [maxDepthExclusive] only
+  /// accepts strictly shallower parents.
   Future<DiscoveredDraft?> discoverBestParent({
     Duration timeout = const Duration(seconds: 3),
+    int? draftId,
+    Set<String> excludeDeviceIds = const {},
+    int? maxDepthExclusive,
   }) async => null;
 
   // -------------------------------------------------------------------------

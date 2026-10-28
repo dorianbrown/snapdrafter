@@ -33,6 +33,11 @@ class DraftBleLeader extends DraftBleService {
   /// Maximum simultaneous direct links this node will accept.
   final int maxDirectLinks;
 
+  /// Topology depth advertised to scanners: 0 for the host, parent depth + 1
+  /// for relays. Followers never attach to a parent that is not strictly
+  /// shallower, which prevents reconnect cycles through descendants.
+  final int depth;
+
   /// When true, `DecklistRequest` commands are forwarded to
   /// [onCommandReceived] instead of being answered locally (relay mode).
   final bool forwardDecklistRequests;
@@ -63,6 +68,7 @@ class DraftBleLeader extends DraftBleService {
     this.isRelay = false,
     this.maxDirectLinks = 4,
     this.forwardDecklistRequests = false,
+    this.depth = 0,
   }) : _ble = ble ?? LiveBlePeripheral();
   DraftState? _currentState;
 
@@ -82,6 +88,9 @@ class DraftBleLeader extends DraftBleService {
 
   @override
   int get connectedDeviceCount => _connectedDevices.length;
+
+  /// BLE device ids of every connected (or subscribed) follower.
+  Set<String> get connectedDeviceIds => Set.unmodifiable(_connectedDevices);
 
   bool get isAdvertising => !_advertisingPaused;
 
@@ -372,9 +381,9 @@ class DraftBleLeader extends DraftBleService {
       role: isRelay
           ? DraftAdvertisement.roleRelay
           : DraftAdvertisement.roleLeader,
-      depth: isRelay ? 1 : 0,
+      depth: isRelay ? depth : 0,
       capacity: capacity,
-      draftId: state.session.sessionId.hashCode & 0xFFFFFFFF,
+      draftId: DraftProtocol.draftIdFor(state.session.sessionId),
     );
   }
 
