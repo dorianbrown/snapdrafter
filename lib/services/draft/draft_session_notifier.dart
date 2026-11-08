@@ -52,6 +52,7 @@ class DraftSessionNotifier extends ChangeNotifier {
     int depth,
   )?
   _relayFactory;
+  final int _joinRetryAttempts;
   DraftRelayService? _relay;
   int _relayMaxChildren = DraftConfig.defaultRelayMaxChildren;
   int _myDepth = 0;
@@ -83,10 +84,12 @@ class DraftSessionNotifier extends ChangeNotifier {
     Duration decklistTimeout = const Duration(seconds: 5),
     Duration decklistDebounce = const Duration(seconds: 2),
     List<Duration>? decklistRetryDelays,
+    int joinRetryAttempts = 1,
   }) : _myDeviceId = myDeviceId,
        _bleLeaderFactory = bleLeaderFactory,
        _bleFollowerFactory = bleFollowerFactory,
        _relayFactory = relayFactory,
+       _joinRetryAttempts = joinRetryAttempts,
        _decklistTimeout = decklistTimeout,
        _decklistDebounce = decklistDebounce,
        _decklistRetryDelays =
@@ -151,6 +154,9 @@ class DraftSessionNotifier extends ChangeNotifier {
   String? get myPlayerName => _myPlayerName;
   String get myDeviceId => _myDeviceId;
   bool get isReconnecting => _isReconnecting;
+
+  /// Topology depth: 0 for the host, parent depth + 1 for followers.
+  int get myDepth => _myDepth;
 
   /// True when this follower is currently advertising as a relay.
   bool get isRelaying => _relay != null;
@@ -405,7 +411,9 @@ class DraftSessionNotifier extends ChangeNotifier {
       _state = _state!.copyWith(players: players).bumpSequence();
       _bleService!.pushState(_state!);
       notifyListeners();
-      _log('[NOTIFIER] _handleJoinRequest: reinstated ${players[idx].deviceId}');
+      _log(
+        '[NOTIFIER] _handleJoinRequest: reinstated ${players[idx].deviceId}',
+      );
       return;
     }
 
@@ -884,15 +892,15 @@ class DraftSessionNotifier extends ChangeNotifier {
       _state = state;
       notifyListeners();
 
-      await follower.sendCommand(
-        JoinRequest(
-          playerName: playerName,
-          deviceName: _myDeviceId,
-          src: _myDeviceId,
-        ),
+      final joined = await _sendJoinAndWait(
+        bleService: follower,
+        playerName: playerName,
+        attempts: _joinRetryAttempts,
       );
+      if (_joinRetryAttempts > 1 && !joined) {
+        throw Exception('JoinRequest was not reflected in state');
+      }
 
-      await _waitForStateUpdate();
       await _startRelayIfEnabled();
     } catch (_) {
       if (abortedWrongDraft) return;
@@ -900,6 +908,34 @@ class DraftSessionNotifier extends ChangeNotifier {
       _role = DraftRole.follower;
       _attemptReconnect(leaderDeviceId);
     }
+  }
+
+  /// Sends a JoinRequest until this device appears in the pushed state.
+  ///
+  /// A lost write leaves the link healthy but the player invisible, and a
+  /// duplicate JoinRequest for an accepted player is ignored by the host, so
+  /// each attempt also forces a state resync through [_waitForStateUpdate].
+  Future<bool> _sendJoinAndWait({
+    required DraftBleService bleService,
+    required String playerName,
+    int attempts = 5,
+  }) async {
+    for (var attempt = 0; attempt < attempts; attempt++) {
+      if (_role != DraftRole.follower) return false;
+      try {
+        await bleService.sendCommand(
+          JoinRequest(
+            playerName: playerName,
+            deviceName: _myDeviceId,
+            src: _myDeviceId,
+          ),
+        );
+      } catch (_) {}
+      await _waitForStateUpdate();
+      if (_state?.getPlayer(_myDeviceId) != null) return true;
+      _log('[NOTIFIER] JoinRequest attempt ${attempt + 1} not visible yet');
+    }
+    return false;
   }
 
   /// Starts relay advertising so extra players can join through this device
@@ -945,6 +981,7 @@ class DraftSessionNotifier extends ChangeNotifier {
   Future<void> _attemptReconnect(String leaderDeviceId) async {
     if (_isReconnecting) return;
     _isReconnecting = true;
+    _log('[NOTIFIER $_myDeviceId] reconnect started for $leaderDeviceId');
     notifyListeners();
 
     var target = leaderDeviceId;
@@ -990,28 +1027,30 @@ class DraftSessionNotifier extends ChangeNotifier {
           _log(
             '[NOTIFIER] reconnect: player missing from state, re-sending JoinRequest',
           );
-          try {
-            await bleService.sendCommand(
-              JoinRequest(
-                playerName: _myPlayerName!,
-                deviceName: _myDeviceId,
-                src: _myDeviceId,
-              ),
-            );
-          } catch (_) {}
+          final joined = await _sendJoinAndWait(
+            bleService: bleService,
+            playerName: _myPlayerName!,
+            attempts: _joinRetryAttempts,
+          );
+          if (_joinRetryAttempts > 1 && !joined) {
+            throw Exception('JoinRequest not reflected after reconnect');
+          }
         }
         _isReconnecting = false;
         // A fresh joiner that recovered via reconnect still needs to start
         // relaying so later players have somewhere to attach.
         await _startRelayIfEnabled();
+        _log('[NOTIFIER $_myDeviceId] reconnect succeeded to $target');
         notifyListeners();
         return;
-      } catch (_) {
+      } catch (error) {
+        _log('[NOTIFIER $_myDeviceId] reconnect attempt failed: $error');
         // Retry with next delay
       }
     }
 
     _isReconnecting = false;
+    _log('[NOTIFIER $_myDeviceId] reconnect gave up, leaving draft');
     await leaveDraft();
   }
 

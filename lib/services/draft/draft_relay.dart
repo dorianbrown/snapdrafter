@@ -24,9 +24,10 @@ import 'draft_state.dart';
 ///
 /// The relay serves its children for the entire session — including once the
 /// lobby closes — because children have no way to migrate to the host while
-/// their link stays up. It only stops advertising for *new* children after
-/// the lobby, and pauses advertising entirely while its uplink is down so
-/// nobody attaches to a relay that cannot reach the host.
+/// their link stays up. While its uplink is down it pauses advertising so
+/// nobody attaches to a relay that cannot reach the host. After the lobby it
+/// keeps advertising with the real free capacity so a reconnecting peer can
+/// still find a parent; the host rejects genuinely new players.
 class DraftRelayService {
   DraftRelayService({
     required DraftBleFollower parent,
@@ -47,6 +48,8 @@ class DraftRelayService {
 
   final Set<String> _decklistRequesters = {};
   StreamSubscription<bool>? _parentConnectedSub;
+  StreamSubscription<String>? _childConnectedSub;
+  StreamSubscription<String>? _childDisconnectedSub;
   bool _started = false;
   bool _acceptingChildren = true;
   bool _parentConnected = true;
@@ -64,6 +67,15 @@ class DraftRelayService {
     );
     _server.onCommandReceived = _onChildCommand;
     await _server.startAsLeader(state);
+    // Stop advertising as soon as the last child slot is taken. Without this
+    // several peers can subscribe during the 300 ms capacity refresh window
+    // and overload a relay beyond its configured child limit.
+    _childConnectedSub = _server.followerConnected?.listen(
+      (_) => _applyAdvertisingPolicy(),
+    );
+    _childDisconnectedSub = _server.followerDisconnected?.listen(
+      (_) => _applyAdvertisingPolicy(),
+    );
     _started = true;
     _applyAdvertisingPolicy();
   }
@@ -97,6 +109,12 @@ class DraftRelayService {
     _started = false;
     await _parentConnectedSub?.cancel();
     _parentConnectedSub = null;
+    final childConnectedSub = _childConnectedSub;
+    _childConnectedSub = null;
+    unawaited(childConnectedSub?.cancel());
+    final childDisconnectedSub = _childDisconnectedSub;
+    _childDisconnectedSub = null;
+    unawaited(childDisconnectedSub?.cancel());
     _decklistRequesters.clear();
     await _server.stop();
   }
@@ -109,10 +127,19 @@ class DraftRelayService {
   }
 
   void _applyAdvertisingPolicy() {
-    if (_acceptingChildren && _parentConnected) {
-      _server.resumeAdvertising();
-    } else {
+    if (!_parentConnected) {
       _server.pauseAdvertising();
+      return;
+    }
+    // During the lobby, stop advertising once the relay is full so several
+    // simultaneous joiners cannot overload it. Once the lobby closes, keep
+    // advertising with the real free capacity so a reconnecting peer can
+    // still find a parent; the host rejects genuinely new players.
+    final full = _server.connectedDeviceCount >= _server.maxDirectLinks;
+    if (_acceptingChildren && full) {
+      _server.pauseAdvertising();
+    } else {
+      _server.resumeAdvertising();
     }
   }
 

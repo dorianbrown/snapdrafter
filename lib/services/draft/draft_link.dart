@@ -26,6 +26,7 @@ class DraftLinkSession {
     this.maxRetries = 4,
     this.onDead,
     this.onAcked,
+    this.onRetry,
   });
 
   final String deviceId;
@@ -39,6 +40,10 @@ class DraftLinkSession {
   final int maxRetries;
   final void Function()? onDead;
   final void Function(int seq)? onAcked;
+
+  /// Called each time a retransmission timer fires, with the attempt number.
+  /// Used by the simulation bench to observe retransmit pressure.
+  final void Function(int attempt)? onRetry;
 
   _Outgoing? _inFlight;
   _Outgoing? _pending;
@@ -174,6 +179,7 @@ class DraftLinkSession {
     _ackTimer = Timer(ackTimeout, () {
       if (_dead || _disposed || _inFlight == null) return;
       _retries++;
+      onRetry?.call(_retries);
       if (_retries > maxRetries) {
         _dead = true;
         _inFlight = null;
