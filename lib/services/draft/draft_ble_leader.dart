@@ -33,6 +33,21 @@ class DraftBleLeader extends DraftBleService {
   /// Maximum simultaneous direct links this node will accept.
   final int maxDirectLinks;
 
+  /// How often a tick frame is broadcast so followers can detect staleness.
+  final Duration tickInterval;
+
+  /// Pacing between chunks of one reliable frame on a single link.
+  final Duration linkChunkPacing;
+
+  /// How long a link waits for a state ACK before retransmitting.
+  final Duration linkAckTimeout;
+
+  /// How many failed ACK attempts before a link is declared dead.
+  final int linkMaxRetries;
+
+  /// Optional observer for retransmit pressure (used by the simulation bench).
+  final void Function(String deviceId, int attempt)? onLinkRetry;
+
   /// Topology depth advertised to scanners: 0 for the host, parent depth + 1
   /// for relays. Followers never attach to a parent that is not strictly
   /// shallower, which prevents reconnect cycles through descendants.
@@ -69,6 +84,11 @@ class DraftBleLeader extends DraftBleService {
     this.maxDirectLinks = 4,
     this.forwardDecklistRequests = false,
     this.depth = 0,
+    this.tickInterval = const Duration(seconds: 2),
+    this.linkChunkPacing = const Duration(milliseconds: 30),
+    this.linkAckTimeout = const Duration(milliseconds: 1200),
+    this.linkMaxRetries = 4,
+    this.onLinkRetry,
   }) : _ble = ble ?? LiveBlePeripheral();
   DraftState? _currentState;
 
@@ -77,8 +97,9 @@ class DraftBleLeader extends DraftBleService {
   final _sessions = <String, DraftLinkSession>{};
   final _mtuKnownDevices = <String>{};
 
-  /// How often a tick frame is broadcast so followers can detect staleness.
-  static const tickInterval = Duration(seconds: 2);
+  Timer? _adRetryTimer;
+  int _adRetryAttempt = 0;
+  static const _maxAdvertisingRetries = 5;
 
   @override
   Stream<String>? get followerConnected => _followerConnectedCtrl?.stream;
@@ -275,30 +296,70 @@ class DraftBleLeader extends DraftBleService {
       if (event.state == PeripheralAdvertisingState.error) {
         _advertisingError = event.error ?? 'Advertising failed';
         _log('[BLE_ADV] ADVERTISING ERROR: $_advertisingError');
+        _scheduleAdvertisingRetry();
       } else if (event.state == PeripheralAdvertisingState.advertising) {
         _advertisingError = null;
+        _adRetryAttempt = 0;
+        _adRetryTimer?.cancel();
+        _adRetryTimer = null;
       }
     });
 
     final localName = DraftProtocol.advertisedName(state.session.name);
+    _savedLocalName = localName;
     _log(
       '[BLE_ADV] starting advertising: service=${DraftBleService.serviceUuid} localName="$localName"',
     );
 
-    await _ble.startAdvertising(
-      services: [DraftBleService.serviceUuid],
-      localName: localName,
-      manufacturerData: _advertisementData(),
-      platformConfig: PeripheralPlatformConfig(
-        android: PeripheralAndroidOptions(
-          addServicesInScanResponse: true,
-          addManufacturerDataInScanResponse: true,
-        ),
-      ),
-    );
-    _savedLocalName = localName;
-    _advertisingPaused = false;
+    await _startAdvertising(rethrowOnFailure: true);
     _log('[BLE_ADV] advertising started successfully');
+  }
+
+  /// Starts (or restarts) advertising with the current state and capacity.
+  ///
+  /// Platform failures usually arrive on [BlePeripheral.advertisingStateStream]
+  /// rather than as exceptions, so a failed start schedules a bounded backoff
+  /// retry instead of leaving the host silently invisible.
+  Future<void> _startAdvertising({bool rethrowOnFailure = false}) async {
+    final state = _currentState;
+    if (state == null) return;
+    final localName =
+        _savedLocalName ?? DraftProtocol.advertisedName(state.session.name);
+    _savedLocalName = localName;
+    try {
+      await _ble.startAdvertising(
+        services: [DraftBleService.serviceUuid],
+        localName: localName,
+        manufacturerData: _advertisementData(),
+        platformConfig: PeripheralPlatformConfig(
+          android: PeripheralAndroidOptions(
+            addServicesInScanResponse: true,
+            addManufacturerDataInScanResponse: true,
+          ),
+        ),
+      );
+      _advertisingPaused = false;
+      _advertisingError = null;
+    } catch (e) {
+      _advertisingError = e.toString();
+      _log('[BLE_ADV] startAdvertising FAILED: $e');
+      if (rethrowOnFailure) rethrow;
+      _scheduleAdvertisingRetry();
+    }
+  }
+
+  void _scheduleAdvertisingRetry() {
+    if (_advertisingPaused || _currentState == null) return;
+    if (_adRetryAttempt >= _maxAdvertisingRetries) return;
+    final delay = Duration(milliseconds: 500 * (1 << _adRetryAttempt));
+    _adRetryAttempt++;
+    _adRetryTimer?.cancel();
+    _adRetryTimer = Timer(delay, () {
+      _adRetryTimer = null;
+      if (_advertisingPaused || _currentState == null) return;
+      _log('[BLE_ADV] retrying advertising (attempt $_adRetryAttempt)');
+      unawaited(_startAdvertising());
+    });
   }
 
   Future<void> _waitForPeripheralReadiness() async {
@@ -337,6 +398,9 @@ class DraftBleLeader extends DraftBleService {
   @override
   Future<void> pauseAdvertising() async {
     if (_advertisingPaused) return;
+    _adRetryTimer?.cancel();
+    _adRetryTimer = null;
+    _adRetryAttempt = 0;
     _log('[BLE_ADV] pauseAdvertising');
     try {
       await _ble.stopAdvertising();
@@ -350,22 +414,10 @@ class DraftBleLeader extends DraftBleService {
   Future<void> resumeAdvertising() async {
     if (!_advertisingPaused) return;
     _log('[BLE_ADV] resumeAdvertising');
-    try {
-      await _ble.startAdvertising(
-        services: [DraftBleService.serviceUuid],
-        localName: _savedLocalName,
-        manufacturerData: _advertisementData(),
-        platformConfig: PeripheralPlatformConfig(
-          android: PeripheralAndroidOptions(
-            addServicesInScanResponse: true,
-            addManufacturerDataInScanResponse: true,
-          ),
-        ),
-      );
-      _advertisingPaused = false;
-    } catch (e) {
-      _log('[BLE_ADV] resumeAdvertising FAILED: $e');
-    }
+    // Clear the pause flag before the attempt so a failed start can schedule
+    // its own retry instead of being treated as an intentional pause.
+    _advertisingPaused = false;
+    await _startAdvertising();
   }
 
   /// Builds the advertisement payload describing this node's role, depth and
@@ -373,10 +425,7 @@ class DraftBleLeader extends DraftBleService {
   ManufacturerData? _advertisementData() {
     final state = _currentState;
     if (state == null) return null;
-    final capacity = (maxDirectLinks - _subscribedStateDeviceIds.length).clamp(
-      0,
-      255,
-    );
+    final capacity = (maxDirectLinks - _connectedDevices.length).clamp(0, 255);
     return DraftProtocol.buildManufacturerData(
       role: isRelay
           ? DraftAdvertisement.roleRelay
@@ -399,20 +448,10 @@ class DraftBleLeader extends DraftBleService {
       if (_advertisingPaused || _currentState == null) return;
       try {
         await _ble.stopAdvertising();
-        await _ble.startAdvertising(
-          services: [DraftBleService.serviceUuid],
-          localName: _savedLocalName,
-          manufacturerData: _advertisementData(),
-          platformConfig: PeripheralPlatformConfig(
-            android: PeripheralAndroidOptions(
-              addServicesInScanResponse: true,
-              addManufacturerDataInScanResponse: true,
-            ),
-          ),
-        );
       } catch (e) {
-        _log('[BLE_ADV] advertisement refresh failed: $e');
+        _log('[BLE_ADV] advertisement refresh stop failed: $e');
       }
+      await _startAdvertising();
     });
   }
 
@@ -430,6 +469,10 @@ class DraftBleLeader extends DraftBleService {
           value: chunk,
           deviceId: deviceId,
         ),
+        chunkPacing: linkChunkPacing,
+        ackTimeout: linkAckTimeout,
+        maxRetries: linkMaxRetries,
+        onRetry: (attempt) => onLinkRetry?.call(deviceId, attempt),
         onDead: () => _log('[BLE_ADV] link dead: $deviceId'),
       );
     });
@@ -627,6 +670,9 @@ class DraftBleLeader extends DraftBleService {
     _tickTimer = null;
     _adRefreshTimer?.cancel();
     _adRefreshTimer = null;
+    _adRetryTimer?.cancel();
+    _adRetryTimer = null;
+    _adRetryAttempt = 0;
     await _charSubStreamSub?.cancel();
     _charSubStreamSub = null;
     await _mtuChangedSub?.cancel();

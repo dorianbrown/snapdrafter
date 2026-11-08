@@ -25,11 +25,25 @@ import 'ble_platform_live.dart';
 class DraftBleFollower extends DraftBleService {
   final BleCentral _ble;
 
-  DraftBleFollower({BleCentral? ble, this.myDeviceId})
-    : _ble = ble ?? LiveBleCentral();
+  DraftBleFollower({
+    BleCentral? ble,
+    this.myDeviceId,
+    this.connectTimeout = const Duration(seconds: 15),
+    this.initialStateTimeout = const Duration(seconds: 5),
+    this.resyncTimeout = const Duration(seconds: 3),
+  }) : _ble = ble ?? LiveBleCentral();
 
   /// App-level device id used as `src` on outgoing commands and acks.
   final String? myDeviceId;
+
+  /// Upper bound for the full connect -> subscribe pipeline.
+  final Duration connectTimeout;
+
+  /// How long to wait for the first state notification after subscribing.
+  final Duration initialStateTimeout;
+
+  /// How long a resync request may stay outstanding before it is cleared.
+  final Duration resyncTimeout;
 
   String? _leaderDeviceId;
   final _leaderConnectedCtrl = StreamController<bool>.broadcast();
@@ -170,12 +184,15 @@ class DraftBleFollower extends DraftBleService {
   }
 
   Future<void> stopScan() async {
-    await _scanStreamSub?.cancel();
+    final scanSub = _scanStreamSub;
     _scanStreamSub = null;
+    // Do not await stream teardown: a broadcast controller's close future can
+    // be delayed by a slow listener, and scanning must stop regardless.
+    unawaited(scanSub?.cancel());
     final ctrl = _scanCtrl;
     _scanCtrl = null;
     if (ctrl != null && !ctrl.isClosed) {
-      await ctrl.close();
+      unawaited(ctrl.close());
     }
     try {
       await _ble.stopScan();
@@ -215,7 +232,7 @@ class DraftBleFollower extends DraftBleService {
     try {
       return await completer.future.timeout(timeout, onTimeout: () => best);
     } finally {
-      await sub.cancel();
+      unawaited(sub.cancel());
       await stopScan();
     }
   }
@@ -238,8 +255,9 @@ class DraftBleFollower extends DraftBleService {
   /// changing the stored [DraftState] locally.
   @override
   Future<DraftState> reconnectToLeader(String deviceId) async {
-    await _stateValueSub?.cancel();
+    final oldSub = _stateValueSub;
     _stateValueSub = null;
+    unawaited(oldSub?.cancel());
     _streamChunker.reset();
     _leaderDeviceId = deviceId;
     return await _performConnection(deviceId);
@@ -257,16 +275,15 @@ class DraftBleFollower extends DraftBleService {
 
     // Subscribe to connection state before connecting so we catch
     // the full lifecycle including connect failures.
-    await _connectionStreamSub?.cancel();
+    final oldConnectionSub = _connectionStreamSub;
+    _connectionStreamSub = null;
+    unawaited(oldConnectionSub?.cancel());
     _connectionStreamSub = _ble.connectionStream(deviceId).listen((connected) {
       _leaderConnectedCtrl.add(connected);
     });
 
     try {
-      return await _doConnect(
-        deviceId,
-        stateCompleter,
-      ).timeout(const Duration(seconds: 15));
+      return await _doConnect(deviceId, stateCompleter).timeout(connectTimeout);
     } catch (e) {
       // Tear down the connection on any mid-pipeline failure.
       try {
@@ -297,7 +314,7 @@ class DraftBleFollower extends DraftBleService {
     _log('[BLE_FOLLOWER] subscribed, waiting for initial state...');
 
     final state = await stateCompleter.future.timeout(
-      const Duration(seconds: 5),
+      initialStateTimeout,
       onTimeout: () =>
           throw Exception('No state notification received from leader'),
     );
@@ -412,7 +429,9 @@ class DraftBleFollower extends DraftBleService {
     final deviceId = _leaderDeviceId;
     if (deviceId == null) return;
     final cmd = StateAck(seq: seq, src: myDeviceId ?? '');
-    _writeCommand(deviceId, cmd);
+    _writeCommand(deviceId, cmd).catchError((Object error) {
+      _log('[BLE_FOLLOWER] ack failed: $error');
+    });
   }
 
   /// Requests a fresh snapshot from the leader (used after gaps and
@@ -425,7 +444,7 @@ class DraftBleFollower extends DraftBleService {
     if (_resyncInFlight) return;
     _resyncInFlight = true;
     _resyncResetTimer?.cancel();
-    _resyncResetTimer = Timer(const Duration(seconds: 3), () {
+    _resyncResetTimer = Timer(resyncTimeout, () {
       _resyncInFlight = false;
     });
     try {
@@ -501,7 +520,7 @@ class DraftBleFollower extends DraftBleService {
     _resyncCompleter = completer;
     _resyncInFlight = true;
     _resyncResetTimer?.cancel();
-    _resyncResetTimer = Timer(const Duration(seconds: 3), () {
+    _resyncResetTimer = Timer(resyncTimeout, () {
       _resyncInFlight = false;
     });
 
@@ -520,7 +539,7 @@ class DraftBleFollower extends DraftBleService {
     }
 
     try {
-      return await completer.future.timeout(const Duration(seconds: 3));
+      return await completer.future.timeout(resyncTimeout);
     } on TimeoutException {
       _resyncCompleter = null;
       _resyncInFlight = false;
@@ -536,10 +555,12 @@ class DraftBleFollower extends DraftBleService {
 
   @override
   Future<void> stop() async {
-    await _stateValueSub?.cancel();
+    final stateSub = _stateValueSub;
     _stateValueSub = null;
-    await _connectionStreamSub?.cancel();
+    unawaited(stateSub?.cancel());
+    final connectionSub = _connectionStreamSub;
     _connectionStreamSub = null;
+    unawaited(connectionSub?.cancel());
     await stopScan();
     _streamChunker.reset();
     _resyncResetTimer?.cancel();
@@ -556,7 +577,7 @@ class DraftBleFollower extends DraftBleService {
     _leaderDeviceId = null;
     _appliedSeq = -1;
     if (!_leaderConnectedCtrl.isClosed) {
-      await _leaderConnectedCtrl.close();
+      unawaited(_leaderConnectedCtrl.close());
     }
   }
 }

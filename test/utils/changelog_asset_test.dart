@@ -5,29 +5,59 @@ import 'package:snapdrafter/utils/changelog_helper.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  test('real changelog asset parses into expected sections', () async {
+  test('every changelog entry has a date, version and 1-3 sections', () async {
     final entries = await ChangelogHelper.loadChangelog();
+    const allowedSections = {'Features', 'Bugfixes', 'Other'};
+    final sectionPattern = RegExp(r'^####\s+(.+?)\s*$', multiLine: true);
+    final datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+    final versionPattern = RegExp(r'^\d+\.\d+\.\d+$');
 
-    expect(entries.first.version, '1.2.3');
-    expect(entries.last.version, '0.6.0');
-    expect(entries.first.date, '2026-08-28');
-    expect(entries.last.date, '2025-08-22');
-    expect(entries.first.body, isNot(contains('2026')));
+    expect(entries, isNotEmpty);
 
-    final first = entries.firstWhere((e) => e.version == '1.2.2').body;
-    expect(first, contains('#### Features'));
-    expect(first, contains('#### Bugfixes'));
-    expect(first, contains('#### Other'));
+    for (final entry in entries) {
+      final version = entry.version;
+      final sections = sectionPattern
+          .allMatches(entry.body)
+          .map((match) => match.group(1)!.trim())
+          .toList();
 
-    final last = entries.last.body;
-    expect(last, contains('#### Features'));
-    expect(last, contains('#### Bugfixes'));
-    expect(last, isNot(contains('#### Other')));
+      expect(entry.date, isNotNull, reason: '$version has no date');
+      expect(
+        entry.date!,
+        matches(datePattern),
+        reason: '$version has a malformed date: ${entry.date}',
+      );
+      expect(
+        version,
+        matches(versionPattern),
+        reason: '$version is not a valid version number',
+      );
 
-    final single = entries.firstWhere((e) => e.version == '1.1.9').body;
-    expect(single, isNot(contains('#### Features')));
-    expect(single, contains('#### Bugfixes'));
+      expect(
+        sections,
+        isNotEmpty,
+        reason: '$version has no Features, Bugfixes or Other section',
+      );
+      expect(
+        sections.toSet().length,
+        sections.length,
+        reason: '$version has duplicate sections: $sections',
+      );
+      expect(
+        sections.length,
+        lessThanOrEqualTo(3),
+        reason: '$version has more than three sections: $sections',
+      );
 
-    expect(entries.every((e) => e.body.isNotEmpty), isTrue);
+      for (final section in sections) {
+        expect(
+          allowedSections,
+          contains(section),
+          reason: '$version has an unknown section: $section',
+        );
+      }
+
+      expect(entry.body, isNotEmpty, reason: '$version has an empty body');
+    }
   });
 }

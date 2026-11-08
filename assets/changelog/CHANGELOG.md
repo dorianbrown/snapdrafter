@@ -1,5 +1,13 @@
 # SnapDrafter Changelog
 
+`2026-11-08`
+
+## 1.2.4
+
+#### Bugfixes
+- Added a test suite of BLE Draft scenarios
+- A number of fixes related to issues found in scenarios runs
+
 `2026-08-28`
 
 ## 1.2.3
